@@ -1,0 +1,24 @@
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - ${APP_PUBLISH_PORT:-8080}:8080
+    environment:
+      - FRONTEND_EXAMPLE_VAR
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    environment:
+      - BACKEND_EXAMPLE_VAR
+    restart: unless-stopped
+    depends_on:
+      - parser
+
+  parser:
+    build: ./parser
+    environment:
+      - PARSER_EXAMPLE_VAR
+    restart: unless-stopped
