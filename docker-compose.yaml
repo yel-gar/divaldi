@@ -16,9 +16,16 @@ services:
     restart: unless-stopped
     depends_on:
       - parser
+      - calculator
 
   parser:
     build: ./parser
     environment:
       - PARSER_EXAMPLE_VAR
+    restart: unless-stopped
+
+  calculator:
+    build: ./calculator
+    environment:
+      - CALCULATOR_EXAMPLE_VAR
     restart: unless-stopped
