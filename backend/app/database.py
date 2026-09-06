@@ -1,19 +1,27 @@
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
+from functools import lru_cache
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy.orm import declarative_base, DeclarativeBase
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase
 
-from util import get_database_url
+from app.util import get_database_url
 
-DATABASE_URL = get_database_url()
 
-engine = create_async_engine(DATABASE_URL)
-AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+@lru_cache
+def get_engine():
+    return create_async_engine(get_database_url())
+
+
+@lru_cache
+def get_session_maker():
+    return async_sessionmaker(get_engine(), expire_on_commit=False)
+
 
 class Base(DeclarativeBase):
     pass
 
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    async with AsyncSessionLocal() as session:
+async def get_db() -> AsyncGenerator[AsyncSession]:
+    session_maker = get_session_maker()
+    async with session_maker() as session:
         yield session

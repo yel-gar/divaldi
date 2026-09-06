@@ -1,0 +1,44 @@
+repos:
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-ast
+      - id: check-json
+      - id: pretty-format-json
+        args:
+          - --autofix
+          - --no-sort-keys
+      - id: sort-simple-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args:
+          - --markdown-linebreak-ext=md
+      - id: check-toml
+
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.10.0
+    hooks:
+      - id: python-use-type-annotations
+      - id: python-check-blanket-noqa
+
+  - repo: local
+    hooks:
+      - id: black
+        name: black
+        pass_filenames: false
+        entry: poetry run black .
+        language: python
+
+      - id: ruff
+        name: ruff
+        pass_filenames: false
+        entry: poetry run ruff check --fix .
+        language: python
+
+      - id: pytest
+        name: pytest
+        pass_filenames: false
+        entry: poetry run pytest
+        language: python

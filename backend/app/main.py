@@ -1,17 +1,8 @@
 import structlog
-from fastapi import FastAPI, APIRouter
+from fastapi import APIRouter, FastAPI
 
-from routes import auth
-from util import get_debug
-
-structlog.configure(
-    processors=[
-        structlog.contextvars.merge_contextvars,
-        structlog.processors.add_log_level,
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.JSONRenderer()
-    ]
-)
+from app.routes import auth, users
+from app.util import get_debug
 
 log = structlog.stdlib.get_logger()
 
@@ -26,9 +17,8 @@ app = FastAPI(
     docs_url="/api/v1/docs",
     redoc_url="/api/v1/redoc",
 )
-base_router = APIRouter(
-    prefix="/api/v1"
-)
+base_router = APIRouter(prefix="/api/v1")
 base_router.include_router(auth.router, tags=["auth"])
+base_router.include_router(users.router, tags=["users"])
 
 app.include_router(base_router)

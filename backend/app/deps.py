@@ -1,18 +1,22 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import Depends, Cookie, HTTPException
+from fastapi import Cookie, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette import status
 
-from database import get_db
-from models.auth import User, Session
+from app.database import get_db
+from app.models.auth import Session, User
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
-async def require_login(session_token: Annotated[str | None, Cookie()], db: DbSession) -> User:
+
+async def require_login(
+    db: DbSession,
+    session_token: Annotated[str | None, Cookie()] = None,
+) -> User:
     if session_token is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authenticated")
 
@@ -22,11 +26,12 @@ async def require_login(session_token: Annotated[str | None, Cookie()], db: DbSe
     if session is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid session")
 
-    if session.expires_at < datetime.now(timezone.utc):
+    if session.expires_at < datetime.now(UTC):
         await db.delete(session)
         await db.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Session expired")
 
     return session.user
+
 
 CurrentUser = Annotated[User, Depends(require_login)]
