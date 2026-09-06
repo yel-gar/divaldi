@@ -23,6 +23,11 @@ $ node setup-hooks.js
 $ cp .env{.example,}
 ```
 
+5. Open compose database port via override (required for migrations)
+```bash
+$ cp docker-compose.override.yml{.dev,}
+```
+
 ## Environment Variables
 You should generally only touch variables marked as **Required**.
 
@@ -33,5 +38,5 @@ You should generally only touch variables marked as **Required**.
 | FRONTEND_PORT     | Port on which frontend will run.                                                                                        | ❌           | 8080                  |
 | BACKEND_PORT      | Port on which backend will run.                                                                                         | ❌           | 3000                  |
 | POSTGRES_USER     | Database user.                                                                                                          | ❌           | divaldi               |
-| POSTGRES_DATABASE | Database name.                                                                                                          | ❌           | divaldi               |
+| POSTGRES_DB       | Database name.                                                                                                          | ❌           | divaldi               |
 | POSTGRES_PASSWORD | Database password. Set it to something secure, you can get a secret with `openssl rand -hex 48`.                        | ✅           |                       |

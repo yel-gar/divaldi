@@ -37,13 +37,13 @@ dev = [
 [tool.black]
 line-length = 120
 target-version = ["py313"]
-extend-exclude = "migrations"
+extend-exclude = "alembic/versions"
 
 [tool.ruff]
 line-length = 120
 target-version = "py313"
 exclude = [
-    "migrations"
+    "alembic/versions"
 ]
 
 [tool.ruff.lint]

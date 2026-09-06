@@ -4,4 +4,5 @@ COPY pyproject.toml poetry.lock /app/
 WORKDIR /app
 RUN poetry install --only main --no-root
 COPY /app /app/app
-CMD ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3000", "--reload"]
+COPY entrypoint.sh /app/
+CMD ["bash", "-c", "entrypoint.sh"]
