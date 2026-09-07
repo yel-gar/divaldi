@@ -1,30 +1,33 @@
 import { Injectable, inject } from '@angular/core';
-import { ApiService } from './api.service';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import { Order, Message, Parameter } from '../models/models';
 
 @Injectable({
   providedIn: 'root'
 })
 export class SessionService {
-  private readonly api = inject(ApiService);
+  private readonly http = inject(HttpClient);
+  private readonly baseUrl = `${environment.apiUrl}/sessions`;
 
-  createSession(description: string): Promise<Order> {
-    return this.api.post<Order>('/sessions', { description });
+  createSession(description: string): Observable<Order> {
+    return this.http.post<Order>(this.baseUrl, { description });
   }
 
-  getSession(id: string): Promise<Order> {
-    return this.api.get<Order>(`/sessions/${id}`);
+  getSession(id: string): Observable<Order> {
+    return this.http.get<Order>(`${this.baseUrl}/${id}`);
   }
 
-  sendMessage(sessionId: string, content: string): Promise<Message> {
-    return this.api.post<Message>(`/sessions/${sessionId}/messages`, { content });
+  sendMessage(sessionId: string, content: string): Observable<Message> {
+    return this.http.post<Message>(`${this.baseUrl}/${sessionId}/messages`, { content });
   }
 
-  getParams(sessionId: string): Promise<Parameter[]> {
-    return this.api.get<Parameter[]>(`/sessions/${sessionId}/params`);
+  getParams(sessionId: string): Observable<Parameter[]> {
+    return this.http.get<Parameter[]>(`${this.baseUrl}/${sessionId}/params`);
   }
 
-  downloadResult(sessionId: string): Promise<Blob> {
-    return this.api.get<Blob>(`/sessions/${sessionId}/download`);
+  downloadResult(sessionId: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/${sessionId}/download`, { responseType: 'blob' });
   }
 }

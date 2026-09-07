@@ -8,18 +8,18 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(req).pipe(
     catchError((error: HttpErrorResponse) => {
-      const message = error.error?.message || error.message || 'Unknown error';
+      const message = error.error?.message || error.message || 'Неизвестная ошибка';
 
       if (error.status === 0) {
-        notifications.error('Cannot connect to server');
+        notifications.error('Не удалось связаться с сервером');
       } else if (error.status === 401) {
-        notifications.error('Unauthorized');
+        notifications.error('Вы не авторизованы');
       } else if (error.status === 403) {
-        notifications.error('Access denied');
+        notifications.error('Доступ запрещен');
       } else if (error.status === 404) {
-        notifications.error('Not found');
+        notifications.error('Ресурс не найден');
       } else if (error.status >= 500) {
-        notifications.error('Server error');
+        notifications.error('Ошибка сервера');
       } else {
         notifications.error(message);
       }
