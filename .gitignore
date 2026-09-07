@@ -6,3 +6,4 @@ node_modules
 # remove unusual directory
 docs
 .opencode
+.DS_Store
