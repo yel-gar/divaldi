@@ -6,8 +6,7 @@ authors = ["AX-Ray <vandpal@bk.ru>"]
 license = "MIT"
 readme = "README.md"
 packages = [
-    { include = "dxf_parser.py", from = "src" },
-    { include = "pdf_to_image.py", from = "src" },
+    { include = "src" },
 ]
 
 [tool.poetry.dependencies]
