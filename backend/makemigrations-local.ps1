@@ -20,6 +20,12 @@ $env:POSTGRES_HOST = "localhost"  # native install, always localhost — no cont
 
 Write-Host "Generating migration: $Message"
 poetry run alembic revision --autogenerate -m $Message
+if ($LASTEXITCODE -ne 0) {
+    throw "alembic revision --autogenerate failed with exit code $LASTEXITCODE"
+}
 
 Write-Host "Applying migrations"
 poetry run alembic upgrade head
+if ($LASTEXITCODE -ne 0) {
+    throw "alembic upgrade head failed with exit code $LASTEXITCODE"
+}
