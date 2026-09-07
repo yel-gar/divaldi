@@ -2,32 +2,26 @@
 
 ## Developers setup
 ### Global
-1. Install commitlint and husky
-```bash
-$ npm install
-$ npx husky init
-```
-
-2. Install pre-commit
+1. Install pre-commit (this repo uses it for all linting/formatting hooks *and* commit message checks — no Node tooling required just for hooks)
 ```bash
 $ pip install pre-commit
 ```
 
-3. Set up hooks (works on Linux, macOS, and Windows)
+2. Install the git hooks
 ```bash
-$ node setup-hooks.js
+$ pre-commit install --hook-type pre-commit --hook-type commit-msg
 ```
+This registers two things: a `pre-commit` hook that lints/formats only the files you've staged, and a `commit-msg` hook that checks your commit message against [Conventional Commits](https://www.conventionalcommits.org/). Both are defined in the single root [`.pre-commit-config.yaml`](.pre-commit-config.yaml).
 
-4. Configure environment vars
+3. Configure environment vars
 ```bash
 $ cp .env{.example,}
 ```
-
 ```powershell
 PS> Copy-Item .env.example .env
 ```
 
-5. Open compose database port via override (required for migrations)
+4. Open compose database port via override (required for migrations)
 ```bash
 $ cp docker-compose.override.yml{.dev,}
 ```
