@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "parser"
+version = "0.1.0"
+description = "Parser module for divaldi"
+authors = ["AX-Ray <vandpal@bk.ru>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pymupdf = "^1.28.2"
+pillow = "^12.3.0"
+ezdxf = "^1.0"
+shapely = "^2.0"
+
+
+[tool.poetry.group.dev.dependencies]
+reportlab = "^5.0.1"
+pytest = "^9.1.1"
+pytest-cov = "^7.1.0"
+pre-commit = "^4.6.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
