@@ -16,7 +16,7 @@ if (!fs.existsSync(huskyDir)) {
 
 const hooks = {
   'commit-msg': 'npm run commitlint ${1}\n',
-  'pre-commit': 'npx lint-staged\npre-commit run --all-files\n',
+  'pre-commit': 'pre-commit run --all-files\n',
 };
 
 for (const [name, content] of Object.entries(hooks)) {

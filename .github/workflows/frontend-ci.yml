@@ -1,12 +1,9 @@
 name: Frontend CI
 
 on:
-  push:
-    branches:
-      - 'jut/frontend-**'
   pull_request:
-    branches:
-      - 'jut/frontend-**'
+  push:
+    branches: [main]
 
 permissions:
   contents: read

@@ -1,24 +1,19 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: check-yaml
-        exclude: ^frontend/
       - id: check-ast
       - id: check-json
-        exclude: ^frontend/
+        exclude: ^frontend/tsconfig.*\.json
       - id: pretty-format-json
+        exclude: ^frontend/tsconfig.*\.json
         args:
           - --autofix
           - --no-sort-keys
-        exclude: ^frontend/
       - id: sort-simple-yaml
-        exclude: ^frontend/
       - id: end-of-file-fixer
-        exclude: ^frontend/
       - id: trailing-whitespace
         args:
           - --markdown-linebreak-ext=md
-        exclude: ^frontend/
       - id: check-toml
-        exclude: ^frontend/
