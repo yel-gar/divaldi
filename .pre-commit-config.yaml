@@ -3,15 +3,22 @@ repos:
     rev: v5.0.0
     hooks:
       - id: check-yaml
+        exclude: ^frontend/
       - id: check-ast
       - id: check-json
+        exclude: ^frontend/
       - id: pretty-format-json
         args:
           - --autofix
           - --no-sort-keys
+        exclude: ^frontend/
       - id: sort-simple-yaml
+        exclude: ^frontend/
       - id: end-of-file-fixer
+        exclude: ^frontend/
       - id: trailing-whitespace
         args:
           - --markdown-linebreak-ext=md
+        exclude: ^frontend/
       - id: check-toml
+        exclude: ^frontend/
