@@ -23,9 +23,17 @@ $ node setup-hooks.js
 $ cp .env{.example,}
 ```
 
+```powershell
+PS> Copy-Item .env.example .env
+```
+
 5. Open compose database port via override (required for migrations)
 ```bash
 $ cp docker-compose.override.yml{.dev,}
+```
+
+```powershell
+PS> Copy-Item docker-compose.override.yml.dev docker-compose.override.yml
 ```
 
 ## Environment Variables
