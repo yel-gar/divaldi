@@ -11,28 +11,29 @@ class PDFToImageConverter:
         self.format = format.lower()
         self.scale = dpi / 72.0
 
-    def pdf_bytes_to_images(self, pdf_bytes: bytes) -> List[Image.Image]:
-        if not pdf_bytes:
-            raise ValueError("PDF is empty")
-
+    def pdf_bytes_to_images(self, pdf_bytes):
+        doc = None
         try:
-            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-        except Exception as e:
-            raise ValueError(f"Cannot open PDF: {e}")
+            try:
+                doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            except Exception as e:
+                if len(pdf_bytes) == 0:
+                    raise ValueError("PDF is empty") from e
+                raise ValueError("Cannot open PDF") from e
 
-        if doc.page_count == 0:
-            doc.close()
-            raise ValueError("PDF is empty")
+            if doc.page_count == 0:
+                raise ValueError("PDF is empty")
 
-        images = []
-        for page_num in range(doc.page_count):
-            page = doc[page_num]
-            pix = page.get_pixmap(matrix=fitz.Matrix(self.scale, self.scale))
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            images.append(img)
-
-        doc.close()
-        return images
+            images = []
+            for page_num in range(doc.page_count):
+                page = doc[page_num]
+                pix = page.get_pixmap(matrix=fitz.Matrix(self.scale, self.scale))
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                images.append(img)
+            return images
+        finally:
+            if doc:
+                doc.close()
 
     def pdf_bytes_to_png_bytes(self, pdf_bytes: bytes) -> List[bytes]:
         images = self.pdf_bytes_to_images(pdf_bytes)
