@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
+
+from app.models.auth import MAX_USERNAME_LENGTH, NAME_SURNAME_MAX_LENGTH
 
 
 class AdminUserFilters(BaseModel):
@@ -12,18 +14,18 @@ class AdminUserFilters(BaseModel):
 
 
 class AdminCreateUserSchema(BaseModel):
-    username: str
+    username: str = Field(max_length=MAX_USERNAME_LENGTH)
     password: str
-    first_name: str | None = None
-    last_name: str | None = None
+    first_name: str | None = Field(None, max_length=NAME_SURNAME_MAX_LENGTH)
+    last_name: str | None = Field(None, max_length=NAME_SURNAME_MAX_LENGTH)
     expires_at: datetime | None = None
     is_superuser: bool = False
 
 
 class AdminEditUserSchema(BaseModel):
-    username: str | None = None
-    first_name: str | None = None
-    last_name: str | None = None
+    username: str | None = Field(None, max_length=MAX_USERNAME_LENGTH)
+    first_name: str | None = Field(None, max_length=NAME_SURNAME_MAX_LENGTH)
+    last_name: str | None = Field(None, max_length=NAME_SURNAME_MAX_LENGTH)
     expires_at: datetime | None = None
     is_superuser: bool | None = None
 
