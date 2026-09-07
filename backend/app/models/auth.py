@@ -20,6 +20,8 @@ class User(Base):
     last_name: Mapped[str | None] = mapped_column(String(NAME_SURNAME_MAX_LENGTH))
     expires_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    is_superuser: Mapped[bool] = mapped_column(default=False, nullable=False)
+
     sessions: Mapped[list["Session"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 

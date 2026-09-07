@@ -55,3 +55,33 @@ async def test_user(db_session: AsyncSession):
     await db_session.commit()
     await db_session.refresh(user)
     return user
+
+
+@pytest_asyncio.fixture()
+async def test_admin_user(db_session: AsyncSession):
+    user = User(
+        username="admin",
+        password_hash=hash_password("admin-password"),
+        is_superuser=True,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture()
+async def admin_client(
+    client: AsyncClient,
+    test_admin_user: User,
+):
+    response = await client.post(
+        "/auth/login",
+        json={
+            "username": "admin",
+            "password": "admin-password",
+        },
+    )
+    assert response.status_code == 200
+
+    return client
