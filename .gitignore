@@ -2,3 +2,8 @@ node_modules
 .idea
 .husky
 .env
+
+# remove unusual directory
+docs
+.opencode
+.DS_Store
