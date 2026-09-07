@@ -12,6 +12,7 @@ $ pip install pre-commit
 $ pre-commit install --hook-type pre-commit --hook-type commit-msg
 ```
 This registers two things: a `pre-commit` hook that lints/formats only the files you've staged, and a `commit-msg` hook that checks your commit message against [Conventional Commits](https://www.conventionalcommits.org/). Both are defined in the single root [`.pre-commit-config.yaml`](.pre-commit-config.yaml).
+> **IMPORTANT**: in the hooks we use `python` executable, if you have `python3` or `py`, please set up an alias for the environment.
 
 3. Configure environment vars
 ```bash

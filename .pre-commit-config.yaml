@@ -14,17 +14,15 @@ repos:
       # --- backend ---
       - id: black
         name: black (backend)
-        entry: poetry -C backend run black .
+        entry: python scripts/precommit-black.py
         language: system
         files: ^backend/.*\.py$
-        pass_filenames: false
 
       - id: ruff
         name: ruff (backend)
-        entry: poetry -C backend run ruff check --fix .
+        entry: python scripts/precommit-ruff.py
         language: system
         files: ^backend/.*\.py$
-        pass_filenames: false
 
       - id: pytest
         name: pytest (backend)
@@ -36,14 +34,13 @@ repos:
       # --- frontend ---
       - id: eslint
         name: eslint (frontend)
-        entry: bash -c 'cd frontend && npx eslint --fix .' --
+        entry: npx --prefix frontend eslint --fix
         language: system
         files: ^frontend/.*\.(ts|html)$
-        pass_filenames: false
 
       - id: prettier
         name: prettier (frontend)
-        entry: bash -c 'cd frontend && npx prettier --write "$@"' --
+        entry: npx --prefix frontend prettier --write
         language: system
         files: ^frontend/.*\.(ts|html|scss|css|json)$
         exclude: ^frontend/(tsconfig.*\.json|angular\.json|package(-lock)?\.json)$
