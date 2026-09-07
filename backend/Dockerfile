@@ -3,6 +3,6 @@ RUN pip install poetry uvicorn
 COPY pyproject.toml poetry.lock /app/
 WORKDIR /app
 RUN poetry install --only main --no-root
-COPY /app /app/app
-COPY entrypoint.sh /app/
-CMD ["bash", "-c", "entrypoint.sh"]
+COPY . .
+RUN chmod +x entrypoint.sh
+CMD ["./entrypoint.sh"]

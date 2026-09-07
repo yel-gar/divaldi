@@ -7,6 +7,7 @@ from sqlalchemy import pool
 from alembic import context
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import app.models  # type: ignore | necessary to populate migrations
 from app.database import Base
 from app.util import get_database_url
 

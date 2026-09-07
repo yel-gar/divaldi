@@ -19,7 +19,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from testcontainers.postgres import PostgresContainer
+from testcontainers.community.postgres import PostgresContainer
 
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
 
