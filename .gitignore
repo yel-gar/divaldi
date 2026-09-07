@@ -4,3 +4,10 @@ node_modules
 .env
 docker-compose.override.yml
 .python-version
+
+# remove unusual directory
+docs
+.opencode
+.DS_Store
+
+.vscode
