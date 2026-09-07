@@ -1,7 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 
 export interface Notification {
-  id: number;
+  id: string;
   type: 'success' | 'error' | 'info' | 'warning';
   message: string;
 }
@@ -11,7 +11,6 @@ export interface Notification {
 })
 export class NotificationService {
   readonly notifications = signal<Notification[]>([]);
-  private nextId = 0;
 
   success(message: string): void {
     this.add('success', message);
@@ -29,12 +28,12 @@ export class NotificationService {
     this.add('warning', message);
   }
 
-  remove(id: number): void {
+  remove(id: string): void {
     this.notifications.update((list) => list.filter((n) => n.id !== id));
   }
 
   private add(type: Notification['type'], message: string): void {
-    const id = this.nextId++;
+    const id = crypto.randomUUID();
     this.notifications.update((list) => [...list, { id, type, message }]);
     setTimeout(() => this.remove(id), 5000);
   }
