@@ -11,7 +11,7 @@ import pytest
 # Add src to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from dxf_parser import extract_measurements, get_measurements_data, parse_dxf
+from parser.dxf_parser import extract_measurements, get_measurements_data, parse_dxf
 
 
 @pytest.fixture

@@ -9,11 +9,9 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-# Add src to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-# Correct import: no 'src.' prefix because src is already in sys.path
-from pdf_to_image import PDFToImageConverter, pdf_to_images, pdf_to_png_bytes
+from parser.pdf_to_image import PDFToImageConverter, pdf_to_images, pdf_to_png_bytes
 
 
 @pytest.fixture
@@ -156,15 +154,13 @@ class TestUtilityFunctions:
         assert png_list[0].startswith(b"\x89PNG")
 
 
-def test_with_real_file():
+def test_with_real_file(tmp_path):
     """Integration test with a real PDF file (if available)."""
     path = Path(__file__).parent / "data" / "test.pdf"
     if not path.exists():
         pytest.skip("No file tests/data/test.pdf")
-
     pdf_bytes = path.read_bytes()
     converter = PDFToImageConverter(dpi=150)
     images = converter.pdf_bytes_to_images(pdf_bytes)
-
     assert len(images) > 0
-    images[0].save("test_output.png")
+    images[0].save(tmp_path / "test_output.png")

@@ -6,7 +6,7 @@ authors = ["AX-Ray <vandpal@bk.ru>"]
 license = "MIT"
 readme = "README.md"
 packages = [
-    { include = "src" },
+    { include = "parser", from = "src" },
 ]
 
 [tool.poetry.dependencies]

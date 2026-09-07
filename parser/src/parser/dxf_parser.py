@@ -16,7 +16,7 @@ class DXFStructureError(DXFParserError):
     """Exception raised for invalid DXF structure."""
 
 
-def parse_dxf(dxf_bytes: bytes) -> list[dict[int, Any]]:
+def parse_dxf(dxf_bytes: bytes) -> list[dict[int | str, Any]]:
     """
     Parse DXF bytes and return a list of entities from the ENTITIES section.
 
