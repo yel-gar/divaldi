@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError, field_validator
 
 
 class AdminUserFilters(BaseModel):
@@ -26,3 +26,9 @@ class AdminEditUserSchema(BaseModel):
     last_name: str | None = None
     expires_at: datetime | None = None
     is_superuser: bool | None = None
+
+    @field_validator("username", "is_superuser")
+    @classmethod
+    def reject_none(cls, value):
+        if value is None:
+            raise ValidationError("Field cannot be None")
