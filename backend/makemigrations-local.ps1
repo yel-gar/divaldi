@@ -2,9 +2,7 @@ param(
     [Parameter(Mandatory = $true, Position = 0)]
     [string]$Message
 )
-
 $ErrorActionPreference = "Stop"
-
 $ScriptDir  = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ComposeDir = Join-Path $ScriptDir ".."
 
@@ -19,13 +17,15 @@ Get-Content (Join-Path $ComposeDir ".env") | ForEach-Object {
 $env:POSTGRES_HOST = "localhost"  # native install, always localhost — no container networking at all
 
 Write-Host "Generating migration: $Message"
-poetry run alembic revision --autogenerate -m $Message
+poetry -C $ScriptDir run alembic revision --autogenerate -m $Message
 if ($LASTEXITCODE -ne 0) {
     throw "alembic revision --autogenerate failed with exit code $LASTEXITCODE"
 }
 
 Write-Host "Applying migrations"
-poetry run alembic upgrade head
+poetry -C $ScriptDir run alembic upgrade head
 if ($LASTEXITCODE -ne 0) {
     throw "alembic upgrade head failed with exit code $LASTEXITCODE"
 }
+
+Write-Host "Done."
