@@ -7,65 +7,57 @@ class DXFStructureError(DXFParserError):
     pass
 
 
-def parse_dxf(file_path):    
+def parse_dxf(file_path):
     entities = []
     current_entity = None
-    current_code = None
     in_entities = False
     current_section = None
 
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-    except UnicodeDecodeError:        
-        try:
-            with open(file_path, 'r', encoding='cp1251') as f:
-                lines = f.readlines()
-        except UnicodeDecodeError as e:
-            raise UnicodeDecodeError(f"Can read UTF-8 or CP1251 only: {e}")
+    with open(file_path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
 
     if not lines:
         raise DXFStructureError("File is empty")
 
-    for line in lines:
-        line = line.strip()
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
         if not line:
-            continue
-
-        if line.isdigit():
-            current_code = int(line)
-            continue
-
-        if current_code is not None:
-            value = line
-            
-            if current_code == 0 and value == 'SECTION':
+            i += 1
+            continue        
+        try:
+            code = int(line)
+        except ValueError:
+            i += 1
+            continue        
+        i += 1
+        if i >= len(lines):
+            break
+        value = lines[i].strip()
+        i += 1
+        
+        if code == 0 and value == 'SECTION':
+            in_entities = False
+            current_section = None
+        elif code == 2 and value == 'ENTITIES':
+            in_entities = True
+            current_section = 'ENTITIES'
+        elif code == 0 and value == 'ENDSEC':
+            if current_section == 'ENTITIES':
                 in_entities = False
                 current_section = None
-            elif current_code == 2 and value == 'ENTITIES':
-                in_entities = True
-                current_section = 'ENTITIES'
-            elif current_code == 0 and value == 'ENDSEC':
-                if current_section == 'ENTITIES':
-                    in_entities = False
-                    current_section = None
-            
-            if in_entities and current_section == 'ENTITIES':
-                if current_code == 0:
-                    if current_entity:
-                        entities.append(current_entity)
-                    current_entity = {'type': value}
-                else:
-                    if current_entity is not None:
-                        current_entity[current_code] = value
 
-            current_code = None
-    
+        if in_entities and current_section == 'ENTITIES':
+            if code == 0:
+                if current_entity:
+                    entities.append(current_entity)
+                current_entity = {'type': value}
+            else:
+                if current_entity is not None:
+                    current_entity[code] = value
+
     if current_entity:
         entities.append(current_entity)
-
-    if not entities:    
-        pass
 
     return entities
 
@@ -84,14 +76,14 @@ def extract_measurements(file_path):
     for ent in entities:
         if ent.get('type') == 'LINE':
             try:
-                x1 = float(ent.get(10, 0))
-                y1 = float(ent.get(20, 0))
-                x2 = float(ent.get(11, 0))
-                y2 = float(ent.get(21, 0))
+                x1 = float(ent[10])
+                y1 = float(ent[20])
+                x2 = float(ent[11])
+                y2 = float(ent[21])
                 length = math.hypot(x2 - x1, y2 - y1)
                 lines.append((length, (x1, y1), (x2, y2)))
                 all_points.extend([(x1, y1), (x2, y2)])
-            except (ValueError, TypeError) as e:                
+            except (KeyError, ValueError, TypeError):
                 pass
 
         elif ent.get('type') == 'CIRCLE':
@@ -99,9 +91,12 @@ def extract_measurements(file_path):
                 cx = float(ent.get(10, 0))
                 cy = float(ent.get(20, 0))
                 radius = float(ent.get(40, 0))
-                circles.append((radius, (cx, cy)))
-                all_points.append((cx, cy))
-            except (ValueError, TypeError) as e:                
+                circles.append((radius, (cx, cy)))                
+                all_points.extend([
+                    (cx - radius, cy - radius),
+                    (cx + radius, cy + radius)
+                ])
+            except (ValueError, TypeError):
                 pass
     
     for i, (length, p1, p2) in enumerate(lines, 1):
@@ -138,18 +133,14 @@ def get_measurements_data(file_path):
     for ent in entities:
         if ent.get('type') == 'LINE':
             try:
-                x1 = float(ent.get(10, 0))
-                y1 = float(ent.get(20, 0))
-                x2 = float(ent.get(11, 0))
-                y2 = float(ent.get(21, 0))
+                x1 = float(ent[10])
+                y1 = float(ent[20])
+                x2 = float(ent[11])
+                y2 = float(ent[21])
                 length = math.hypot(x2 - x1, y2 - y1)
-                result['lines'].append({
-                    'length': length,
-                    'start': (x1, y1),
-                    'end': (x2, y2)
-                })
+                result['lines'].append({'length': length, 'start': (x1, y1), 'end': (x2, y2)})
                 all_points.extend([(x1, y1), (x2, y2)])
-            except (ValueError, TypeError):
+            except (KeyError, ValueError, TypeError):
                 pass
 
         elif ent.get('type') == 'CIRCLE':
@@ -161,7 +152,10 @@ def get_measurements_data(file_path):
                     'radius': radius,
                     'center': (cx, cy)
                 })
-                all_points.append((cx, cy))
+                all_points.extend([
+                    (cx - radius, cy - radius),
+                    (cx + radius, cy + radius)
+                ])
             except (ValueError, TypeError):
                 pass
 

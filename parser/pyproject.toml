@@ -5,6 +5,10 @@ description = "Parser module for divaldi"
 authors = ["AX-Ray <vandpal@bk.ru>"]
 license = "MIT"
 readme = "README.md"
+packages = [
+    { include = "dxf_parser.py", from = "src" },
+    { include = "pdf_to_image.py", from = "src" },
+]
 
 [tool.poetry.dependencies]
 python = "^3.12"

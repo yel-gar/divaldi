@@ -90,8 +90,8 @@ def test_extract_measurements_simple(simple_dxf_file_path):
     result_text = '\n'.join(lines)
     assert "Line 1: length = 10.000" in result_text
     assert "Circle 1: radius = 2.000" in result_text
-    assert "Bounding box: width = 10.000, height = 5.000" in result_text
-    assert "X range: [0.000, 10.000], Y range: [0.000, 5.000]" in result_text
+    assert "Bounding box: width = 10.000, height = 7.000" in result_text
+    assert "X range: [0.000, 10.000], Y range: [0.000, 7.000]" in result_text
 
 
 def test_extract_measurements_no_entities(tmp_path):
@@ -130,11 +130,11 @@ def test_get_measurements_data_simple(simple_dxf_file_path):
 
     bb = data['bounding_box']
     assert math.isclose(bb['width'], 10.0)
-    assert math.isclose(bb['height'], 5.0)
+    assert math.isclose(bb['height'], 7.0)
     assert bb['min_x'] == 0.0
     assert bb['max_x'] == 10.0
     assert bb['min_y'] == 0.0
-    assert bb['max_y'] == 5.0
+    assert bb['max_y'] == 7.0
 
 
 def test_extract_measurements_file_not_found():
@@ -149,7 +149,6 @@ def test_extract_measurements_empty_file(tmp_path):
     assert result.startswith("Ошибка при парсинге файла:")
 
 
-@pytest.mark.skip(reason="Requires data/test.dxf file")
 def test_with_real_dxf_file():
     path = Path("data/test.dxf")
     if not path.exists():
