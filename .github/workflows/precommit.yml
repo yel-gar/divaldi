@@ -52,7 +52,7 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: backend
-        run: poetry install
+        run: poetry install --no-root
 
       - name: Cache pre-commit environments
         uses: actions/cache@v4
