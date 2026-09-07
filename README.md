@@ -38,6 +38,7 @@ You should generally only touch variables marked as **Required**.
 |-------------------|-------------------------------------------------------------------------------------------------------------------------|--------------|-----------------------|
 | DEBUG             | Set debug mode for app, debug allows insecure cookies. Set to one of `0, no, false` to disable, otherwise it's enabled. | ✅           | 1                     |
 | BACKEND_URL       | Deployed backend URL where clients will make requests to.                                                               | ✅           | http://localhost:3000 |
+| FRONTEND_URL      | Deployed frontend URL.                                                                                                  | ✅           | http://localhost:8080 |
 | FRONTEND_PORT     | Port on which frontend will run.                                                                                        | ❌           | 8080                  |
 | BACKEND_PORT      | Port on which backend will run.                                                                                         | ❌           | 3000                  |
 | POSTGRES_USER     | Database user.                                                                                                          | ❌           | divaldi               |
