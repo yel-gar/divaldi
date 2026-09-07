@@ -1,0 +1,20 @@
+repos:
+  - repo: local
+    hooks:
+      - id: black
+        name: black
+        pass_filenames: false
+        entry: poetry -C backend run black .
+        language: python
+
+      - id: ruff
+        name: ruff
+        pass_filenames: false
+        entry: poetry -C backend run ruff check --fix .
+        language: python
+
+      - id: pytest
+        name: pytest
+        pass_filenames: false
+        entry: poetry -C backend run pytest .
+        language: python

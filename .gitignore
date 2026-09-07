@@ -2,6 +2,8 @@ node_modules
 .idea
 .husky
 .env
+docker-compose.override.yml
+.python-version
 
 # remove unusual directory
 docs
