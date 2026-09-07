@@ -67,9 +67,9 @@ async def admin_edit_user(user_id: int, db: DbSession, data: AdminEditUserSchema
 
     try:
         await db.commit()
-    except IntegrityError:
+    except IntegrityError as e:
         await db.rollback()
-        raise HTTPException(status_code=409, detail="User already exists")
+        raise HTTPException(status_code=409, detail="User already exists") from e
 
     await db.refresh(user)
     return user
@@ -99,9 +99,9 @@ async def admin_create_user(db: DbSession, data: AdminCreateUserSchema):
     db.add(user)
     try:
         await db.commit()
-    except IntegrityError:
+    except IntegrityError as e:
         await db.rollback()
-        raise HTTPException(status_code=409, detail="User already exists")
+        raise HTTPException(status_code=409, detail="User already exists") from e
 
     await db.refresh(user)
     return user
