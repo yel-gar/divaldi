@@ -1,12 +1,3 @@
-# CI/CD Pipeline. Responsible: @yel-gar
-/.github/ @yel-gar
-.pre-commit-config.yaml @yel-gar
-
-# Deployment Pipeline. Responsible: @yel-gar
-/.env.example @yel-gar
-/docker-compose.yaml @yel-gar
-Dockerfile @yel-gar
-
 # Backend. Responsible: @yel-gar
 /backend/ @yel-gar
 
@@ -16,3 +7,12 @@ Dockerfile @yel-gar
 # Parser and calculator. Responsible: @AX-Ray
 /parser/ @AX-Ray
 /calculator/ @AX-Ray
+
+# CI/CD Pipeline. Responsible: @yel-gar
+/.github/ @yel-gar
+.pre-commit-config.yaml @yel-gar
+
+# Deployment Pipeline. Responsible: @yel-gar
+/.env.example @yel-gar
+/docker-compose.yaml @yel-gar
+Dockerfile @yel-gar
