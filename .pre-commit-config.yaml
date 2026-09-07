@@ -1,17 +1,76 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: check-yaml
-      - id: check-ast
       - id: check-json
-      - id: pretty-format-json
-        args:
-          - --autofix
-          - --no-sort-keys
-      - id: sort-simple-yaml
+        exclude: ^frontend/tsconfig.*\.json
       - id: end-of-file-fixer
       - id: trailing-whitespace
-        args:
-          - --markdown-linebreak-ext=md
       - id: check-toml
+
+  - repo: local
+    hooks:
+      # --- backend ---
+      - id: black
+        name: black (backend)
+        entry: python scripts/precommit-black.py
+        language: system
+        files: ^backend/.*\.py$
+
+      - id: ruff
+        name: ruff (backend)
+        entry: python scripts/precommit-ruff.py
+        language: system
+        files: ^backend/.*\.py$
+
+      - id: pytest
+        name: pytest (backend)
+        entry: poetry -C backend run pytest
+        language: system
+        files: ^backend/.*\.py$
+        pass_filenames: false
+
+  - repo: local
+    hooks:
+      # --- parser ---
+      - id: black
+        name: black (parser)
+        entry: poetry -C parser run black --check
+        language: system
+        files: ^parser/.*\.py$
+
+      - id: ruff
+        name: ruff (parser)
+        entry: poetry -C parser run ruff check --fix
+        language: system
+        files: ^parser/.*\.py$
+
+      - id: pytest
+        name: pytest (parser)
+        entry: poetry -C parser run pytest
+        language: system
+        files: ^parser/.*\.py$
+        pass_filenames: false
+
+      # --- frontend ---
+      - id: eslint
+        name: eslint (frontend)
+        entry: npx --prefix frontend eslint --fix
+        language: system
+        files: ^frontend/.*\.(ts|html)$
+
+      - id: prettier
+        name: prettier (frontend)
+        entry: npx --prefix frontend prettier --write
+        language: system
+        files: ^frontend/.*\.(ts|html|scss|css|json)$
+        exclude: ^frontend/(tsconfig.*\.json|angular\.json|package(-lock)?\.json)$
+
+      # --- commit messages ---
+      - id: commitlint
+        name: commitlint
+        entry: npx --no -- commitlint --edit
+        language: system
+        stages: [commit-msg]
+        pass_filenames: false
