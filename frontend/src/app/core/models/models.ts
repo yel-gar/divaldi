@@ -24,3 +24,10 @@ export interface Parameter {
   value: string;
   source: string;
 }
+
+export interface User {
+  id: number;
+  username: string;
+  first_name: string | null;
+  last_name: string | null;
+}

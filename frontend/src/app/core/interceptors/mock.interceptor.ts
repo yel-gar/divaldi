@@ -1,6 +1,6 @@
 import { HttpInterceptorFn, HttpResponse } from '@angular/common/http';
 import { of } from 'rxjs';
-import { Order, Message, Parameter, CalculationStatus } from '../models/models';
+import { Order, Message, Parameter, CalculationStatus, User } from '../models/models';
 
 const mockSessions = new Map<string, Order>();
 let sessionCounter = 0;
@@ -16,9 +16,28 @@ function createMockSession(): Order {
   return session;
 }
 
+const mockUser: User = {
+  id: 1,
+  username: 'admin',
+  first_name: 'Иван',
+  last_name: 'Иванов'
+};
+
 export const mockInterceptor: HttpInterceptorFn = (req, next) => {
   const url = req.url;
   const method = req.method;
+
+  if (url.endsWith('/auth/login') && method === 'POST') {
+    return of(new HttpResponse({ status: 200, body: { message: 'Login OK' } }));
+  }
+
+  if (url.endsWith('/auth/logout') && method === 'POST') {
+    return of(new HttpResponse({ status: 200, body: { message: 'Logout OK' } }));
+  }
+
+  if (url.endsWith('/users/me') && method === 'GET') {
+    return of(new HttpResponse({ status: 200, body: mockUser }));
+  }
 
   if (url.endsWith('/sessions') && method === 'POST') {
     return of(new HttpResponse({ status: 200, body: createMockSession() }));
