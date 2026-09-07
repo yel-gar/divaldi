@@ -68,9 +68,7 @@ def test_alembic_upgrade_head_succeeds(migration_postgres_url):
     """The full migration chain must apply cleanly to a brand-new database."""
     result = _run_alembic("upgrade", "head", database_url=migration_postgres_url)
 
-    assert result.returncode == 0, (
-        f"alembic upgrade head failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-    )
+    assert result.returncode == 0, f"alembic upgrade head failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
 
 
 def test_alembic_downgrade_to_base_succeeds(migration_postgres_url):
@@ -80,8 +78,7 @@ def test_alembic_downgrade_to_base_succeeds(migration_postgres_url):
 
     downgrade_result = _run_alembic("downgrade", "base", database_url=migration_postgres_url)
     assert downgrade_result.returncode == 0, (
-        f"alembic downgrade base failed:\nSTDOUT:\n{downgrade_result.stdout}\n"
-        f"STDERR:\n{downgrade_result.stderr}"
+        f"alembic downgrade base failed:\nSTDOUT:\n{downgrade_result.stdout}\n" f"STDERR:\n{downgrade_result.stderr}"
     )
 
 

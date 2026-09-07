@@ -29,9 +29,7 @@ async def engine(postgres_container: PostgresContainer):
 @pytest_asyncio.fixture()
 async def db_session(engine: AsyncEngine):
     async with engine.connect() as conn, conn.begin() as transaction:
-        session_maker = async_sessionmaker(
-            bind=conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
-        )
+        session_maker = async_sessionmaker(bind=conn, expire_on_commit=False, join_transaction_mode="create_savepoint")
         session = session_maker()
         yield session
         await session.close()

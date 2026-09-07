@@ -1,13 +1,11 @@
 import asyncio
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, Connection
-from sqlalchemy import pool
-
-from alembic import context
+from sqlalchemy import Connection, pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-import app.models  # type: ignore | necessary to populate migrations
+import app.models  # noqa: F401 necessary to populate migrations
+from alembic import context
 from app.database import Base
 from app.util import get_database_url
 
