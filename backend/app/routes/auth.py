@@ -8,6 +8,7 @@ from starlette.status import HTTP_401_UNAUTHORIZED
 from app.auth import generate_token, verify_password
 from app.deps import CurrentUser, DbSession
 from app.models.auth import Session, User
+from app.schemas import MessageResponse
 from app.schemas.auth import UserLogin
 from app.util import get_debug
 
@@ -16,7 +17,7 @@ SESSION_VALID_TIME = timedelta(days=7)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/login", summary="Login user, sets `session_token` cookie")
+@router.post("/login", summary="Login user, sets `session_token` cookie", response_model=MessageResponse)
 async def login(data: UserLogin, response: Response, db: DbSession):
     res = await db.execute(select(User).where(User.username == data.username))
     user = res.scalar_one_or_none()
@@ -43,10 +44,10 @@ async def login(data: UserLogin, response: Response, db: DbSession):
         path="/",
     )
 
-    return {"message": "Login OK"}
+    return MessageResponse(message="Login OK")
 
 
-@router.post("/logout")
+@router.post("/logout", response_model=MessageResponse)
 async def logout(
     response: Response,
     user: CurrentUser,
@@ -61,4 +62,4 @@ async def logout(
             await db.commit()
 
     response.delete_cookie(key="session_token", path="/")
-    return {"message": "Logout OK"}
+    return MessageResponse(message="Logout OK")

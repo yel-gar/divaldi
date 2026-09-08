@@ -1,8 +1,9 @@
 import structlog
 from fastapi import APIRouter, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes import auth, users
-from app.util import get_debug
+from app.util import get_debug, get_origins
 
 log = structlog.stdlib.get_logger()
 
@@ -17,6 +18,14 @@ app = FastAPI(
     docs_url="/api/v1/docs",
     redoc_url="/api/v1/redoc",
 )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_origins(),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 base_router = APIRouter(prefix="/api/v1")
 base_router.include_router(auth.router, tags=["auth"])
 base_router.include_router(users.router, tags=["users"])
