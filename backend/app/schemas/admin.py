@@ -34,3 +34,7 @@ class AdminEditUserSchema(BaseModel):
     def reject_none(cls, value):
         if value is None:
             raise ValidationError("Field cannot be None")
+
+
+class AdminSetPasswordSchema(BaseModel):
+    password: str

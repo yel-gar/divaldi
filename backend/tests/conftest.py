@@ -1,6 +1,7 @@
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from testcontainers.community.postgres import PostgresContainer
 
@@ -55,6 +56,15 @@ async def test_user(db_session: AsyncSession):
     await db_session.commit()
     await db_session.refresh(user)
     return user
+
+
+@pytest_asyncio.fixture()
+async def test_100_users(db_session: AsyncSession):
+    password_hash = hash_password("amongus")
+    users = [User(username=f"test-{i}", password_hash=password_hash) for i in range(100)]
+    db_session.add_all(users)
+    await db_session.commit()
+    return (await db_session.execute(select(User).order_by(User.id))).scalars().all()
 
 
 @pytest_asyncio.fixture()

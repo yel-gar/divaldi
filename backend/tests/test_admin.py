@@ -48,6 +48,43 @@ async def test_get_users_with_filters(
     assert data[0]["id"] == test_user.id
 
 
+@pytest.mark.asyncio
+async def test_get_users_paginated(admin_client: AsyncClient, db_session: AsyncSession, test_100_users: list[User]):
+    response = await admin_client.get("/admin/users", params={"page": 0, "items_per_page": 50})
+    assert response.status_code == 200
+
+    data_50 = response.json()
+
+    response = await admin_client.get("/admin/users", params={"page": 0, "items_per_page": 1})
+    assert response.status_code == 200
+
+    data_0 = response.json()
+    assert data_0[0] == data_50[0]
+
+    response = await admin_client.get("/admin/users", params={"page": 1, "items_per_page": 1})
+    assert response.status_code == 200
+
+    data_1 = response.json()
+    assert data_1[0] == data_50[1]
+
+
+# ---------------------------------------------------------------------------
+# POST /admin/users/{user_id}/set-password
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_admin_set_password(
+    client: AsyncClient, admin_client: AsyncClient, test_user: User, db_session: AsyncSession
+):
+    new_password = "balls"
+    response = await admin_client.post(f"/admin/users/{test_user.id}/set-password", json={"password": new_password})
+    assert response.status_code == 200
+
+    response = await client.post("/auth/login", json={"username": "test", "password": new_password})
+    assert response.status_code == 200
+
+
 # ---------------------------------------------------------------------------
 # GET /admin/users/{user_id}
 # ---------------------------------------------------------------------------
@@ -91,7 +128,7 @@ async def test_create_user(
     admin_client: AsyncClient,
 ):
     response = await admin_client.post(
-        "/admin/users/create",
+        "/admin/users",
         json={
             "username": "john",
             "password": "password1234",
@@ -101,7 +138,7 @@ async def test_create_user(
         },
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     data = response.json()
 
@@ -121,7 +158,7 @@ async def test_create_duplicate_user(
     test_user: User,
 ):
     response = await admin_client.post(
-        "/admin/users/create",
+        "/admin/users",
         json={
             "username": test_user.username,
             "password": "password1234",

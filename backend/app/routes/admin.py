@@ -1,13 +1,16 @@
 from datetime import datetime
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from starlette import status
 
 from app.auth import hash_password
 from app.deps import DbSession, require_admin
 from app.models.auth import User
-from app.schemas.admin import AdminCreateUserSchema, AdminEditUserSchema, AdminUserFilters
+from app.schemas import MessageResponse
+from app.schemas.admin import AdminCreateUserSchema, AdminEditUserSchema, AdminSetPasswordSchema, AdminUserFilters
 from app.schemas.users import AdminUserSchema
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
@@ -16,7 +19,9 @@ router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(requir
 @router.get("/users", response_model=list[AdminUserSchema], summary="Get all users, filtered by specified fields")
 async def admin_get_users(
     db: DbSession,
-    filters: AdminUserFilters = Depends(),
+    filters: Annotated[AdminUserFilters, Depends()],
+    items_per_page: Annotated[int, Query(le=1000)] = 50,
+    page: Annotated[int, Query(description="Current page, starting from zero")] = 0,
 ):
     conditions = []
 
@@ -42,7 +47,7 @@ async def admin_get_users(
                 (User.expires_at.is_(None)) | (User.expires_at > now),
             )
 
-    query = select(User).where(*conditions)
+    query = select(User).where(*conditions).order_by(User.id).limit(items_per_page).offset(page * items_per_page)
 
     res = await db.execute(query)
     return res.scalars().all()
@@ -54,6 +59,18 @@ async def admin_get_user(user_id: int, db: DbSession):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+
+@router.post("/users/{user_id}/set-password", response_model=MessageResponse)
+async def admin_user_set_password(user_id: int, db: DbSession, data: AdminSetPasswordSchema):
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.is_superuser:
+        raise HTTPException(status_code=403, detail="You can't change password of superuser")
+    user.password_hash = hash_password(data.password)
+    await db.commit()
+    return MessageResponse(message="Password changed successfully")
 
 
 @router.patch("/users/{user_id}", response_model=AdminUserSchema, summary="Edit user by ID. Returns updated user")
@@ -92,7 +109,7 @@ async def admin_delete_user(user_id: int, db: DbSession):
     return user
 
 
-@router.post("/users/create", response_model=AdminUserSchema)
+@router.post("/users", response_model=AdminUserSchema, status_code=status.HTTP_201_CREATED)
 async def admin_create_user(db: DbSession, data: AdminCreateUserSchema):
     password_hash = hash_password(data.password)
     user = User(password_hash=password_hash, **data.model_dump(exclude={"password"}))
