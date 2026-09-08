@@ -1,0 +1,77 @@
+@use '../../../fonts';
+
+:host {
+  background-color: var(--color-secondary);
+  height: 100dvh;
+  padding: 30px 30px;
+  position: relative;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.navigation {
+  margin-top: 60px;
+
+  &__list {
+    display: grid;
+    gap: 5px;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+
+    padding: 20px;
+
+    border-radius: 15px;
+
+    transition: all 200ms;
+
+    &:hover {
+      background: var(--color-hover-secondary);
+    }
+
+    &.active-link {
+      border-left: 5px solid var(--color-main);
+      border-radius: 5px;
+    }
+  }
+}
+
+.profile {
+  position: absolute;
+  bottom: 20px;
+
+  display: flex;
+  gap: 5px;
+  width: calc(100% - 60px);
+
+  padding: 10px;
+  border-radius: 10px;
+
+  &:hover {
+    background: var(--color-hover-secondary);
+  }
+
+  &__content {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__chevron {
+    stroke: var(--color-black);
+  }
+
+  &__info {
+    display: grid;
+    gap: 6px;
+    margin-left: 12px;
+  }
+}

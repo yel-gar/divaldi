@@ -1,0 +1,25 @@
+<div class="logo">
+  <img src="/assets/svgs/logo.svg" alt="logo" width="48" />
+  <h1 class="h1">Divaldi</h1>
+</div>
+<nav class="navigation">
+  <ul class="navigation__list">
+    @for (nav of navItems; track nav.icon) {
+    <li>
+      <a class="navigation__item h3" [routerLink]="nav.route" routerLinkActive="active-link">
+        <svg class="navigation__icon" [lucideIcon]="nav.icon"></svg>
+        <span>{{nav.label}}</span>
+      </a>
+    </li>
+    }
+  </ul>
+</nav>
+<a class="profile" routerLink="/profile">
+  <img src="/assets/imgs/stock-man.jpg" alt="profile photo" class="photo" />
+  <div class="profile__content">
+    <div class="profile__info">
+      <span class="profile__name h3">Иван Иванов</span>
+      <p class="profile__mail h4">ivan@example.com</p>
+    </div>
+  </div>
+</a>
