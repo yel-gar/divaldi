@@ -1,10 +1,18 @@
+x-postgres-env: &postgres-env
+  POSTGRES_USER: ${POSTGRES_USER:-divaldi}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+  POSTGRES_DB: ${POSTGRES_DB:-divaldi}
+  POSTGRES_HOST: db
+
 services:
   frontend:
     build: ./frontend
     ports:
-      - ${APP_PUBLISH_PORT:-8080}:8080
+      - ${FRONTEND_PORT:-8080}:80
     environment:
-      - FRONTEND_EXAMPLE_VAR
+      BACKEND_PORT: ${BACKEND_PORT:-3000}
+      BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
     restart: unless-stopped
     depends_on:
       - backend
@@ -12,20 +20,29 @@ services:
   backend:
     build: ./backend
     environment:
-      - BACKEND_EXAMPLE_VAR
+      <<: *postgres-env
+      DEBUG: ${DEBUG:?}
+      BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+    ports:
+      - ${BACKEND_PORT:-3000}:3000
     restart: unless-stopped
     depends_on:
-      - parser
-      - calculator
+      db:
+        condition: service_healthy
 
-  parser:
-    build: ./parser
-    environment:
-      - PARSER_EXAMPLE_VAR
+  db:
+    image: postgres:18-alpine
     restart: unless-stopped
+    environment:
+      <<: *postgres-env
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-divaldi} -d ${POSTGRES_DB:-divaldi}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  calculator:
-    build: ./calculator
-    environment:
-      - CALCULATOR_EXAMPLE_VAR
-    restart: unless-stopped
+volumes:
+  postgres_data:

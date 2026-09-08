@@ -1,0 +1,50 @@
+name: Backend CI
+
+on:
+  pull_request:
+    paths: ["backend/**"]
+  push:
+    branches: [main]
+    paths: ["backend/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Format, lint, test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Cache Poetry virtualenv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pypoetry/virtualenvs
+          key: poetry-${{ runner.os }}-${{ hashFiles('backend/poetry.lock') }}
+
+      - name: Install dependencies
+        run: poetry install --no-root
+
+      - name: Format check (black)
+        run: poetry run black --check .
+
+      - name: Lint (ruff)
+        run: poetry run ruff check .
+
+      - name: Test (pytest)
+        run: poetry run pytest .

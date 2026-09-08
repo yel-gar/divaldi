@@ -31,8 +31,6 @@ repos:
         files: ^backend/.*\.py$
         pass_filenames: false
 
-  - repo: local
-    hooks:
       # --- parser ---
       - id: black
         name: black (parser)
