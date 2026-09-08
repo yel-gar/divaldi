@@ -20,8 +20,8 @@ router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(requir
 async def admin_get_users(
     db: DbSession,
     filters: Annotated[AdminUserFilters, Depends()],
-    items_per_page: Annotated[int, Query(le=1000)] = 50,
-    page: Annotated[int, Query(description="Current page, starting from zero")] = 0,
+    items_per_page: Annotated[int, Query(ge=1, le=1000)] = 50,
+    page: Annotated[int, Query(ge=0, description="Current page, starting from zero")] = 0,
 ):
     conditions = []
 
