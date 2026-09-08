@@ -6,12 +6,14 @@ x-postgres-env: &postgres-env
 
 services:
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        BACKEND_BASE_URL: ${BACKEND_BASE_URL:?}
     ports:
       - ${FRONTEND_PORT:-4200}:80
     environment:
       BACKEND_PORT: ${BACKEND_PORT:-3000}
-      BACKEND_URL:
     restart: unless-stopped
     depends_on:
       - backend
