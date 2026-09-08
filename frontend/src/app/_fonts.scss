@@ -1,0 +1,10 @@
+@font-face {
+  font-family: 'Inter';
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+
+  src:
+    url('/assets/fonts/InterVariable.woff2') format('woff2-variations'),
+    url('/assets/fonts/InterVariable.woff2') format('woff2');
+}
