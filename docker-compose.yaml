@@ -11,7 +11,7 @@ services:
       args:
         BACKEND_BASE_URL: ${BACKEND_BASE_URL:?}
     ports:
-      - ${FRONTEND_PORT:-4200}:80
+      - ${FRONTEND_PORT:-8080}:80
     environment:
       BACKEND_PORT: ${BACKEND_PORT:-3000}
     restart: unless-stopped
@@ -23,6 +23,8 @@ services:
     environment:
       <<: *postgres-env
       DEBUG: ${DEBUG:?}
+      BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
     ports:
       - ${BACKEND_PORT:-3000}:3000
     restart: unless-stopped

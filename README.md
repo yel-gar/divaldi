@@ -2,8 +2,9 @@
 
 ## Developers setup
 ### Global
-1. Install pre-commit (this repo uses it for all linting/formatting hooks *and* commit message checks — no Node tooling required just for hooks)
+1. Install dev dependencies and pre-commit (this repo uses it for all linting/formatting hooks *and* commit message checks — no Node tooling required just for hooks)
 ```bash
+$ npm install
 $ pip install pre-commit
 ```
 
