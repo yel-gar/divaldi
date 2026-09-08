@@ -13,8 +13,19 @@
   gap: 12px;
 }
 
+.cta {
+  width: 100%;
+  margin-top: 40px;
+  gap: 20px;
+
+  &__icon {
+    position: relative;
+    left: 5px;
+  }
+}
+
 .navigation {
-  margin-top: 60px;
+  margin-top: 10px;
 
   &__list {
     display: grid;
@@ -63,10 +74,6 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-  }
-
-  &__chevron {
-    stroke: var(--color-black);
   }
 
   &__info {

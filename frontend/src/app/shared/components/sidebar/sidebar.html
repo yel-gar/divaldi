@@ -2,9 +2,17 @@
   <img src="/assets/svgs/logo.svg" alt="logo" width="48" />
   <h1 class="h1">Divaldi</h1>
 </div>
+
+@if (role() === 'user') {
+<a class="button button--main cta h3" routerLink="/create">
+  <svg class="cta__icon" lucidePlus></svg>
+  <span>Создать заявку</span>
+</a>
+}
+
 <nav class="navigation">
   <ul class="navigation__list">
-    @for (nav of navItems; track nav.icon) {
+    @for (nav of navItems(); track nav.icon) {
     <li>
       <a class="navigation__item h3" [routerLink]="nav.route" routerLinkActive="active-link">
         <svg class="navigation__icon" [lucideIcon]="nav.icon"></svg>

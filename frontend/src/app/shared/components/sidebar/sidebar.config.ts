@@ -1,12 +1,12 @@
 import {
-  LucideFileText,
-  LucideMessageCircle,
   LucideHistory,
   LucideSettings,
   LucideUser,
   LucideInfo,
   type LucideIcon
 } from '@lucide/angular';
+
+export type Role = 'user' | 'admin';
 
 export interface NavItem {
   label: string;
@@ -15,9 +15,7 @@ export interface NavItem {
 }
 
 export const USER_NAV_ITEMS: NavItem[] = [
-  { label: 'Создать заявку', icon: LucideFileText, route: '/create' },
-  { label: 'Чат с агентом', icon: LucideMessageCircle, route: '/chats' },
-  { label: 'История заявок', icon: LucideHistory, route: '/history' },
+  { label: 'История заявок', icon: LucideHistory, route: '/chats' },
   { label: 'Настройки', icon: LucideSettings, route: '/settings' }
 ];
 
