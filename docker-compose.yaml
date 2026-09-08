@@ -9,7 +9,7 @@ services:
     build:
       context: ./frontend
       args:
-        BACKEND_BASE_URL: ${BACKEND_BASE_URL:?}
+        BACKEND_URL: ${BACKEND_URL:?}
     ports:
       - ${FRONTEND_PORT:-4200}:80
     environment:
@@ -23,6 +23,8 @@ services:
     environment:
       <<: *postgres-env
       DEBUG: ${DEBUG:?}
+      BACKEND_URL: ${BACKEND_URL:?}
+      FRONTEND_URL: ${FRONTEND_URL:-}
     ports:
       - ${BACKEND_PORT:-3000}:3000
     restart: unless-stopped

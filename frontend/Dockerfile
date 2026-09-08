@@ -3,8 +3,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --legacy-peer-deps
 COPY . .
-ARG BACKEND_BASE_URL
-ENV BACKEND_BASE_URL=$BACKEND_BASE_URL
+ARG BACKEND_URL
+ENV BACKEND_URL=$BACKEND_URL
 RUN node docker/rewrite-env.mjs && npm run build
 
 FROM nginx:alpine
