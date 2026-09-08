@@ -2,7 +2,7 @@
 name = "parser"
 version = "0.1.0"
 description = "Parser module for divaldi"
-authors = ["AX-Ray <vandpal@bk.ru>"]
+authors = ["AX-Ray"]
 license = "MIT"
 readme = "README.md"
 packages = [

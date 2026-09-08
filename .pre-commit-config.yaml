@@ -14,13 +14,13 @@ repos:
       # --- backend ---
       - id: black
         name: black (backend)
-        entry: python scripts/precommit-black.py
+        entry: python scripts/precommit-black.py backend/
         language: system
         files: ^backend/.*\.py$
 
       - id: ruff
         name: ruff (backend)
-        entry: python scripts/precommit-ruff.py
+        entry: python scripts/precommit-ruff.py backend/
         language: system
         files: ^backend/.*\.py$
 
@@ -34,13 +34,13 @@ repos:
       # --- parser ---
       - id: black
         name: black (parser)
-        entry: poetry -C parser run black --check
+        entry: python scripts/precommit-black.py parser/
         language: system
         files: ^parser/.*\.py$
 
       - id: ruff
         name: ruff (parser)
-        entry: poetry -C parser run ruff check --fix
+        entry: python scripts/precommit-ruff.py parser/
         language: system
         files: ^parser/.*\.py$
 
