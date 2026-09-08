@@ -13,7 +13,9 @@
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
-          "style": "scss"
+          "style": "scss",
+          "type": "component",
+          "skipTests": true
         }
       },
       "root": "",
