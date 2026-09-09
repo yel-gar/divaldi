@@ -1,5 +1,8 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
+import { catchError, EMPTY, finalize } from 'rxjs';
+import { SessionService } from '../../core/services/session.service';
 import { DragNDropComponent } from '../../shared/components/drag-n-drop/drag-n-drop.component';
 import { Select, SelectOption } from '../../shared/components/select/select.component';
 import { NgClass } from '@angular/common';
@@ -14,8 +17,12 @@ import { LucideArrowRight } from '@lucide/angular';
 })
 export class OrderCreateComponent {
   private readonly fb = inject(FormBuilder);
+  private readonly router = inject(Router);
+  private readonly sessionService = inject(SessionService);
 
   readonly textareaSymbolsCount = signal<number>(0);
+  readonly isSubmitting = signal<boolean>(false);
+  readonly selectedFiles = signal<File[]>([]);
   readonly MAX_SYMBOLS = 1000;
 
   readonly projectTypeOptions: SelectOption[] = [
@@ -32,7 +39,7 @@ export class OrderCreateComponent {
     { value: 'high', label: 'Высокий' }
   ];
 
-  readonly orderForm = this.fb.group({
+  readonly orderForm = this.fb.nonNullable.group({
     description: ['', [Validators.required, Validators.maxLength(this.MAX_SYMBOLS)]],
     projectType: ['', Validators.required],
     priority: ['']
@@ -44,11 +51,39 @@ export class OrderCreateComponent {
     this.textareaSymbolsCount.set(target.value.length);
   }
 
+  onFilesChange(files: File[]) {
+    this.selectedFiles.set(files);
+  }
+
   onSubmit() {
     if (this.orderForm.invalid) {
       this.orderForm.markAllAsTouched();
       return;
     }
-    console.log('Order payload', this.orderForm.getRawValue());
+    if (this.isSubmitting()) {
+      return;
+    }
+
+    this.isSubmitting.set(true);
+    const { description, projectType, priority } = this.orderForm.getRawValue();
+
+    this.sessionService
+      .createSession({
+        description,
+        projectType,
+        priority,
+        files: this.selectedFiles()
+      })
+      // Текст ошибки пользователю показывает errorInterceptor
+      .pipe(
+        finalize(() => this.isSubmitting.set(false)),
+        catchError(() => EMPTY)
+      )
+      .subscribe({
+        next: (order) => {
+          this.orderForm.reset();
+          this.router.navigate(['/chats', order.id]);
+        }
+      });
   }
 }

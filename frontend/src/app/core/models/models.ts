@@ -12,6 +12,13 @@ export interface Order {
   createdAt: string;
 }
 
+export interface CreateOrderPayload {
+  description: string;
+  projectType: string;
+  priority: string;
+  files: File[];
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'agent';

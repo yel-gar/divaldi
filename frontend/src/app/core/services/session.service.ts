@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Order, Message, Parameter } from '../models/models';
+import { Order, Message, Parameter, CreateOrderPayload } from '../models/models';
 
 @Injectable({
   providedIn: 'root'
@@ -11,8 +11,15 @@ export class SessionService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiUrl}/sessions`;
 
-  createSession(description: string): Observable<Order> {
-    return this.http.post<Order>(this.baseUrl, { description });
+  createSession(payload: CreateOrderPayload): Observable<Order> {
+    const form = new FormData();
+    form.set('description', payload.description);
+    form.set('projectType', payload.projectType);
+    form.set('priority', payload.priority);
+    for (const file of payload.files) {
+      form.append('files', file, file.name);
+    }
+    return this.http.post<Order>(this.baseUrl, form);
   }
 
   getSession(id: string): Observable<Order> {

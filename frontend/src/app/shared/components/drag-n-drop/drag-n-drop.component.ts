@@ -4,6 +4,7 @@ import {
   OnDestroy,
   computed,
   inject,
+  output,
   signal
 } from '@angular/core';
 import { Subscription } from 'rxjs';
@@ -106,6 +107,8 @@ export class DragNDropComponent implements OnDestroy {
   readonly etaSeconds = signal(Infinity);
   readonly previewItem = signal<UploadItem | null>(null);
 
+  readonly filesChange = output<File[]>();
+
   readonly previewKindFor = previewKindFor;
 
   private readonly simulator = inject(UploadSimulatorService);
@@ -189,6 +192,7 @@ export class DragNDropComponent implements OnDestroy {
       this.previewItem.set(null);
     }
     this.items.update((list) => list.filter((item) => item.id !== id));
+    this.emitFiles();
     if (this.items().length === 0) {
       if (this.activeUploads.size === 0) {
         this.resetToIdle();
@@ -230,6 +234,10 @@ export class DragNDropComponent implements OnDestroy {
 
   private typeStyleFor(item: UploadItem): FileTypeStyle {
     return FILE_TYPE_STYLES[item.extension] ?? UNKNOWN_FILE_TYPE;
+  }
+
+  private emitFiles(): void {
+    this.filesChange.emit(this.items().map((item) => item.file));
   }
 
   percentOf(item: UploadItem): number {
@@ -286,6 +294,7 @@ export class DragNDropComponent implements OnDestroy {
       uploaded: 0
     }));
     this.items.update((list) => [...list, ...newItems]);
+    this.emitFiles();
     this.state.set('uploading');
     this.isCollapsed.set(false);
     this.speedSamples.length = 0;
@@ -423,6 +432,7 @@ export class DragNDropComponent implements OnDestroy {
   private resetToIdle(): void {
     this.state.set('idle');
     this.items.set([]);
+    this.emitFiles();
     this.showAllFiles.set(false);
     this.isCollapsed.set(false);
     this.previewItem.set(null);
