@@ -15,7 +15,7 @@ from typing import Any
 
 from openpyxl import load_workbook
 
-# Constants
+# Constants (for excel)
 LASER_SPEED = 10.0  # meters per hour (laser cutting)
 WELDING_SPEED = 2.0  # meters per hour
 BENDING_RATE = 84.0  # bends per hour
@@ -160,6 +160,7 @@ def _write_position(
 
     painting_m2 = float(pos_data.get("painting_m2", 0.0))
     sheet.cell(row=row_painting, column=5).value = painting_m2  # E
+    # calculated by excel formula E7/5.53
 
 
 def process_calculation(json_data: str, template_path: str, output_path: str) -> str:
