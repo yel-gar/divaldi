@@ -26,8 +26,4 @@ export const routes: Routes = [
     component: Layout,
     data: { navItems: ADMIN_NAV_ITEMS, role: 'admin' }
   }
-  // {
-  //   path: 'login',
-  //   component:
-  // }
 ];
