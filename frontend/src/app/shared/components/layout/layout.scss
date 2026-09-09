@@ -1,4 +1,20 @@
 :host {
+  --sidebar-width: 330px;
+
   display: grid;
-  grid-template-columns: 330px 1fr;
+  grid-template-columns: var(--sidebar-width) 1fr;
+
+  & > main {
+    position: absolute;
+    left: var(--sidebar-width);
+    width: calc(100% - var(--sidebar-width));
+  }
+
+  & > app-sidebar {
+    background-color: var(--color-secondary);
+    height: 100dvh;
+    padding: 30px 30px;
+    position: fixed;
+    width: 330px;
+  }
 }
