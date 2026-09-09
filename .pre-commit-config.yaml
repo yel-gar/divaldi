@@ -51,6 +51,26 @@ repos:
         files: ^parser/.*\.py$
         pass_filenames: false
 
+      # --- calculator ---
+      - id: black
+        name: black (calculator)
+        entry: python scripts/precommit-black.py calculator/
+        language: system
+        files: ^calculator/.*\.py$
+
+      - id: ruff
+        name: ruff (calculator)
+        entry: python scripts/precommit-ruff.py calculator/
+        language: system
+        files: ^calculator/.*\.py$
+
+      - id: pytest
+        name: pytest (calculator)
+        entry: poetry -C calculator run pytest
+        language: system
+        files: ^calculator/.*\.py$
+        pass_filenames: false
+
       # --- frontend ---
       - id: eslint
         name: eslint (frontend)
