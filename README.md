@@ -48,3 +48,9 @@ You should generally only touch variables marked as **Required**.
 | RABBITMQ_USER            | User for RabbitMQ admin panel                                                                                           | ❌           | admin                 |
 | RABBITMQ_PASS            | Password for RabbitMQ admin panel                                                                                       | ✅           |                       |
 | RABBITMQ_MANAGEMENT_PORT | Port on which RabbitMQ management interface will run                                                                    | ❌           | 15672                 |
+| TASKIQ_API_TOKEN         | Secret for TaskIQ dashboard                                                                                             | ✅           |                       |
+| TASKIQ_DASHBOARD_PORT    | Port on which TaskIQ management dashboard will run                                                                      | ❌           | 8000                  |
+
+## Redis designation
+`/0` - general
+`/1` - task results

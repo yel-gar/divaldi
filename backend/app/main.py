@@ -1,3 +1,6 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 import structlog
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,10 +16,23 @@ if get_debug():
 else:
     log.warning("PRODUCTION mode is enabled")
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    from app.tasks.conf.broker import broker
+
+    log.info("Starting RabbitMQ broker")
+    await broker.startup()
+    yield
+    log.info("Shutting down RabbitMQ broker")
+    await broker.shutdown()
+
+
 app = FastAPI(
     openapi_url="/api/v1/openapi.json",
     docs_url="/api/v1/docs",
     redoc_url="/api/v1/redoc",
+    lifespan=lifespan,
 )
 app.add_middleware(
     CORSMiddleware,

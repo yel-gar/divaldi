@@ -2,10 +2,6 @@
 
 set -e
 
-echo "Applying database migrations"
-poetry run alembic upgrade head
-echo "Migrations OK"
-
 echo "Starting app"
 
 debug_value=$(echo "${DEBUG:-true}" | tr '[:upper:]' '[:lower:]')

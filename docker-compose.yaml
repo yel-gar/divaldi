@@ -4,6 +4,31 @@ x-postgres-env: &postgres-env
   POSTGRES_DB: ${POSTGRES_DB:-divaldi}
   POSTGRES_HOST: db
 
+x-backend-env: &backend-env
+  <<: *postgres-env
+  DEBUG: ${DEBUG:?}
+  BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
+  FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+  RABBITMQ_USER: ${RABBITMQ_USER:-admin}
+  RABBITMQ_PASS: ${RABBITMQ_PASS:?}
+  TASKIQ_DASHBOARD_PORT: ${TASKIQ_DASHBOARD_PORT:-8000}
+  TASKIQ_API_TOKEN: ${TASKIQ_API_TOKEN:?}
+
+x-backend-service: &backend-service
+  build: ./backend
+  restart: unless-stopped
+  environment:
+    <<: *backend-env
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+    migrate:
+      condition: service_completed_successfully
+
 services:
   frontend:
     build:
@@ -20,21 +45,58 @@ services:
     mem_limit: 1G
 
   backend:
-    build: ./backend
-    environment:
-      <<: *postgres-env
-      DEBUG: ${DEBUG:?}
-      BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+    <<: *backend-service
     ports:
       - ${BACKEND_PORT:-3000}:3000
-    restart: unless-stopped
+    mem_limit: 1G
+
+  migrate:
+    build: ./backend
+    environment:
+      <<: *backend-env
+    command: "poetry run alembic upgrade head"
+    restart: no
     depends_on:
       db:
         condition: service_healthy
-      redis:
+
+  scheduler:
+    <<: *backend-service
+    command: "poetry run taskiq scheduler app.tasks.conf.scheduler:scheduler"
+    mem_limit: 512M
+
+  worker_default:
+    <<: *backend-service
+    command: "poetry run taskiq worker -w 2 app.tasks.conf.workers:default_worker"
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 1G
+
+  worker_network:
+    <<: *backend-service
+    command: "poetry run taskiq worker -w 2 app.tasks.conf.workers:network_worker"
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 1G
+
+  taskiq_dashboard:
+    image: ghcr.io/danfimov/taskiq-dashboard:latest
+    depends_on:
+      db:
         condition: service_healthy
-    mem_limit: 1G
+    environment:
+      TASKIQ_DASHBOARD__STORAGE_TYPE: postgres
+      TASKIQ_DASHBOARD__POSTGRES__HOST: db
+      TASKIQ_DASHBOARD__API__TOKEN: ${TASKIQ_API_TOKEN:?}
+      TASKIQ_DASHBOARD__POSTGRES__USER: ${POSTGRES_USER:-divaldi}
+      TASKIQ_DASHBOARD__POSTGRES__PASSWORD: ${POSTGRES_PASSWORD:?}
+      TASKIQ_DASHBOARD__POSTGRES__DATABASE: taskiq_dashboard
+    ports:
+      - "${TASKIQ_DASHBOARD_PORT:-8000}:8000"
 
   db:
     image: postgres:18-alpine
@@ -43,6 +105,7 @@ services:
       <<: *postgres-env
     volumes:
       - postgres_data:/var/lib/postgresql
+      - ./conf/postgres-init:/docker-entrypoint-initdb.d
     healthcheck:
       test:
         [
