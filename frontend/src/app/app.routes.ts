@@ -18,7 +18,8 @@ export const routes: Routes = [
       { path: 'create', component: OrderCreateComponent },
       { path: 'settings', component: SettingsPage },
       { path: 'chats/:id', component: CalculationChatComponent },
-      { path: 'profile', component: ProfilePage }
+      { path: 'profile', component: ProfilePage },
+      { path: '**', redirectTo: '/create' }
     ]
   },
   {
