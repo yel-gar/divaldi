@@ -1,12 +1,5 @@
 @use '../../../fonts';
 
-:host {
-  background-color: var(--color-secondary);
-  height: 100dvh;
-  padding: 30px 30px;
-  position: relative;
-}
-
 .logo {
   display: flex;
   align-items: center;
@@ -47,6 +40,13 @@
       background: var(--color-hover-secondary);
     }
 
+    &:focus-visible {
+      outline: 2px solid var(--color-main);
+      outline-offset: 2px;
+
+      background: var(--color-hover-secondary);
+    }
+
     &.active-link {
       border-left: 5px solid var(--color-main);
       border-radius: 5px;
@@ -58,6 +58,8 @@
   position: absolute;
   bottom: 20px;
 
+  cursor: pointer;
+
   display: flex;
   gap: 5px;
   width: calc(100% - 60px);
@@ -66,6 +68,17 @@
   border-radius: 10px;
 
   &:hover {
+    background: var(--color-hover-secondary);
+  }
+
+  &.active {
+    background: var(--color-hover-secondary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-main);
+    outline-offset: 2px;
+
     background: var(--color-hover-secondary);
   }
 
