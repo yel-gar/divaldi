@@ -1,6 +1,6 @@
 import { Injectable, InjectionToken, inject } from '@angular/core';
 import { Observable, Subject, Subscription } from 'rxjs';
-import { UploadItem } from './upload.model';
+import { UploadItem } from '../models/models';
 
 export interface UploadSimulatorTiming {
   readonly minChunkMs: number;
@@ -32,7 +32,7 @@ interface ChunkTimer {
 }
 
 @Injectable({ providedIn: 'root' })
-export class UploadSimulator {
+export class UploadSimulatorService {
   private readonly timing = inject(UPLOAD_SIMULATOR_TIMING);
 
   upload(item: UploadItem, options: UploadSimulatorOptions = {}): Observable<number> {

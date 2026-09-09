@@ -28,12 +28,12 @@ import {
   UploadSpeedSample,
   UploadState,
   VISIBLE_FILES_LIMIT
-} from './upload.model';
-import { formatBytes, formatEta, formatSpeed, getFileExtension } from './upload-format';
+} from '../../../core/models/models';
+import { formatBytes, formatEta, formatSpeed, getFileExtension } from '../../utils/upload-format';
 import { createId } from '../../utils/create-id';
 import { previewKindFor } from './file-preview.model';
 import { FilePreviewComponent } from './file-preview.component';
-import { UploadSimulator } from './upload-simulator.service';
+import { UploadSimulatorService } from '../../../core/services/upload-simulator.service';
 import {
   FILE_TYPE_CAD,
   FILE_TYPE_EXCEL,
@@ -108,7 +108,7 @@ export class DragNDropComponent implements OnDestroy {
 
   readonly previewKindFor = previewKindFor;
 
-  private readonly simulator = inject(UploadSimulator);
+  private readonly simulator = inject(UploadSimulatorService);
 
   private readonly activeUploads = new Map<string, Subscription>();
   private readonly speedSamples: UploadSpeedSample[] = [];

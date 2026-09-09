@@ -6,10 +6,10 @@ import { Observable } from 'rxjs';
 import { DragNDropComponent } from './drag-n-drop.component';
 import {
   UPLOAD_SIMULATOR_TIMING,
-  UploadSimulator,
+  UploadSimulatorService,
   UploadSimulatorOptions
-} from './upload-simulator.service';
-import { UploadItem } from './upload.model';
+} from '../../../core/services/upload-simulator.service';
+import { UploadItem } from '../../../core/models/models';
 
 const MB = 1024 * 1024;
 
@@ -49,14 +49,14 @@ function makeItem(overrides: Partial<UploadItem> = {}): UploadItem {
 })
 class TestHost {}
 
-describe('UploadSimulator', () => {
-  let simulator: UploadSimulator;
+describe('UploadSimulatorService', () => {
+  let simulator: UploadSimulatorService;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [{ provide: UPLOAD_SIMULATOR_TIMING, useValue: FAST_TIMING }]
     });
-    simulator = TestBed.inject(UploadSimulator);
+    simulator = TestBed.inject(UploadSimulatorService);
   });
 
   it('emits growing uploaded byte counts and completes at the item size', async () => {
@@ -268,7 +268,7 @@ describe('DragNDropComponent accessibility', () => {
       .componentInstance as DragNDropComponent;
 
     uploadSpy = vi
-      .spyOn(TestBed.inject(UploadSimulator), 'upload')
+      .spyOn(TestBed.inject(UploadSimulatorService), 'upload')
       .mockImplementation(() => new Observable<number>(() => () => undefined));
 
     fixture.detectChanges();
@@ -356,7 +356,7 @@ describe('DragNDropComponent with controlled simulator', () => {
 
     lastOptions = null;
     uploadSpy = vi
-      .spyOn(TestBed.inject(UploadSimulator), 'upload')
+      .spyOn(TestBed.inject(UploadSimulatorService), 'upload')
       .mockImplementation((item: UploadItem, options: UploadSimulatorOptions = {}) => {
         lastOptions = options;
         let uploaded = 0;

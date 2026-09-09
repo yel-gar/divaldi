@@ -5,7 +5,10 @@ import { By } from '@angular/platform-browser';
 import { previewKindFor, mimeTypeFor } from './file-preview.model';
 import { FilePreviewComponent } from './file-preview.component';
 import { DragNDropComponent } from './drag-n-drop.component';
-import { UPLOAD_SIMULATOR_TIMING, UploadSimulator } from './upload-simulator.service';
+import {
+  UPLOAD_SIMULATOR_TIMING,
+  UploadSimulatorService
+} from '../../../core/services/upload-simulator.service';
 import { Observable } from 'rxjs';
 
 const FAST_TIMING = { minChunkMs: 5, maxChunkMs: 10 };
@@ -227,7 +230,7 @@ describe('DragNDropComponent preview integration', () => {
       .componentInstance as DragNDropComponent;
 
     completers = new Map();
-    uploadSpy = vi.spyOn(TestBed.inject(UploadSimulator), 'upload').mockImplementation(
+    uploadSpy = vi.spyOn(TestBed.inject(UploadSimulatorService), 'upload').mockImplementation(
       (item) =>
         new Observable<number>((observer) => {
           completers.set(item.id, () => {

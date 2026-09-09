@@ -16,7 +16,7 @@ import {
 } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
 import { LucideFileWarning, LucideLoaderCircle, LucideX } from '@lucide/angular';
-import { getFileExtension } from './upload-format';
+import { getFileExtension } from '../../utils/upload-format';
 import { PreviewKind, mimeTypeFor, previewKindFor } from './file-preview.model';
 
 @Component({
