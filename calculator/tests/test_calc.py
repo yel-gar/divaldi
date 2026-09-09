@@ -234,12 +234,11 @@ def test_load_material_prices(template_path: str) -> None:
         "2,0 мм Оц. Сталь (2500х1250)",
         "3,0 мм Ст3 (3000х1500)",
     ]
-    found_any = False
     for mat in known_materials:
-        if mat in prices and prices[mat] > 0:
-            found_any = True
-            break
-    assert found_any, f"No known materials found in {list(prices.keys())[:5]}"
+        assert mat in prices, f"Material '{mat}' not found in prices"
+        assert (
+            prices[mat] > 0
+        ), f"Material '{mat}' has non-positive price: {prices[mat]}"
 
 
 def test_write_position(template_path: str) -> None:

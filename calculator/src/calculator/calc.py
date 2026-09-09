@@ -8,6 +8,7 @@ will recalculate automatically when the file is opened by the user.
 """
 
 import json
+import math
 import shutil
 from pathlib import Path
 from typing import Any
@@ -94,7 +95,15 @@ def _validate_positions(
             if field not in pos:
                 raise ValueError(f"Position {idx+1} missing required field: {field}")
 
-        material = pos.get("material", "").strip()
+        material = pos.get("material")
+        if not isinstance(material, str):
+            raise ValueError(
+                f"Position {idx+1}: material must be a string, got {type(material).__name__}."
+            )
+        material = material.strip()
+        if not material:
+            raise ValueError(f"Position {idx+1}: material is empty.")
+
         if material not in material_prices:
             raise ValueError(
                 f"Position {idx+1}: unknown material '{material}'. "
@@ -103,7 +112,11 @@ def _validate_positions(
 
         for field in numeric_fields:
             try:
-                float(pos[field])
+                val = float(pos[field])
+                if not math.isfinite(val):
+                    raise ValueError(
+                        f"Position {idx+1}: field '{field}' is not a finite number: {pos[field]}"
+                    )
             except (ValueError, TypeError):
                 raise ValueError(
                     f"Position {idx+1}: field '{field}' is not a number: {pos[field]}"
