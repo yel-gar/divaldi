@@ -17,6 +17,7 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    mem_limit: 1G
 
   backend:
     build: ./backend
@@ -31,6 +32,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+    mem_limit: 1G
 
   db:
     image: postgres:18-alpine
@@ -45,9 +49,48 @@ services:
           "CMD-SHELL",
           "pg_isready -U ${POSTGRES_USER:-divaldi} -d ${POSTGRES_DB:-divaldi}",
         ]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    shm_size: '512mb'
+    mem_limit: 2G
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+      - ./conf/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    mem_limit: 2G
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    restart: unless-stopped
+    ports:
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:?}
+      RABBITMQ_DEFAULT_VHOST: taskiq
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    mem_limit: 2G
 
 volumes:
   postgres_data:
+  redis_data:
+  rabbitmq_data:

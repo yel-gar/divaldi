@@ -35,13 +35,16 @@ PS> Copy-Item docker-compose.override.yml.dev docker-compose.override.yml
 ## Environment Variables
 You should generally only touch variables marked as **Required**.
 
-| **Variable**      | **Description**                                                                                                         | **Required** | **Default**           |
-|-------------------|-------------------------------------------------------------------------------------------------------------------------|--------------|-----------------------|
-| DEBUG             | Set debug mode for app, debug allows insecure cookies. Set to one of `0, no, false` to disable, otherwise it's enabled. | ✅           | 1                     |
-| BACKEND_URL       | Deployed backend URL where clients will make requests to. Injected into the frontend build and used by the backend.     | ✅           | http://localhost:3000 |
-| FRONTEND_URL      | Deployed frontend URL used by the backend (e.g. for CORS / redirects).                                                  | ✅           | http://localhost:8080 |
-| FRONTEND_PORT     | Port on which frontend will run.                                                                                        | ❌           | 8080                  |
-| BACKEND_PORT      | Port on which backend will run.                                                                                         | ❌           | 3000                  |
-| POSTGRES_USER     | Database user.                                                                                                          | ❌           | divaldi               |
-| POSTGRES_DB       | Database name.                                                                                                          | ❌           | divaldi               |
-| POSTGRES_PASSWORD | Database password. Set it to something secure, you can get a secret with `openssl rand -hex 48`.                        | ✅           |                       |
+| **Variable**             | **Description**                                                                                                         | **Required** | **Default**           |
+|--------------------------|-------------------------------------------------------------------------------------------------------------------------|--------------|-----------------------|
+| DEBUG                    | Set debug mode for app, debug allows insecure cookies. Set to one of `0, no, false` to disable, otherwise it's enabled. | ✅           | 1                     |
+| BACKEND_URL              | Deployed backend URL where clients will make requests to. Injected into the frontend build and used by the backend.     | ✅           | http://localhost:3000 |
+| FRONTEND_URL             | Deployed frontend URL used by the backend (e.g. for CORS / redirects).                                                  | ✅           | http://localhost:8080 |
+| FRONTEND_PORT            | Port on which frontend will run.                                                                                        | ❌           | 8080                  |
+| BACKEND_PORT             | Port on which backend will run.                                                                                         | ❌           | 3000                  |
+| POSTGRES_USER            | Database user.                                                                                                          | ❌           | divaldi               |
+| POSTGRES_DB              | Database name.                                                                                                          | ❌           | divaldi               |
+| POSTGRES_PASSWORD        | Database password. Set it to something secure, you can get a secret with `openssl rand -hex 48`.                        | ✅           |                       |
+| RABBITMQ_USER            | User for RabbitMQ admin panel                                                                                           | ❌           | admin                 |
+| RABBITMQ_PASS            | Password for RabbitMQ admin panel                                                                                       | ✅           |                       |
+| RABBITMQ_MANAGEMENT_PORT | Port on which RabbitMQ management interface will run                                                                    | ❌           | 15672                 |
