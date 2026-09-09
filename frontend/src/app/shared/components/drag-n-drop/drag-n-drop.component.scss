@@ -1,0 +1,401 @@
+:host {
+  display: block;
+}
+
+.dropzone {
+  cursor: pointer;
+
+  border: 2px dashed var(--color-outline);
+  border-radius: 8px;
+
+  width: 100%;
+  padding: 32px;
+
+  text-align: center;
+
+  font-weight: 400;
+  color: var(--color-gray);
+
+  transition:
+    border-color 300ms,
+    background-color 300ms;
+
+  &--drag {
+    border-color: var(--color-main);
+    background: color-mix(in srgb, var(--color-main) 6%, transparent);
+  }
+
+  &:hover,
+  &:has(.dropzone__area:focus-visible) {
+    border-color: var(--color-hover);
+  }
+
+  &:has(.dropzone__area:focus-visible) {
+    outline: 2px solid var(--color-main);
+    outline-offset: 2px;
+  }
+
+  &__area {
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  &__text {
+    line-height: 1.75;
+  }
+
+  &__icon {
+    width: 100%;
+
+    stroke: var(--color-main);
+  }
+}
+
+.uploader {
+  border: 1px solid var(--color-outline);
+  border-radius: 8px;
+
+  overflow: hidden;
+  background: var(--color-white);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--color-outline);
+  }
+
+  &__progress-circle {
+    position: relative;
+
+    width: 48px;
+    height: 48px;
+
+    flex-shrink: 0;
+
+    svg {
+      width: 100%;
+      height: 100%;
+
+      fill: none;
+
+      transform: rotate(-90deg);
+    }
+  }
+
+  &__progress-track {
+    stroke: var(--color-secondary);
+    stroke-width: 4;
+  }
+
+  &__progress-bar {
+    stroke: var(--color-main);
+    stroke-width: 4;
+    stroke-linecap: round;
+
+    transition: stroke-dashoffset 300ms ease;
+  }
+
+  &__progress-value {
+    position: absolute;
+    inset: 0;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  &__summary {
+    flex: 1;
+
+    line-height: 1.5;
+
+    min-width: 0;
+  }
+
+  &__title {
+    color: var(--color-text);
+  }
+
+  &__meta {
+    margin-top: 4px;
+
+    color: var(--color-gray);
+  }
+
+  &__collapse,
+  &__show-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+
+    padding: 6px 10px;
+
+    color: var(--color-gray);
+    background: none;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+
+    transition:
+      color 0.15s ease,
+      background-color 0.15s ease;
+
+    &:hover {
+      color: var(--color-main);
+      background: var(--color-hover-secondary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-main);
+      outline-offset: 2px;
+    }
+  }
+
+  &__chevron {
+    transition: transform 0.2s ease;
+
+    &--rotated {
+      transform: rotate(180deg);
+    }
+  }
+
+  &__list {
+    margin: 0;
+    padding: 8px 0;
+
+    list-style: none;
+
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    padding: 10px 20px;
+    border-top: 1px solid var(--color-outline);
+
+    color: var(--color-gray);
+  }
+}
+
+.upload-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  padding: 20px 20px;
+
+  transition: background-color 0.15s ease;
+
+  &:hover {
+    background: var(--color-secondary);
+  }
+
+  &__icon-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    width: 36px;
+    height: 36px;
+
+    flex-shrink: 0;
+
+    border-radius: 9px;
+
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, currentColor 16%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--color-white) 35%, transparent);
+  }
+
+  &__icon {
+    display: block;
+  }
+
+  &__info {
+    flex: 1;
+
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    min-width: 0;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    &--meta {
+      gap: 10px;
+    }
+  }
+
+  &__name {
+    flex: 1;
+
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text);
+  }
+
+  &__size {
+    flex-shrink: 0;
+
+    min-width: 110px;
+
+    color: var(--color-gray);
+  }
+
+  &__progress-track {
+    flex: 1;
+
+    max-width: 240px;
+    height: 4px;
+
+    background: var(--color-secondary);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  &__progress-fill {
+    height: 100%;
+
+    background: var(--color-main);
+    border-radius: 2px;
+
+    transition: width 300ms ease;
+  }
+
+  &__percent {
+    flex-shrink: 0;
+
+    min-width: 32px;
+    text-align: right;
+
+    color: var(--color-gray);
+  }
+
+  &__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+
+    flex-shrink: 0;
+
+    padding: 2px 8px;
+
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-gray);
+    background: var(--color-secondary);
+    border-radius: 999px;
+
+    &-text {
+      white-space: nowrap;
+    }
+
+    &--done {
+      color: var(--color-success-text);
+      background: color-mix(in srgb, var(--color-success) 10%, transparent);
+    }
+
+    &--error {
+      color: var(--color-danger);
+      background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+    }
+  }
+
+  &__spinner {
+    animation: upload-item-spin 1s linear infinite;
+  }
+
+  &__actions {
+    display: inline-flex;
+    gap: 4px;
+
+    flex-shrink: 0;
+  }
+
+  &__action {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    width: 28px;
+    height: 28px;
+
+    color: var(--color-gray);
+    background: none;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+
+    transition:
+      color 0.15s ease,
+      background-color 0.15s ease;
+
+    &:hover {
+      color: var(--color-main);
+      background: var(--color-hover-secondary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-main);
+      outline-offset: 2px;
+    }
+
+    &--retry {
+      color: var(--color-danger);
+
+      &:hover {
+        color: var(--color-danger);
+        background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+      }
+    }
+  }
+}
+
+@keyframes upload-item-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upload-item__spinner {
+    animation: none;
+  }
+
+  .upload-item__progress-fill,
+  .uploader__progress-bar,
+  .uploader__chevron {
+    transition: none;
+  }
+}
