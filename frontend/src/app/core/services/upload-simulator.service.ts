@@ -1,5 +1,5 @@
 import { Injectable, InjectionToken, inject } from '@angular/core';
-import { Observable, Subject, Subscription } from 'rxjs';
+import { Observable } from 'rxjs';
 import { UploadItem } from '../models/models';
 
 export interface UploadSimulatorTiming {
@@ -27,10 +27,6 @@ export const UPLOAD_SIMULATOR_TIMING = new InjectionToken<UploadSimulatorTiming>
 const MIN_CHUNK_BYTES = 64 * 1024;
 const MAX_CHUNK_BYTES_RATIO = 0.18;
 
-interface ChunkTimer {
-  readonly subscription: Subscription;
-}
-
 @Injectable({ providedIn: 'root' })
 export class UploadSimulatorService {
   private readonly timing = inject(UPLOAD_SIMULATOR_TIMING);
@@ -38,7 +34,7 @@ export class UploadSimulatorService {
   upload(item: UploadItem, options: UploadSimulatorOptions = {}): Observable<number> {
     return new Observable<number>((observer) => {
       let disposed = false;
-      let current: ChunkTimer | null = null;
+      let timerId: ReturnType<typeof setTimeout> | null = null;
       let uploaded = Math.min(item.uploaded, item.size);
 
       const scheduleChunk = (): void => {
@@ -52,33 +48,28 @@ export class UploadSimulatorService {
         const chunkBytes = this.chunkSize(item.size);
         const { minChunkMs, maxChunkMs } = this.timing;
         const delay = minChunkMs + Math.random() * (maxChunkMs - minChunkMs);
-        const timer = new Subject<void>();
-        const subscription = timer.subscribe({
-          next: () => {
-            if (disposed) {
-              return;
-            }
-            uploaded = Math.min(uploaded + chunkBytes, item.size);
-            observer.next(uploaded);
-            options.onProgress?.(uploaded);
-            scheduleChunk();
+        timerId = setTimeout(() => {
+          timerId = null;
+          if (disposed) {
+            return;
           }
-        });
-        current = { subscription };
-        this.setTimer(timer, delay);
+          uploaded = Math.min(uploaded + chunkBytes, item.size);
+          observer.next(uploaded);
+          options.onProgress?.(uploaded);
+          scheduleChunk();
+        }, delay);
       };
 
       scheduleChunk();
 
       return () => {
         disposed = true;
-        current?.subscription.unsubscribe();
+        if (timerId !== null) {
+          clearTimeout(timerId);
+          timerId = null;
+        }
       };
     });
-  }
-
-  private setTimer(subject: Subject<void>, delay: number): void {
-    setTimeout(() => subject.next(), delay);
   }
 
   private chunkSize(totalSize: number): number {
