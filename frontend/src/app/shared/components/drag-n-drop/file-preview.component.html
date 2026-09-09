@@ -1,0 +1,43 @@
+<dialog
+  #dialogEl
+  class="file-preview"
+  tabindex="-1"
+  aria-labelledby="file-preview-title"
+  (click)="onBackdropClick($event)"
+  (cancel)="$event.preventDefault(); close()"
+  (keydown.escape)="close()"
+>
+  <div class="file-preview__panel">
+    <header class="file-preview__header">
+      <div class="file-preview__heading">
+        <h2 id="file-preview-title" class="file-preview__title h3">{{ file().name }}</h2>
+        <span class="file-preview__chip h5">{{ extLabel() }}</span>
+      </div>
+
+      <button
+        type="button"
+        class="file-preview__close"
+        aria-label="Закрыть предпросмотр"
+        (click)="close()"
+      >
+        <svg size="20" lucideX></svg>
+      </button>
+    </header>
+
+    <div class="file-preview__body">
+      @if (phase() === 'loading') {
+        <div class="file-preview__placeholder" role="status">
+          <svg size="32" class="file-preview__spinner" lucideLoaderCircle></svg>
+          <p class="h5">Загрузка предпросмотра…</p>
+        </div>
+      } @else if (phase() === 'error') {
+        <div class="file-preview__placeholder" role="alert">
+          <svg size="32" class="file-preview__warning" lucideFileWarning></svg>
+          <p class="h5">Не удалось открыть предпросмотр этого файла</p>
+        </div>
+      }
+
+      <div #bodyHost class="file-preview__content" role="status"></div>
+    </div>
+  </div>
+</dialog>
