@@ -1,0 +1,233 @@
+:host {
+  display: block;
+}
+
+.select {
+  position: relative;
+  width: 100%;
+}
+
+.select__trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+
+  padding: 10px 14px;
+
+  font: inherit;
+  text-align: left;
+
+  background: var(--color-white);
+  color: var(--color-text);
+  border: 1px solid var(--color-outline);
+  border-radius: 8px;
+
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.select__trigger:focus-visible {
+  outline: none;
+  border-color: var(--color-main);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-main) 15%, transparent);
+}
+
+.select--open .select__trigger {
+  border-color: var(--color-main);
+}
+
+.select--open .select__chevron {
+  transform: rotate(180deg);
+}
+
+.select--dropup .select__listbox {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+.select--disabled .select__trigger {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.select--error .select__trigger {
+  border-color: var(--color-danger);
+
+  &:focus-visible {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-danger) 15%, transparent);
+  }
+}
+
+.select__value {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.select__value--placeholder {
+  opacity: 0.45;
+}
+
+.select__chevron {
+  flex-shrink: 0;
+  color: var(--color-text);
+  opacity: 0.55;
+  transition: transform 0.2s ease;
+}
+
+.select__listbox {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+
+  background: var(--color-white);
+  border: 1px solid var(--color-outline);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-black) 8%, transparent);
+  list-style: none;
+}
+
+.select__listbox--enter {
+  animation: select-listbox-in 0.15s ease both;
+}
+
+.select__listbox--leave {
+  animation: select-listbox-out 0.12s ease both;
+}
+
+.select--dropup .select__listbox--enter {
+  animation-name: select-listbox-in-up;
+}
+
+.select--dropup .select__listbox--leave {
+  animation-name: select-listbox-out-up;
+}
+
+@keyframes select-listbox-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes select-listbox-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes select-listbox-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes select-listbox-out-up {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .select__listbox--enter,
+  .select__listbox--leave {
+    animation: none;
+  }
+
+  .select__chevron,
+  .select__option {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .select__listbox {
+    transform-origin: top;
+  }
+
+  .select--dropup .select__listbox {
+    transform-origin: bottom;
+  }
+}
+
+.select__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 9px 10px;
+
+  color: var(--color-text);
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    background-color 0.1s ease,
+    color 0.1s ease;
+}
+
+.select__option--highlighted,
+.select__option:hover {
+  background: var(--color-hover-secondary);
+  color: var(--color-main);
+  cursor: pointer;
+}
+
+.select__option--selected {
+  background: var(--color-hover-secondary);
+  color: var(--color-main);
+  cursor: default;
+}
+
+.select__option-check {
+  flex-shrink: 0;
+  color: var(--color-main);
+}
+
+.select__option-label {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.select__empty {
+  padding: 9px 10px;
+
+  opacity: 0.45;
+  cursor: default;
+}

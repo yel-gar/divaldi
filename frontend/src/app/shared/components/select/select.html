@@ -1,0 +1,64 @@
+<div
+  class="select"
+  [class.select--open]="isOpen()"
+  [class.select--disabled]="isDisabled()"
+  [class.select--error]="showError()"
+  [class.select--dropup]="dropUp()"
+>
+  <button
+    #trigger
+    type="button"
+    role="combobox"
+    class="select__trigger"
+    aria-haspopup="listbox"
+    [attr.aria-invalid]="showError()"
+    [attr.aria-label]="label()"
+    [attr.aria-labelledby]="labelId()"
+    [attr.aria-expanded]="isOpen()"
+    [attr.aria-controls]="isOpen() ? listboxId : null"
+    [attr.aria-activedescendant]="isOpen() ? listboxId + '-' + highlightedIndex() : null"
+    [attr.aria-disabled]="isDisabled()"
+    (click)="toggle()"
+    (keydown)="onKeydown($event)"
+  >
+    <span class="select__value" [class.select__value--placeholder]="!value()">
+      {{ selectedLabel() }}
+    </span>
+    <svg class="select__chevron" lucideChevronDown size="18" aria-hidden="true"></svg>
+  </button>
+
+  @if (isOpen()) {
+  <ul
+    #listbox
+    role="listbox"
+    class="select__listbox"
+    [id]="listboxId"
+    animate.enter="select__listbox--enter"
+    animate.leave="select__listbox--leave"
+  >
+    @for (option of options(); track option.value; let i = $index) {
+    <li
+      role="option"
+      class="select__option"
+      [id]="listboxId + '-' + i"
+      [class.select__option--highlighted]="i === highlightedIndex()"
+      [class.select__option--selected]="isSelected(option)"
+      [attr.aria-selected]="isSelected(option)"
+      (mouseenter)="onOptionHover(i)"
+      (mousedown)="$event.preventDefault()"
+      (click)="selectOption(option)"
+      (keydown.enter)="selectOption(option)"
+      (keydown.space)="selectOption(option)"
+      tabindex="-1"
+    >
+      <span class="select__option-label">{{ option.label }}</span>
+      @if (isSelected(option)) {
+      <svg class="select__option-check" lucideCheck size="16" aria-hidden="true"></svg>
+      }
+    </li>
+    } @empty {
+    <li class="select__empty">Ничего не найдено</li>
+    }
+  </ul>
+  }
+</div>
