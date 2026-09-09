@@ -340,32 +340,12 @@
   }
 
   &__action {
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    padding: 0;
 
     width: 28px;
     height: 28px;
 
-    color: var(--color-gray);
-    background: none;
-    border: none;
     border-radius: 6px;
-    cursor: pointer;
-
-    transition:
-      color 0.15s ease,
-      background-color 0.15s ease;
-
-    &:hover {
-      color: var(--color-main);
-      background: var(--color-hover-secondary);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--color-main);
-      outline-offset: 2px;
-    }
 
     &--retry {
       color: var(--color-danger);

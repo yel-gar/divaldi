@@ -184,7 +184,7 @@
             @if (item.status === 'error') {
               <button
                 type="button"
-                class="upload-item__action upload-item__action--retry"
+                class="button button--outline upload-item__action upload-item__action--retry"
                 aria-label="Повторить"
                 title="Повторить"
                 (click)="retryItem(item.id)"
@@ -198,7 +198,7 @@
                 @if (previewKindFor(item.extension)) {
                   <button
                     type="button"
-                    class="upload-item__action"
+                    class="button button--outline upload-item__action"
                     aria-label="Предпросмотр"
                     (click)="openPreview(item)"
                   >
@@ -207,7 +207,7 @@
                 }
                 <button
                   type="button"
-                  class="upload-item__action"
+                  class="button button--outline upload-item__action"
                   aria-label="Удалить"
                   (click)="removeItem(item.id)"
                 >
