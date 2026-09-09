@@ -4,27 +4,23 @@ Tests for calc module (Excel template filler).
 
 import json
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
 from openpyxl import load_workbook
 
-# Add src to Python path for imports
-import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from calculator.calc import (
-    process_calculation,
-    _load_material_prices,
-    _write_position,
+    BENDING_RATE,
     LASER_SPEED,
     WELDING_SPEED,
-    BENDING_RATE,
-    PAINTING_RATE,
+    _load_material_prices,
+    _write_position,
+    process_calculation,
 )
 
-
-# ---- Fixtures ----
 
 @pytest.fixture
 def template_path(tmp_path) -> str:
@@ -50,59 +46,63 @@ def template_path(tmp_path) -> str:
 @pytest.fixture
 def sample_json_single() -> str:
     """Valid JSON with a single position."""
-    return json.dumps({
-        "positions": [
-            {
-                "name": "Bracket support",
-                "material": "1,5 мм Оц. Сталь (2500х1250)",
-                "area_m2": 0.8,
-                "laser_m": 2.5,
-                "bends": 12,
-                "welding_m": 0.5,
-                "turning_hours": 0.0,
-                "painting_m2": 0.8
-            }
-        ]
-    })
+    return json.dumps(
+        {
+            "positions": [
+                {
+                    "name": "Bracket support",
+                    "material": "1,5 мм Оц. Сталь (2500х1250)",
+                    "area_m2": 0.8,
+                    "laser_m": 2.5,
+                    "bends": 12,
+                    "welding_m": 0.5,
+                    "turning_hours": 0.0,
+                    "painting_m2": 0.8,
+                }
+            ]
+        }
+    )
 
 
 @pytest.fixture
 def sample_json_multiple() -> str:
     """Valid JSON with 3 positions."""
-    return json.dumps({
-        "positions": [
-            {
-                "name": "Part A",
-                "material": "1,5 мм Оц. Сталь (2500х1250)",
-                "area_m2": 0.8,
-                "laser_m": 2.5,
-                "bends": 12,
-                "welding_m": 0.5,
-                "turning_hours": 0.0,
-                "painting_m2": 0.8
-            },
-            {
-                "name": "Part B",
-                "material": "2,0 мм Оц. Сталь (2500х1250)",
-                "area_m2": 1.2,
-                "laser_m": 3.0,
-                "bends": 8,
-                "welding_m": 0.0,
-                "turning_hours": 0.5,
-                "painting_m2": 0.0
-            },
-            {
-                "name": "Part C",
-                "material": "3,0 мм Ст3 (3000х1500)",
-                "area_m2": 2.0,
-                "laser_m": 4.0,
-                "bends": 0,
-                "welding_m": 1.0,
-                "turning_hours": 0.0,
-                "painting_m2": 1.5
-            }
-        ]
-    })
+    return json.dumps(
+        {
+            "positions": [
+                {
+                    "name": "Part A",
+                    "material": "1,5 мм Оц. Сталь (2500х1250)",
+                    "area_m2": 0.8,
+                    "laser_m": 2.5,
+                    "bends": 12,
+                    "welding_m": 0.5,
+                    "turning_hours": 0.0,
+                    "painting_m2": 0.8,
+                },
+                {
+                    "name": "Part B",
+                    "material": "2,0 мм Оц. Сталь (2500х1250)",
+                    "area_m2": 1.2,
+                    "laser_m": 3.0,
+                    "bends": 8,
+                    "welding_m": 0.0,
+                    "turning_hours": 0.5,
+                    "painting_m2": 0.0,
+                },
+                {
+                    "name": "Part C",
+                    "material": "3,0 мм Ст3 (3000х1500)",
+                    "area_m2": 2.0,
+                    "laser_m": 4.0,
+                    "bends": 0,
+                    "welding_m": 1.0,
+                    "turning_hours": 0.0,
+                    "painting_m2": 1.5,
+                },
+            ]
+        }
+    )
 
 
 @pytest.fixture
@@ -111,12 +111,8 @@ def output_path(tmp_path) -> str:
     return str(tmp_path / "result.xlsx")
 
 
-# ---- Tests for process_calculation ----
-
 def test_process_calculation_success(
-    template_path: str,
-    sample_json_single: str,
-    output_path: str
+    template_path: str, sample_json_single: str, output_path: str
 ) -> None:
     """Test successful processing of a single position."""
     result_path = process_calculation(sample_json_single, template_path, output_path)
@@ -128,7 +124,6 @@ def test_process_calculation_success(
 
     assert calc_sheet.cell(row=3, column=3).value == "1,5 мм Оц. Сталь (2500х1250)"
     assert calc_sheet.cell(row=3, column=5).value == 0.8
-    # Price per m² should be a number (not None)
     price = calc_sheet.cell(row=3, column=4).value
     assert price is not None and price > 0
     assert calc_sheet.cell(row=3, column=8).value == pytest.approx(0.25)
@@ -140,9 +135,7 @@ def test_process_calculation_success(
 
 
 def test_process_calculation_multiple_positions(
-    template_path: str,
-    sample_json_multiple: str,
-    output_path: str
+    template_path: str, sample_json_multiple: str, output_path: str
 ) -> None:
     """Test processing multiple positions (up to 10)."""
     process_calculation(sample_json_multiple, template_path, output_path)
@@ -159,27 +152,27 @@ def test_process_calculation_multiple_positions(
 
 
 def test_process_calculation_clears_old_data(
-    template_path: str,
-    sample_json_single: str,
-    output_path: str
+    template_path: str, sample_json_single: str, output_path: str
 ) -> None:
     """Test that old data is cleared before writing new data."""
     process_calculation(sample_json_single, template_path, output_path)
 
-    new_json = json.dumps({
-        "positions": [
-            {
-                "name": "Another part",
-                "material": "2,0 мм Оц. Сталь (2500х1250)",
-                "area_m2": 1.0,
-                "laser_m": 1.0,
-                "bends": 0,
-                "welding_m": 0.0,
-                "turning_hours": 0.0,
-                "painting_m2": 0.0
-            }
-        ]
-    })
+    new_json = json.dumps(
+        {
+            "positions": [
+                {
+                    "name": "Another part",
+                    "material": "2,0 мм Оц. Сталь (2500х1250)",
+                    "area_m2": 1.0,
+                    "laser_m": 1.0,
+                    "bends": 0,
+                    "welding_m": 0.0,
+                    "turning_hours": 0.0,
+                    "painting_m2": 0.0,
+                }
+            ]
+        }
+    )
     process_calculation(new_json, template_path, output_path)
 
     wb = load_workbook(output_path)
@@ -188,16 +181,13 @@ def test_process_calculation_clears_old_data(
     assert calc_sheet.cell(row=3, column=3).value == "2,0 мм Оц. Сталь (2500х1250)"
     assert calc_sheet.cell(row=3, column=5).value == 1.0
     assert calc_sheet.cell(row=3, column=8).value == pytest.approx(1.0 / LASER_SPEED)
-    # Second position should be empty
     assert calc_sheet.cell(row=12, column=3).value is None
     assert calc_sheet.cell(row=12, column=5).value is None
     assert calc_sheet.cell(row=12, column=8).value is None
 
 
 def test_process_calculation_creates_output_directory(
-    template_path: str,
-    sample_json_single: str,
-    tmp_path: Path
+    template_path: str, sample_json_single: str, tmp_path: Path
 ) -> None:
     """Test that the output directory is created if it doesn't exist."""
     deep_path = tmp_path / "sub" / "dir" / "result.xlsx"
@@ -207,16 +197,13 @@ def test_process_calculation_creates_output_directory(
     assert deep_path.exists()
 
 
-# ---- Error handling tests ----
-
 def test_process_calculation_invalid_json(template_path: str, output_path: str) -> None:
     with pytest.raises(ValueError, match="Invalid JSON"):
         process_calculation("{not json", template_path, output_path)
 
 
 def test_process_calculation_missing_positions(
-    template_path: str,
-    output_path: str
+    template_path: str, output_path: str
 ) -> None:
     json_no_positions = json.dumps({"other": "data"})
     with pytest.raises(ValueError, match="missing 'positions' key"):
@@ -224,8 +211,7 @@ def test_process_calculation_missing_positions(
 
 
 def test_process_calculation_empty_positions(
-    template_path: str,
-    output_path: str
+    template_path: str, output_path: str
 ) -> None:
     json_empty = json.dumps({"positions": []})
     with pytest.raises(ValueError, match="missing 'positions' key or it is empty"):
@@ -233,49 +219,20 @@ def test_process_calculation_empty_positions(
 
 
 def test_process_calculation_template_not_found(
-    sample_json_single: str,
-    output_path: str
+    sample_json_single: str, output_path: str
 ) -> None:
     with pytest.raises(FileNotFoundError, match="Template file not found"):
         process_calculation(sample_json_single, "/non/existent/file.xlsx", output_path)
 
 
-def test_process_calculation_missing_material(
-    template_path: str,
-    output_path: str
-) -> None:
-    json_with_unknown = json.dumps({
-        "positions": [
-            {
-                "name": "Unknown",
-                "material": "Non-existent material",
-                "area_m2": 1.0,
-                "laser_m": 1.0,
-                "bends": 0,
-                "welding_m": 0.0,
-                "turning_hours": 0.0,
-                "painting_m2": 0.0
-            }
-        ]
-    })
-    result = process_calculation(json_with_unknown, template_path, output_path)
-    wb = load_workbook(result)
-    calc_sheet = wb["Расчёт"]
-    # Price per m² should be 0 (fallback)
-    assert calc_sheet.cell(row=3, column=4).value == 0.0
-
-
-# ---- Tests for internal functions ----
-
 def test_load_material_prices(template_path: str) -> None:
     """Test that _load_material_prices reads calculated values correctly."""
     prices = _load_material_prices(template_path)
     assert isinstance(prices, dict)
-    # Check that at least one known material exists and has a positive price
     known_materials = [
         "1,5 мм Оц. Сталь (2500х1250)",
         "2,0 мм Оц. Сталь (2500х1250)",
-        "3,0 мм Ст3 (3000х1500)"
+        "3,0 мм Ст3 (3000х1500)",
     ]
     found_any = False
     for mat in known_materials:
@@ -291,7 +248,6 @@ def test_write_position(template_path: str) -> None:
     calc_sheet = wb["Расчёт"]
     material_prices = _load_material_prices(template_path)  # use path to get prices
 
-    # Ensure we have at least one price to test with
     assert material_prices, "No material prices loaded"
 
     pos_data = {
@@ -301,7 +257,7 @@ def test_write_position(template_path: str) -> None:
         "bends": 12,
         "welding_m": 0.5,
         "turning_hours": 0.0,
-        "painting_m2": 0.8
+        "painting_m2": 0.8,
     }
 
     _write_position(calc_sheet, 3, pos_data, material_prices)
@@ -317,12 +273,8 @@ def test_write_position(template_path: str) -> None:
     assert calc_sheet.cell(row=7, column=5).value == 0.8
 
 
-# ---- Integration test ----
-
 def test_integration_with_real_template(
-    template_path: str,
-    sample_json_single: str,
-    tmp_path: Path
+    template_path: str, sample_json_single: str, tmp_path: Path
 ) -> None:
     out_file = tmp_path / "integration_result.xlsx"
     process_calculation(sample_json_single, template_path, str(out_file))
@@ -331,3 +283,93 @@ def test_integration_with_real_template(
     kp_sheet = wb["КП с ндс"]
     assert kp_sheet.cell(row=15, column=2).value == "=Расчёт!C3"
     assert kp_sheet.cell(row=15, column=4).value == "=Расчёт!L8"
+
+
+def test_process_calculation_too_many_positions(
+    template_path: str, output_path: str
+) -> None:
+    """Test that >10 positions raises ValueError."""
+    pos = {
+        "name": "Part",
+        "material": "1,5 мм Оц. Сталь (2500х1250)",
+        "area_m2": 0.8,
+        "laser_m": 2.5,
+        "bends": 12,
+        "welding_m": 0.5,
+        "turning_hours": 0.0,
+        "painting_m2": 0.8,
+    }
+    json_data = json.dumps({"positions": [pos] * 11})
+    with pytest.raises(ValueError, match="only 10 are supported"):
+        process_calculation(json_data, template_path, output_path)
+
+
+def test_process_calculation_unknown_material(
+    template_path: str, output_path: str
+) -> None:
+    """Test that unknown material raises ValueError."""
+    json_data = json.dumps(
+        {
+            "positions": [
+                {
+                    "name": "Unknown",
+                    "material": "Non-existent material",
+                    "area_m2": 1.0,
+                    "laser_m": 1.0,
+                    "bends": 0,
+                    "welding_m": 0.0,
+                    "turning_hours": 0.0,
+                    "painting_m2": 0.0,
+                }
+            ]
+        }
+    )
+    with pytest.raises(ValueError, match="unknown material"):
+        process_calculation(json_data, template_path, output_path)
+
+
+def test_process_calculation_invalid_number(
+    template_path: str, output_path: str
+) -> None:
+    """Test that non-numeric values raise ValueError."""
+    json_data = json.dumps(
+        {
+            "positions": [
+                {
+                    "name": "Invalid",
+                    "material": "1,5 мм Оц. Сталь (2500х1250)",
+                    "area_m2": "not a number",
+                    "laser_m": 2.5,
+                    "bends": 12,
+                    "welding_m": 0.5,
+                    "turning_hours": 0.0,
+                    "painting_m2": 0.8,
+                }
+            ]
+        }
+    )
+    with pytest.raises(ValueError, match="field 'area_m2' is not a number"):
+        process_calculation(json_data, template_path, output_path)
+
+
+def test_process_calculation_missing_field(
+    template_path: str, output_path: str
+) -> None:
+    """Test that missing required field raises ValueError."""
+    json_data = json.dumps(
+        {
+            "positions": [
+                {
+                    "name": "Missing field",
+                    "material": "1,5 мм Оц. Сталь (2500х1250)",
+                    "area_m2": 0.8,
+                    "laser_m": 2.5,
+                    "bends": 12,
+                    "turning_hours": 0.0,
+                    "painting_m2": 0.8,
+                }
+            ]
+        }
+    )
+    with pytest.raises(ValueError, match="missing required field: welding_m"):
+        process_calculation(json_data, template_path, output_path)
