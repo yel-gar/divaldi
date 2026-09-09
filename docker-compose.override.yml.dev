@@ -1,4 +1,21 @@
 services:
+  backend:
+    volumes:
+      - ./backend:/app
+    environment:
+      WATCHFILES_FORCE_POLLING: "true"
+
+  frontend:
+    build:
+      target: build
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run start -- --host 0.0.0.0 --port 80 --poll 1000
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+
   db:
     ports:
-      - "5432:5432"
+      - 5432:5432
