@@ -35,3 +35,12 @@ async def require_login(
 
 
 CurrentUser = Annotated[User, Depends(require_login)]
+
+
+async def require_admin(user: CurrentUser) -> User:
+    if not user.is_superuser:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "You're not allowed here")
+    return user
+
+
+AdminUser = Annotated[User, Depends(require_admin)]
