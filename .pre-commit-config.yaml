@@ -3,17 +3,72 @@ repos:
     rev: v6.0.0
     hooks:
       - id: check-yaml
-      - id: check-ast
       - id: check-json
         exclude: ^frontend/tsconfig.*\.json
-      - id: pretty-format-json
-        exclude: ^frontend/tsconfig.*\.json
-        args:
-          - --autofix
-          - --no-sort-keys
-      - id: sort-simple-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
-        args:
-          - --markdown-linebreak-ext=md
       - id: check-toml
+
+  - repo: local
+    hooks:
+      # --- backend ---
+      - id: black
+        name: black (backend)
+        entry: python scripts/precommit-black.py backend/
+        language: system
+        files: ^backend/.*\.py$
+
+      - id: ruff
+        name: ruff (backend)
+        entry: python scripts/precommit-ruff.py backend/
+        language: system
+        files: ^backend/.*\.py$
+
+      - id: pytest
+        name: pytest (backend)
+        entry: poetry -C backend run pytest
+        language: system
+        files: ^backend/.*\.py$
+        pass_filenames: false
+
+      # --- parser ---
+      - id: black
+        name: black (parser)
+        entry: python scripts/precommit-black.py parser/
+        language: system
+        files: ^parser/.*\.py$
+
+      - id: ruff
+        name: ruff (parser)
+        entry: python scripts/precommit-ruff.py parser/
+        language: system
+        files: ^parser/.*\.py$
+
+      - id: pytest
+        name: pytest (parser)
+        entry: poetry -C parser run pytest
+        language: system
+        files: ^parser/.*\.py$
+        pass_filenames: false
+
+      # --- frontend ---
+      - id: eslint
+        name: eslint (frontend)
+        entry: npx --prefix frontend eslint --fix
+        language: system
+        files: ^frontend/.*\.(ts|html)$
+
+      - id: prettier
+        name: prettier (frontend)
+        entry: npx --prefix frontend prettier --write
+        language: system
+        files: ^frontend/.*\.(ts|html|scss|css|json)$
+        exclude: ^frontend/(tsconfig.*\.json|angular\.json|package(-lock)?\.json)$
+
+      # --- commit messages ---
+      - id: commitlint
+        name: commitlint
+        entry: npx --no -- commitlint --edit
+        language: system
+        stages: [commit-msg]
+        pass_filenames: false

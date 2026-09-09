@@ -2,8 +2,10 @@ name: Frontend CI
 
 on:
   pull_request:
+    paths: ["frontend/**"]
   push:
     branches: [main]
+    paths: ["frontend/**"]
 
 permissions:
   contents: read
