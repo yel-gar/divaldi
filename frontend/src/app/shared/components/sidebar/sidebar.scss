@@ -67,10 +67,6 @@
   padding: 10px;
   border-radius: 10px;
 
-  &:hover {
-    background: var(--color-hover-secondary);
-  }
-
   &.active {
     background: var(--color-hover-secondary);
   }

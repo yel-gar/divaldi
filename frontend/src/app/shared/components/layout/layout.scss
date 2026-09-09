@@ -12,9 +12,14 @@
 
   & > app-sidebar {
     background-color: var(--color-secondary);
+
     height: 100dvh;
-    padding: 30px 30px;
-    position: fixed;
     width: 330px;
+
+    padding: 30px 30px;
+
+    position: fixed;
+
+    user-select: none;
   }
 }
