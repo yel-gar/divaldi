@@ -28,11 +28,6 @@ from calculator.calc import (
 
 @pytest.fixture
 def template_path(tmp_path) -> str:
-    """
-    Copy the real template file (calc.xlsx) to a temporary location
-    and return its path.
-    """
-    # The template is located in src/calculator/excel_calc/ relative to project root
     project_root = Path(__file__).parent.parent
     possible_paths = [
         project_root / "src" / "calculator" / "excel_calc" / "calc.xlsx",
@@ -45,7 +40,7 @@ def template_path(tmp_path) -> str:
             original = p
             break
     if original is None:
-        pytest.skip("Template file calc.xlsx not found in any expected location")
+        pytest.fail("Template file calc.xlsx not found in any expected location")
 
     temp_template = tmp_path / "calc.xlsx"
     shutil.copy2(original, temp_template)

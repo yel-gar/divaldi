@@ -153,13 +153,18 @@ def process_calculation(
         ValueError: If JSON is invalid or missing the 'positions' key.
         FileNotFoundError: If the template file does not exist.
         PermissionError: If write permissions are insufficient.
-    """
+    """        
     try:
         data = json.loads(json_data)
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON: {e}")
+    
+    if not isinstance(data, dict):
+        raise ValueError("JSON top-level value must be an object.")
 
     positions = data.get('positions', [])
+    if not isinstance(positions, list) or not all(isinstance(pos, dict) for pos in positions):
+        raise ValueError("JSON 'positions' must be a list of objects.")
     if not positions:
         raise ValueError("JSON missing 'positions' key or it is empty.")
 

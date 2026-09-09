@@ -54,3 +54,6 @@ temp/
 *.tmp
 *.temp
 test_output.*
+
+output/*
+!output/.gitkeep
