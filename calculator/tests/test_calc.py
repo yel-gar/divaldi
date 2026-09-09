@@ -347,7 +347,7 @@ def test_process_calculation_invalid_number(
             ]
         }
     )
-    with pytest.raises(ValueError, match="field 'area_m2' is not a number"):
+    with pytest.raises(ValueError, match="must be a real number"):
         process_calculation(json_data, template_path, output_path)
 
 
@@ -372,3 +372,59 @@ def test_process_calculation_missing_field(
     )
     with pytest.raises(ValueError, match="missing required field: welding_m"):
         process_calculation(json_data, template_path, output_path)
+
+
+def test_process_calculation_negative_value(
+    template_path: str, output_path: str
+) -> None:
+    """Test that negative numeric values raise ValueError."""
+    json_data = json.dumps(
+        {
+            "positions": [
+                {
+                    "name": "Negative area",
+                    "material": "1,5 мм Оц. Сталь (2500х1250)",
+                    "area_m2": -0.8,
+                    "laser_m": 2.5,
+                    "bends": 12,
+                    "welding_m": 0.5,
+                    "turning_hours": 0.0,
+                    "painting_m2": 0.8,
+                }
+            ]
+        }
+    )
+    with pytest.raises(ValueError, match="must be a finite number >= 0"):
+        process_calculation(json_data, template_path, output_path)
+
+
+def test_process_calculation_boolean_value(
+    template_path: str, output_path: str
+) -> None:
+    """Test that boolean values raise ValueError."""
+    json_data = json.dumps(
+        {
+            "positions": [
+                {
+                    "name": "Boolean bends",
+                    "material": "1,5 мм Оц. Сталь (2500х1250)",
+                    "area_m2": 0.8,
+                    "laser_m": 2.5,
+                    "bends": True,
+                    "welding_m": 0.5,
+                    "turning_hours": 0.0,
+                    "painting_m2": 0.8,
+                }
+            ]
+        }
+    )
+    with pytest.raises(ValueError, match="must be a real number"):
+        process_calculation(json_data, template_path, output_path)
+
+
+def test_process_calculation_same_path(
+    template_path: str, sample_json_single: str
+) -> None:
+    """Test that using the template path as output raises ValueError."""
+    with pytest.raises(ValueError, match="Output path must differ from template path"):
+        process_calculation(sample_json_single, template_path, template_path)

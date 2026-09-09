@@ -95,14 +95,13 @@ def _validate_positions(
             if field not in pos:
                 raise ValueError(f"Position {idx+1} missing required field: {field}")
 
-        material = pos.get("material")
+        # Validate material is a string
+        material = pos.get("material", "")
         if not isinstance(material, str):
             raise ValueError(
-                f"Position {idx+1}: material must be a string, got {type(material).__name__}."
+                f"Position {idx+1}: material must be a string, got {type(material).__name__}"
             )
         material = material.strip()
-        if not material:
-            raise ValueError(f"Position {idx+1}: material is empty.")
 
         if material not in material_prices:
             raise ValueError(
@@ -111,15 +110,15 @@ def _validate_positions(
             )
 
         for field in numeric_fields:
-            try:
-                val = float(pos[field])
-                if not math.isfinite(val):
-                    raise ValueError(
-                        f"Position {idx+1}: field '{field}' is not a finite number: {pos[field]}"
-                    )
-            except (ValueError, TypeError):
+            value = pos[field]
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
                 raise ValueError(
-                    f"Position {idx+1}: field '{field}' is not a number: {pos[field]}"
+                    f"Position {idx+1}: field '{field}' must be a real number, got {type(value).__name__}: {value}"
+                )
+            val = float(value)
+            if not math.isfinite(val) or val < 0:
+                raise ValueError(
+                    f"Position {idx+1}: field '{field}' must be a finite number >= 0, got: {value}"
                 )
 
 
@@ -229,6 +228,8 @@ def process_calculation(json_data: str, template_path: str, output_path: str) ->
     _validate_positions(positions, material_prices)
 
     output_file = Path(output_path)
+    if output_file.resolve() == template_file.resolve():
+        raise ValueError("Output path must differ from template path.")
     output_file.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(template_file, output_file)
 
