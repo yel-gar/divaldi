@@ -16,10 +16,10 @@ from openpyxl import load_workbook
 
 
 # Constants
-LASER_SPEED = 10.0        
-WELDING_SPEED = 2.0       
-BENDING_RATE = 84.0       
-PAINTING_RATE = 5.53      
+LASER_SPEED = 10.0
+WELDING_SPEED = 2.0
+BENDING_RATE = 84.0
+PAINTING_RATE = 5.53
 
 
 def _load_material_prices(file_path: str) -> Dict[str, float]:
@@ -75,36 +75,36 @@ def _write_position(
     Returns:
         None
     """
-    row_laser = row_offset         
-    row_bending = row_offset + 1   
-    row_turning = row_offset + 2   
-    row_welding = row_offset + 3   
-    row_painting = row_offset + 4  
-    
+    row_laser = row_offset
+    row_bending = row_offset + 1
+    row_turning = row_offset + 2
+    row_welding = row_offset + 3
+    row_painting = row_offset + 4
+
     material = pos_data.get('material', '').strip()
     area = float(pos_data.get('area_m2', 0.0))
 
     sheet.cell(row=row_laser, column=3).value = material   # C
     sheet.cell(row=row_laser, column=5).value = area       # E
-    
+
     price_per_m2 = material_prices.get(material, 0.0)
     sheet.cell(row=row_laser, column=4).value = price_per_m2  # D
-    
+
     laser_m = float(pos_data.get('laser_m', 0.0))
     hours_laser = laser_m / LASER_SPEED if LASER_SPEED > 0 else 0.0
     sheet.cell(row=row_laser, column=8).value = hours_laser
-    
+
     bends = float(pos_data.get('bends', 0.0))
     hours_bending = bends / BENDING_RATE if BENDING_RATE > 0 else 0.0
     sheet.cell(row=row_bending, column=8).value = hours_bending
-    
+
     hours_turning = float(pos_data.get('turning_hours', 0.0))
     sheet.cell(row=row_turning, column=8).value = hours_turning
-    
+
     welding_m = float(pos_data.get('welding_m', 0.0))
     hours_welding = welding_m / WELDING_SPEED if WELDING_SPEED > 0 else 0.0
     sheet.cell(row=row_welding, column=8).value = hours_welding
-    
+
     painting_m2 = float(pos_data.get('painting_m2', 0.0))
     sheet.cell(row=row_painting, column=5).value = painting_m2  # E
 
@@ -153,7 +153,7 @@ def process_calculation(
         ValueError: If JSON is invalid or missing the 'positions' key.
         FileNotFoundError: If the template file does not exist.
         PermissionError: If write permissions are insufficient.
-    """    
+    """
     try:
         data = json.loads(json_data)
     except json.JSONDecodeError as e:
@@ -162,7 +162,7 @@ def process_calculation(
     positions = data.get('positions', [])
     if not positions:
         raise ValueError("JSON missing 'positions' key or it is empty.")
-    
+
     template_file = Path(template_path)
     if not template_file.exists():
         raise FileNotFoundError(f"Template file not found: {template_path}")
@@ -171,12 +171,12 @@ def process_calculation(
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
     shutil.copy2(template_file, output_file)
-    
+
     wb = load_workbook(output_file)
     calc_sheet = wb['Расчёт']
-    
+
     material_prices = _load_material_prices(str(output_file))
-    
+
     for i in range(10):
         row_start = 3 + i * 9
         # Laser: columns C, D, E, H
@@ -190,12 +190,11 @@ def process_calculation(
         calc_sheet.cell(row=row_start + 3, column=8).value = None
         # Painting: E
         calc_sheet.cell(row=row_start + 4, column=5).value = None
-    
+
     for idx, pos in enumerate(positions[:10]):
         row_start = 3 + idx * 9
         _write_position(calc_sheet, row_start, pos, material_prices)
-    
+
     wb.save(output_file)
 
     return str(output_file)
-
