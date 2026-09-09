@@ -47,7 +47,6 @@ export class FilePreviewComponent implements AfterViewInit {
   private objectUrls: string[] = [];
   private renderedFile: File | null = null;
   private renderSeq = 0;
-  private restoreFocusTo: Element | null = null;
 
   constructor() {
     effect(() => {
@@ -59,7 +58,6 @@ export class FilePreviewComponent implements AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    this.restoreFocusTo = document.activeElement;
     this.openDialog();
     void this.render(this.file());
     this.destroyRef.onDestroy(() => {
@@ -129,9 +127,6 @@ export class FilePreviewComponent implements AfterViewInit {
     } else {
       dialog.removeAttribute('open');
     }
-    if (this.restoreFocusTo instanceof HTMLElement && this.restoreFocusTo.isConnected) {
-      this.restoreFocusTo.focus();
-    }
     this.closed.emit();
   }
 
@@ -142,7 +137,6 @@ export class FilePreviewComponent implements AfterViewInit {
     } else {
       dialog.setAttribute('open', '');
     }
-    dialog.focus();
   }
 
   private async render(file: File): Promise<void> {

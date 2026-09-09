@@ -166,26 +166,23 @@ describe('FilePreviewComponent', () => {
     expect(titleEl?.textContent?.trim()).toBe('doc.pdf');
   });
 
-  it('restores focus to the trigger element after closing', async () => {
-    const trigger = document.createElement('button');
-    trigger.textContent = 'trigger';
-
+  it('closes cleanly without touching focus', async () => {
     const fixture = compile(makeFile('doc.pdf'));
-    fixture.nativeElement.appendChild(trigger);
-    trigger.focus();
     await waitForPhase(fixture, 'ready');
 
     try {
+      let closedEmitted = false;
+      fixture.componentInstance.closed.subscribe(() => (closedEmitted = true));
+
       fixture.componentInstance.close();
       fixture.detectChanges();
       await fixture.whenStable();
 
       const dialog = fixture.nativeElement.querySelector('dialog');
       expect(dialog.hasAttribute('open')).toBe(false);
-      expect(document.activeElement).toBe(trigger);
+      expect(closedEmitted).toBe(true);
     } finally {
       fixture.destroy();
-      trigger.remove();
     }
   });
 });
