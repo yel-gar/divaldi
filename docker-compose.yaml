@@ -13,6 +13,7 @@ x-backend-env: &backend-env
   RABBITMQ_PASS: ${RABBITMQ_PASS:?}
   TASKIQ_DASHBOARD_PORT: ${TASKIQ_DASHBOARD_PORT:-8000}
   TASKIQ_API_TOKEN: ${TASKIQ_API_TOKEN:?}
+  GIGACHAT_MODEL: ${GIGACHAT_MODEL:-GigaChat-3-Ultra}
 
 x-backend-service: &backend-service
   build: ./backend

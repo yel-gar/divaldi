@@ -50,6 +50,7 @@ You should generally only touch variables marked as **Required**.
 | RABBITMQ_MANAGEMENT_PORT | Port on which RabbitMQ management interface will run                                                                    | ❌           | 15672                 |
 | TASKIQ_API_TOKEN         | Secret for TaskIQ dashboard                                                                                             | ✅           |                       |
 | TASKIQ_DASHBOARD_PORT    | Port on which TaskIQ management dashboard will run                                                                      | ❌           | 8000                  |
+| GIGACHAT_MODEL           | GigaChat model used. Consult [Sber website](https://developers.sber.ru/docs/ru/gigachat/models/main) for more info      | ❌           | GigaChat-3-Ultra      |
 
 ## Redis designation
 `/0` - general
