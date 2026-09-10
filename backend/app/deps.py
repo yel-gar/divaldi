@@ -1,12 +1,15 @@
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import Cookie, Depends, HTTPException
+from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette import status
 
+from app.cache import get_redis_client
 from app.database import get_db
 from app.models.auth import Session, User
 
@@ -44,3 +47,11 @@ async def require_admin(user: CurrentUser) -> User:
 
 
 AdminUser = Annotated[User, Depends(require_admin)]
+
+
+async def redis_session() -> AsyncGenerator[Redis]:
+    async with get_redis_client() as session:
+        yield session
+
+
+RedisSession = Annotated[Redis, Depends(redis_session)]

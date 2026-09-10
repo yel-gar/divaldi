@@ -1,10 +1,11 @@
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import structlog.stdlib
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.cache import get_generation_key, redis_client
+from app.cache import get_generation_key, get_redis_client
 from app.models.auth import User
 from app.models.chat import ChatMessage, GenerationResult, GenerationResultType, UserRole
 from app.providers.containers import provider
@@ -19,29 +20,41 @@ async def _add_error_result(db: AsyncSession, session: uuid.UUID, error_msg: str
     await db.commit()
 
 
+@broker.task(queue_name="default", schedule=[{"interval": timedelta(hours=1)}])
+async def cleanup_old_results():
+    log.info("old_results_cleanup_start")
+    async with tsq_db() as db:
+        res = await db.execute(
+            delete(GenerationResult).where(GenerationResult.timestamp < datetime.now(tz=UTC) - timedelta(hours=1))
+        )
+        await db.commit()
+        log.info("old_results_cleanup_ok", count=res.rowcount)
+
+
 @broker.task(queue_name="network")
 async def generate_chat_message(session: uuid.UUID):
-    key = get_generation_key(session)
-    acquired = await redis_client.set(key, "1", ex=300, nx=True)
-    if not acquired:
-        log.error("generate_chat_message_already_running", session=session)
-        return
+    async with tsq_db() as db:
+        await db.execute(delete(GenerationResult).where(GenerationResult.message_session == session))
+        await db.commit()
 
+        user_uuid = await db.scalar(
+            select(User.uuid)
+            .join(ChatMessage, User.id == ChatMessage.user_id)
+            .where(ChatMessage.message_session == session)
+            .limit(1)
+        )
+        if user_uuid is None:
+            log.error("no_user_for_session", session=session)
+            await _add_error_result(db, session, "Invalid message session")
+            return
+        key = get_generation_key(user_uuid)
+        async with get_redis_client() as redis_client:
+            acquired = await redis_client.set(key, "1", ex=300, nx=True)
+            if not acquired:
+                log.error("generate_chat_message_already_running", session=session)
+                return
     try:
         async with tsq_db() as db:
-            await db.execute(delete(GenerationResult).where(GenerationResult.message_session == session))
-            await db.commit()
-
-            user_uuid = await db.scalar(
-                select(User.uuid)
-                .join(ChatMessage, User.id == ChatMessage.user_id)
-                .where(ChatMessage.message_session == session)
-                .limit(1)
-            )
-            if user_uuid is None:
-                log.error("no_user_for_session", session=session)
-                await _add_error_result(db, session, "Invalid message session")
-                return
             messages_data = await db.scalars(
                 select(ChatMessage).where(ChatMessage.message_session == session).order_by(ChatMessage.id)
             )
@@ -88,4 +101,5 @@ async def generate_chat_message(session: uuid.UUID):
             db.add(message)
             await db.commit()
     finally:
-        await redis_client.delete(key)
+        async with get_redis_client() as redis_client:
+            await redis_client.delete(key)

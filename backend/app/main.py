@@ -5,7 +5,7 @@ import structlog
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routes import admin, auth, users
+from app.routes import admin, auth, chat, users
 from app.util import get_debug, get_origins
 
 log = structlog.stdlib.get_logger()
@@ -46,5 +46,6 @@ base_router = APIRouter(prefix="/api/v1")
 base_router.include_router(auth.router)
 base_router.include_router(users.router)
 base_router.include_router(admin.router)
+base_router.include_router(chat.router)
 
 app.include_router(base_router)
