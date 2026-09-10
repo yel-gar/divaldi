@@ -29,6 +29,7 @@ class ResultSchemaContent(BaseModel):
 
 
 class ResultSchema(BaseModel):
+    running: bool
     result: ResultSchemaContent | None = None
 
 

@@ -14,7 +14,7 @@ class AuthResponse(BaseModel):
     @classmethod
     def parse_expires_at(cls, v):
         if isinstance(v, (int, float)):
-            return datetime.fromtimestamp(v / 1000)
+            return datetime.fromtimestamp(v / 1000, tz=UTC)
         return v
 
 

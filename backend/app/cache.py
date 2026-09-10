@@ -23,3 +23,7 @@ def get_generation_key(user_uuid: uuid.UUID) -> str:
 
 def get_creation_key(user_uuid: uuid.UUID) -> str:
     return f"chat:creation:{user_uuid}"
+
+
+def get_deletion_key(session_id: uuid.UUID) -> str:
+    return f"chat:deletion:{session_id}"

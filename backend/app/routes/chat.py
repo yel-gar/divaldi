@@ -3,8 +3,8 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, select
 
-from app.cache import get_generation_key
-from app.deps import CurrentUser, DbSession, RedisSession, chat_lock, require_login
+from app.cache import get_deletion_key, get_generation_key
+from app.deps import CurrentUser, DbSession, RedisSession, VerifiedMessageSession, chat_lock, require_login
 from app.models.chat import ChatMessage, GenerationResult, GenerationResultType, UserRole
 from app.schemas import MessageResponse
 from app.schemas.chat import (
@@ -51,7 +51,7 @@ async def create_chat(db: DbSession, user: CurrentUser, data: SendMessageSchema)
 
 
 @router.get("/{session_id}", summary="Get messages in chat", response_model=list[ChatMessageSchema])
-async def get_chat(session_id: uuid.UUID, db: DbSession, user: CurrentUser):
+async def get_chat(session_id: VerifiedMessageSession, db: DbSession, user: CurrentUser):
     return await db.scalars(
         select(ChatMessage)
         .where(ChatMessage.user_id == user.id, ChatMessage.message_session == session_id)
@@ -66,7 +66,7 @@ async def get_chat(session_id: uuid.UUID, db: DbSession, user: CurrentUser):
     status_code=202,
     response_model=MessageResponse,
 )
-async def send_message(session_id: uuid.UUID, db: DbSession, user: CurrentUser, data: SendMessageSchema):
+async def send_message(session_id: VerifiedMessageSession, db: DbSession, user: CurrentUser, data: SendMessageSchema):
     new_message = ChatMessage(user_id=user.id, message_session=session_id, role=UserRole.USER, content=data.content)
     db.add(new_message)
     await db.commit()
@@ -75,7 +75,7 @@ async def send_message(session_id: uuid.UUID, db: DbSession, user: CurrentUser, 
 
 
 @router.post("/{session_id}/retry", dependencies=[Depends(chat_lock)], response_model=MessageResponse)
-async def retry_send(session_id: uuid.UUID, db: DbSession):
+async def retry_send(session_id: VerifiedMessageSession, db: DbSession):
     last_result = await db.scalar(select(GenerationResult).where(GenerationResult.message_session == session_id))
     if last_result is None or last_result.type != GenerationResultType.ERROR:
         raise HTTPException(status_code=400, detail="There's nothing to retry")
@@ -88,7 +88,10 @@ async def retry_send(session_id: uuid.UUID, db: DbSession):
     summary="Delete chat",
     response_model=ChatDeletedResponse,
 )
-async def delete_chat(session_id: uuid.UUID, db: DbSession, user: CurrentUser):
+async def delete_chat(session_id: VerifiedMessageSession, redis_client: RedisSession, db: DbSession, user: CurrentUser):
+    await redis_client.set(
+        get_deletion_key(session_id), "1", ex=300, nx=True
+    )  # let worker know not to save results if it's running currently
     res = await db.execute(
         delete(ChatMessage).where(ChatMessage.user_id == user.id, ChatMessage.message_session == session_id)
     )
@@ -104,12 +107,13 @@ async def delete_chat(session_id: uuid.UUID, db: DbSession, user: CurrentUser):
     summary="Get last result if any user message was sent",
     response_model=ResultSchema,
 )
-async def get_result(session_id: uuid.UUID, db: DbSession, redis_client: RedisSession):
+async def get_result(session_id: VerifiedMessageSession, db: DbSession, redis_client: RedisSession):
     if await redis_client.exists(get_generation_key(session_id)):
-        return ResultSchema(result=None)
+        return ResultSchema(running=True, result=None)
     result = await db.scalar(select(GenerationResult).where(GenerationResult.message_session == session_id))
     if result is None:
-        return ResultSchema(result=None)
+        return ResultSchema(running=False, result=None)
     return ResultSchema(
+        running=False,
         result=ResultSchemaContent.model_validate(result, from_attributes=True),
     )

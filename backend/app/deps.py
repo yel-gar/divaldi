@@ -1,3 +1,4 @@
+import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from typing import Annotated
@@ -12,6 +13,7 @@ from starlette import status
 from app.cache import get_creation_key, get_generation_key, get_redis_client
 from app.database import get_db
 from app.models.auth import Session, User
+from app.models.chat import ChatMessage
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
@@ -69,3 +71,19 @@ async def chat_lock(redis_client: RedisSession, user: CurrentUser) -> AsyncGener
         yield
     finally:
         await redis_client.delete(creation_key)
+
+
+async def verify_chat_session(session_id: uuid.UUID, user: CurrentUser, db: DbSession) -> uuid.UUID:
+    session_valid = await db.scalar(
+        select(
+            select(ChatMessage)
+            .where(ChatMessage.message_session == session_id, ChatMessage.user_id == user.id)
+            .exists()
+        )
+    )
+    if not session_valid:
+        raise HTTPException(status_code=403, detail="Invalid session")
+    return session_id
+
+
+VerifiedMessageSession = Annotated[uuid.UUID, Depends(verify_chat_session)]

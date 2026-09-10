@@ -5,7 +5,7 @@ import structlog.stdlib
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.cache import get_generation_key, get_redis_client
+from app.cache import get_deletion_key, get_generation_key, get_redis_client
 from app.models.auth import User
 from app.models.chat import ChatMessage, GenerationResult, GenerationResultType, UserRole
 from app.providers.containers import provider
@@ -94,6 +94,12 @@ async def generate_chat_message(session: uuid.UUID):
                 await _add_error_result(db, session, "Provider did not respond properly")
                 return
 
+            # If the session got deleted during worker execution, don't add response there.
+            # Saving result is fine though, it will expire anyway
+            async with get_redis_client() as redis_client:
+                if await redis_client.delete(get_deletion_key(session)):
+                    log.warning("execution_cancelled", session=session)
+                    return
             text = response.messages[0].content[0].text
             result = GenerationResult(message_session=session, type=GenerationResultType.SUCCESS, content=text)
             message = ChatMessage(
