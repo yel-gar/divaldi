@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "processing"
+version = "0.1.0"
+description = ""
+authors = ["AX-Ray"]
+license = "MIT"
+readme = "README.md"
+
+packages = [{ include = "processing", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pymupdf = "^1.24.0"
+pillow = "^10.0.0"
+openpyxl = "^3.1.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.0"
+black = "^24.0"
+ruff = "^0.6.0"
+reportlab = "^4.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

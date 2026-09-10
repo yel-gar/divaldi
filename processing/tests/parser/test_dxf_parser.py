@@ -3,15 +3,15 @@ Tests for dxf_parser module.
 """
 
 import math
-import sys
 from pathlib import Path
 
 import pytest
 
-# Add src to Python path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from parser.dxf_parser import extract_measurements, get_measurements_data, parse_dxf
+from processing.parser.dxf_parser import (
+    extract_measurements,
+    get_measurements_data,
+    parse_dxf,
+)
 
 
 @pytest.fixture

@@ -31,38 +31,25 @@ repos:
         files: ^backend/.*\.py$
         pass_filenames: false
 
-      # --- parser ---
+      # --- processing ---
       - id: black
-        name: black (parser)
-        entry: python scripts/precommit-black.py parser/
+        name: black (processing)
+        entry: python scripts/precommit-black.py processing/
         language: system
-        files: ^parser/.*\.py$
+        files: ^processing/.*\.py$
 
       - id: ruff
-        name: ruff (parser)
-        entry: python scripts/precommit-ruff.py parser/
+        name: ruff (processing)
+        entry: python scripts/precommit-ruff.py processing/
         language: system
-        files: ^parser/.*\.py$
+        files: ^processing/.*\.py$
 
       - id: pytest
-        name: pytest (parser)
-        entry: poetry -C parser run pytest
+        name: pytest (processing)
+        entry: poetry -C processing run pytest
         language: system
-        files: ^parser/.*\.py$
+        files: ^processing/.*\.py$
         pass_filenames: false
-
-      # --- calculator ---
-      - id: black
-        name: black (calculator)
-        entry: bash -c 'cd calculator && poetry run black "${@#calculator/}"' --
-        language: system
-        files: ^calculator/.*\.py$
-
-      - id: ruff
-        name: ruff (calculator)
-        entry: bash -c 'cd calculator && poetry run ruff check --fix "${@#calculator/}"' --
-        language: system
-        files: ^calculator/.*\.py$
 
       # --- frontend ---
       - id: eslint
