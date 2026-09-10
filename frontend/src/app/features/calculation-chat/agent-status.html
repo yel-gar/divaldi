@@ -1,0 +1,21 @@
+<div class="agent-status__avatar">
+  <svg lucideBot aria-hidden="true"></svg>
+</div>
+<div class="agent-status__body">
+  <span class="agent-status__author">Агент</span>
+  <div class="agent-status__bubble">
+    @if (status() === 'thinking') {
+    <p class="agent-status__thinking">
+      <svg size="16" lucideSparkles aria-hidden="true"></svg>
+      <span class="agent-status__text">{{ phrase() }}</span>
+    </p>
+    } @else {
+    <p class="agent-status__typing">
+      <span class="agent-status__dot" aria-hidden="true"></span>
+      <span class="agent-status__dot" aria-hidden="true"></span>
+      <span class="agent-status__dot" aria-hidden="true"></span>
+      <span class="visually-hidden">Агент печатает…</span>
+    </p>
+    }
+  </div>
+</div>

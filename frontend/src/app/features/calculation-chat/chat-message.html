@@ -1,0 +1,36 @@
+@if (isIncoming()) {
+<div class="message__avatar">
+  <svg lucideBot aria-hidden="true"></svg>
+</div>
+}
+<div class="message__content">
+  @if (isIncoming()) {
+  <span class="message__author">Агент</span>
+  }
+  <div class="message__bubble">
+    <p class="message__text">{{ message().text }}</p>
+    <div class="message__meta">
+      <time class="message__time h5" [attr.datetime]="message().time">{{ message().time }}</time>
+      @switch (message().status) { @case ('sending') {
+      <svg
+        size="16"
+        lucideClock
+        class="message__status message__status--sending"
+        aria-hidden="true"
+      ></svg>
+      <span class="visually-hidden">Отправляется</span>
+      } @case ('sent') {
+      <svg
+        size="16"
+        lucideCheck
+        class="message__status message__status--sent"
+        aria-hidden="true"
+      ></svg>
+      <span class="visually-hidden">Отправлено</span>
+      } @case ('read') {
+      <svg size="16" lucideCheckCheck class="message__status" aria-hidden="true"></svg>
+      <span class="visually-hidden">Прочитано</span>
+      } }
+    </div>
+  </div>
+</div>
