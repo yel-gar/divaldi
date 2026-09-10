@@ -14,6 +14,8 @@ x-backend-env: &backend-env
   TASKIQ_DASHBOARD_PORT: ${TASKIQ_DASHBOARD_PORT:-8000}
   TASKIQ_API_TOKEN: ${TASKIQ_API_TOKEN:?}
   GIGACHAT_MODEL: ${GIGACHAT_MODEL:-GigaChat-3-Ultra}
+  SBER_API_KEY: ${SBER_API_KEY:?}
+  SBER_API_SCOPE: ${SBER_API_SCOPE:?}
 
 x-backend-service: &backend-service
   build: ./backend

@@ -43,6 +43,14 @@ class AIClient(ABC):
     ) -> GenerationResponse | None: ...
 
     async def _authed_request(self, method: Literal["GET", "POST"], endpoint: str, **kwargs) -> Response:
+        await self.ensure_fresh_token()
+        r = await self._client.request(method=method, url=endpoint, **kwargs)
+        if r.status_code == 401:
+            self._log.error("auth_token_refresh_failed", status_code=r.status_code)
+            raise AuthorizationError()
+        return r
+
+    async def ensure_fresh_token(self):
         if (
             self.token_expires_at is None
             or self.token is None
@@ -50,12 +58,7 @@ class AIClient(ABC):
         ):
             self._log.warning("auth_token_refresh_started")
             await self.auth()
-        r = await self._client.request(method=method, url=endpoint, **kwargs)
-        if r.status_code == 401:
-            self._log.error("auth_token_refresh_failed", status_code=r.status_code)
-            raise AuthorizationError()
-        self._log.info("auth_token_refresh_ok")
-        return r
+            self._log.info("auth_token_refresh_ok")
 
     async def _get(self, endpoint: str, **kwargs) -> Response:
         return await self._authed_request(method="GET", endpoint=endpoint, **kwargs)

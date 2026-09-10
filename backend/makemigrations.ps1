@@ -82,6 +82,7 @@ try {
     # the Compose network, so POSTGRES_HOST must be localhost here regardless
     # of what .env has configured for inter-container communication.
     $env:POSTGRES_HOST = "localhost"
+    $env:POSTGRES_PORT = "5431"
 
     # --- Run Alembic from the backend directory ---
     Pop-Location

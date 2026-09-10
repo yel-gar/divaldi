@@ -1,7 +1,9 @@
 from datetime import UTC, datetime
-from typing import Literal
+from typing import ClassVar, Literal, Self
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from app.models.chat import ChatMessage
 
 
 class AuthResponse(BaseModel):
@@ -25,18 +27,25 @@ class Message(BaseModel):
     role: Literal["user", "system", "assistant", "tool"]
     content: Content
 
+    @classmethod
+    def from_chat_message(cls, obj: ChatMessage) -> Self:
+        return cls(content=Content(text=obj.content), role=obj.role)  # type: ignore
+
 
 class ResponseFormat(BaseModel):
+    TYPE_TEXT: ClassVar[Literal["text"]] = "text"
+    TYPE_JSON_SCHEMA: ClassVar[Literal["json_schema"]] = "json_schema"
+
     type: Literal["json_schema", "text"]
-    schema: dict | None = None
-    strict: bool = True
+    json_schema: dict | None = Field(None, alias="schema")
+    strict: bool
 
     @model_validator(mode="after")
     def validate_schema(self):
-        if self.type == "json_schema" and self.schema is None:
+        if self.type == "json_schema" and self.json_schema is None:
             raise ValueError("schema is required for json_schema messages")
 
-        if self.type == "text" and self.schema is not None:
+        if self.type == "text" and self.json_schema is not None:
             raise ValueError("schema must not be provided for text messages")
 
         return self
