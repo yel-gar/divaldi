@@ -10,21 +10,12 @@
         >Описание задачи <span class="required" aria-hidden="true">*</span></label
       >
 
-      <textarea
+      <app-textarea
         formControlName="description"
-        id="description"
-        placeholder="Нужно рассчитать резервуар объёмом 10 куб. м. для воды..."
-        (input)="onInput($event)"
+        inputId="description"
         [maxLength]="MAX_SYMBOLS"
-      ></textarea>
-
-      <span
-        [ngClass]="{
-          'additional-info--max': textareaSymbolsCount() === MAX_SYMBOLS,
-        }"
-        class="additional-info h5"
-        >{{ textareaSymbolsCount() }}/{{ MAX_SYMBOLS }}</span
-      >
+        placeholder="Нужно рассчитать резервуар объёмом 10 куб. м. для воды..."
+      />
     </div>
 
     <div class="field-container--double">
@@ -49,7 +40,10 @@
     <div class="field-container">
       <label for="files-input">Файлы</label>
 
-      <app-drag-n-drop (filesChange)="onFilesChange($event)"></app-drag-n-drop>
+      <app-drag-n-drop
+        inputId="files-input"
+        (filesChange)="onFilesChange($event)"
+      ></app-drag-n-drop>
     </div>
 
     <button

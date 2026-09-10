@@ -3,15 +3,16 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { catchError, EMPTY, finalize } from 'rxjs';
 import { SessionService } from '../../core/services/session.service';
+import { NotificationService } from '../../core/services/notification.service';
 import { DragNDropComponent } from '../../shared/components/drag-n-drop/drag-n-drop.component';
 import { Select, SelectOption } from '../../shared/components/select/select.component';
-import { NgClass } from '@angular/common';
+import { Textarea } from '../../shared/components/textarea/textarea.component';
 import { LucideArrowRight } from '@lucide/angular';
 
 @Component({
   selector: 'app-order-create',
   standalone: true,
-  imports: [DragNDropComponent, Select, ReactiveFormsModule, NgClass, LucideArrowRight],
+  imports: [DragNDropComponent, Select, Textarea, ReactiveFormsModule, LucideArrowRight],
   templateUrl: './order-create.html',
   styleUrl: './order-create.scss'
 })
@@ -19,8 +20,8 @@ export class OrderCreateComponent {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly sessionService = inject(SessionService);
+  private readonly notifications = inject(NotificationService);
 
-  readonly textareaSymbolsCount = signal<number>(0);
   readonly isSubmitting = signal<boolean>(false);
   readonly selectedFiles = signal<File[]>([]);
   readonly MAX_SYMBOLS = 1000;
@@ -45,12 +46,6 @@ export class OrderCreateComponent {
     priority: ['']
   });
 
-  onInput(event: Event) {
-    const target = event.target as HTMLTextAreaElement;
-
-    this.textareaSymbolsCount.set(target.value.length);
-  }
-
   onFilesChange(files: File[]) {
     this.selectedFiles.set(files);
   }
@@ -74,13 +69,13 @@ export class OrderCreateComponent {
         priority,
         files: this.selectedFiles()
       })
-      // Текст ошибки пользователю показывает errorInterceptor
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         catchError(() => EMPTY)
       )
       .subscribe({
         next: (order) => {
+          this.notifications.success('Новый чат создан');
           this.orderForm.reset();
           this.router.navigate(['/chats', order.id]);
         }

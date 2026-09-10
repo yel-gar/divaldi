@@ -1,0 +1,17 @@
+<textarea
+  #textareaRef
+  class="form-control form-control--textarea"
+  [id]="inputId()"
+  [placeholder]="placeholder()"
+  [attr.maxlength]="maxLength() ?? null"
+  [value]="value()"
+  [disabled]="isDisabled()"
+  (input)="onInput($event)"
+  (blur)="onBlur()"
+></textarea>
+
+@if (maxLength()) {
+<span class="textarea__counter h5" [class.textarea__counter--max]="isMaxLengthReached()">
+  {{ symbolsCount() }}/{{ maxLength() }}
+</span>
+}
