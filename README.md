@@ -1,7 +1,48 @@
 # Divaldi
+## Setup Instruction
+1. Clone our repo
+```bash
+$ git clone https://github.com/yel-gar/divaldi.git
+```
+
+2. Copy the `.env.example` to `.env`
+```bash
+# Linux
+$ cp .env{.example,}
+```
+```powershell
+# Windows
+PS> Copy-Item .env.example .env
+```
+
+3. Edit the `.env` file with actual variables according to [this table](#environment-variables)
+4. Launch the project
+```bash
+$ docker compose up -d --build
+```
+
+5. Verify everything started up successfully
+```bash
+$ docker compose logs -f
+```
+
+6. Create superuser
+```bash
+# Linux
+$ chmod +x createsuperuser.sh
+$ ./createsuperuser.sh
+```
+
+```powershell
+# Windows
+PS> .\createsuperuser.ps1
+```
+
+7. You're all set 🤙
+
+---
 
 ## Developers setup
-### Global
 1. Install dev dependencies and pre-commit (this repo uses it for all linting/formatting hooks *and* commit message checks — no Node tooling required just for hooks)
 ```bash
 $ npm install
