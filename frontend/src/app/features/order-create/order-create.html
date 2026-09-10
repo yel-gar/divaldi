@@ -1,9 +1,63 @@
-<div class="page">
-  <h1>Создание заявки</h1>
-  <p class="hint">Опишите деталь — агент извлечёт параметры и рассчитает стоимость.</p>
-  <textarea
-    disabled
-    placeholder="Пример: лист сталь 2000x1000x3мм, 10 штук, лазерная резка"
-  ></textarea>
-  <button disabled>Отправить</button>
-</div>
+<section class="section order-section">
+  <header class="section__header">
+    <h1 class="h2">Создать заявку</h1>
+    <p class="h4">Опишите, что нужно рассчитать</p>
+  </header>
+
+  <form class="order-form" [formGroup]="orderForm" (ngSubmit)="onSubmit()">
+    <div class="field-container">
+      <label for="description"
+        >Описание задачи <span class="required" aria-hidden="true">*</span></label
+      >
+
+      <textarea
+        formControlName="description"
+        id="description"
+        placeholder="Нужно рассчитать резервуар объёмом 10 куб. м. для воды..."
+        (input)="onInput($event)"
+        [maxLength]="MAX_SYMBOLS"
+      ></textarea>
+
+      <span
+        [ngClass]="{
+          'additional-info--max': textareaSymbolsCount() === MAX_SYMBOLS,
+        }"
+        class="additional-info h5"
+        >{{ textareaSymbolsCount() }}/{{ MAX_SYMBOLS }}</span
+      >
+    </div>
+
+    <div class="field-container--double">
+      <div class="field-container">
+        <label for="project-type"
+          >Тип проекта <span class="required" aria-hidden="true">*</span></label
+        >
+
+        <app-select
+          formControlName="projectType"
+          [options]="projectTypeOptions"
+          labelId="project-type"
+        />
+      </div>
+      <div class="field-container">
+        <label for="priority">Приоритет</label>
+
+        <app-select formControlName="priority" [options]="priorityOptions" labelId="priority" />
+      </div>
+    </div>
+
+    <div class="field-container">
+      <label for="files-input">Файлы</label>
+
+      <app-drag-n-drop (filesChange)="onFilesChange($event)"></app-drag-n-drop>
+    </div>
+
+    <button
+      class="button button--main order-form__submit-button h3"
+      type="submit"
+      [disabled]="isSubmitting()"
+    >
+      <span>Создать заявку и перейти в чат <svg lucideArrowRight></svg></span>
+    </button>
+  </form>
+</section>

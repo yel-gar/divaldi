@@ -1,0 +1,44 @@
+<div class="sidebar">
+  <div class="logo">
+    <img src="/assets/svgs/logo.svg" alt="logo" width="48" />
+    <div class="h1">Divaldi</div>
+  </div>
+
+  @if (role() === 'user') {
+  <a class="button button--main cta h3" routerLink="/create">
+    <svg class="cta__icon" lucidePlus></svg>
+    <span>Создать заявку</span>
+  </a>
+  }
+
+  <nav class="navigation" aria-label="Основная навигация">
+    <ul class="navigation__list" tabindex="-1" (keydown)="onListKeydown($event)">
+      @for (nav of navItems(); track nav.route; let i = $index) {
+      <li>
+        <a
+          #navLink
+          class="navigation__item h3"
+          [routerLink]="nav.route"
+          routerLinkActive="active-link"
+          (isActiveChange)="onActiveChange($event, i)"
+          ariaCurrentWhenActive="page"
+          [attr.tabindex]="tabStop() === i ? 0 : -1"
+          (focus)="onItemFocus(i)"
+        >
+          <svg class="navigation__icon" [lucideIcon]="nav.icon"></svg>
+          <span>{{nav.label}}</span>
+        </a>
+      </li>
+      }
+    </ul>
+  </nav>
+  <div class="profile">
+    <img src="/assets/imgs/stock-man.jpg" alt="profile photo" class="photo" />
+    <div class="profile__content">
+      <div class="profile__info">
+        <span class="profile__name h3">Иван Иванов</span>
+        <p class="profile__mail h4">ivan@example.com</p>
+      </div>
+    </div>
+  </div>
+</div>
