@@ -3,15 +3,23 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from taskiq import TaskiqMiddleware
 from taskiq_aio_pika import AioPikaBroker, Queue
 from taskiq_dashboard import DashboardMiddleware
 from taskiq_redis import RedisAsyncResultBackend
 
 from app.database import get_session_maker
+from app.providers.containers import provider
 from app.util import get_rabbitmq_url
 
 default_queue = Queue(name="default")
 network_queue = Queue(name="network")
+
+
+class ProviderMiddleware(TaskiqMiddleware):
+    async def shutdown(self):
+        await provider.close()
+
 
 result_backend = RedisAsyncResultBackend("redis://redis:6379/1", result_ex_time=3600)
 broker = (

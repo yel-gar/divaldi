@@ -42,6 +42,9 @@ class AIClient(ABC):
         x_session_id: uuid.UUID,
     ) -> GenerationResponse | None: ...
 
+    async def close(self):
+        await self._client.aclose()
+
     async def _authed_request(self, method: Literal["GET", "POST"], endpoint: str, **kwargs) -> Response:
         await self.ensure_fresh_token()
         r = await self._client.request(method=method, url=endpoint, **kwargs)
