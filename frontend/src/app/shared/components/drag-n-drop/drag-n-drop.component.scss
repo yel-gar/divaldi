@@ -269,24 +269,10 @@
     color: var(--color-gray);
   }
 
-  &__progress-track {
+  &__progress {
     flex: 1;
 
     max-width: 240px;
-    height: 4px;
-
-    background: var(--color-secondary);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  &__progress-fill {
-    height: 100%;
-
-    background: var(--color-main);
-    border-radius: 2px;
-
-    transition: width 300ms ease;
   }
 
   &__percent {
@@ -373,7 +359,6 @@
     animation: none;
   }
 
-  .upload-item__progress-fill,
   .uploader__progress-bar,
   .uploader__chevron {
     transition: none;

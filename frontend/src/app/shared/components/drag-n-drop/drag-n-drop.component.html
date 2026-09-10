@@ -150,9 +150,11 @@
               <div class="upload-item__row upload-item__row--meta">
                 <span class="upload-item__size h5">{{ sizeLabel(item) }}</span>
                 @if (item.status === 'uploading') {
-                  <div class="upload-item__progress-track">
-                    <div class="upload-item__progress-fill" [style.width.%]="percentOf(item)"></div>
-                  </div>
+                  <app-progress-bar
+                    class="upload-item__progress"
+                    [value]="percentOf(item)"
+                    [label]="'Прогресс загрузки ' + item.name"
+                  />
                   <span class="upload-item__percent h5">{{ percentOf(item) }}%</span>
                 }
               </div>

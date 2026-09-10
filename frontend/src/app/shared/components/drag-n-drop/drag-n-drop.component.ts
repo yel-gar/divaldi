@@ -34,6 +34,7 @@ import { formatBytes, formatEta, formatSpeed, getFileExtension } from '../../uti
 import { createId } from '../../utils/create-id';
 import { previewKindFor } from './file-preview.model';
 import { FilePreviewComponent } from './file-preview.component';
+import { ProgressBarComponent } from '../progress-bar/progress-bar.component';
 import { UploadSimulatorService } from '../../../core/services/upload-simulator.service';
 import {
   FILE_TYPE_CAD,
@@ -78,6 +79,7 @@ const PROGRESS_CIRCLE_RADIUS = 20;
   selector: 'app-drag-n-drop',
   imports: [
     FilePreviewComponent,
+    ProgressBarComponent,
     LucideCheck,
     LucideChevronDown,
     LucideCircleAlert,
