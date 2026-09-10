@@ -17,6 +17,8 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 export class ProgressBarComponent {
   readonly value = input.required<number>();
   readonly label = input<string | undefined>(undefined);
+  readonly showPercent = input(false);
+  readonly thickness = input(4);
 
   readonly clampedValue = computed(() => Math.min(100, Math.max(0, this.value())));
 }
