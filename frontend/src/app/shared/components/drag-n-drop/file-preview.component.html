@@ -27,7 +27,7 @@
     <div class="file-preview__body">
       @if (phase() === 'loading') {
         <div class="file-preview__placeholder" role="status">
-          <svg size="32" class="file-preview__spinner" lucideLoaderCircle></svg>
+          <app-spinner [size]="32" class="file-preview__spinner" />
           <p class="h5">Загрузка предпросмотра…</p>
         </div>
       } @else if (phase() === 'error') {

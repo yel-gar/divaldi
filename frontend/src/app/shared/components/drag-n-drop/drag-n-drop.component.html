@@ -1,7 +1,7 @@
 <div class="dropzone" [class.dropzone--drag]="isDragOver()">
   <input
     #fileInput
-    id="files-input"
+    [id]="inputId()"
     type="file"
     hidden
     [accept]="acceptAttr"
@@ -155,7 +155,9 @@
                     [value]="percentOf(item)"
                     [label]="'Прогресс загрузки ' + item.name"
                   />
-                  <span class="upload-item__percent h5">{{ percentOf(item) }}%</span>
+                  @if (showItemPercent()) {
+                    <span class="upload-item__percent h5">{{ percentOf(item) }}%</span>
+                  }
                 }
               </div>
             </div>
@@ -171,10 +173,10 @@
                   <svg size="14" lucideCheck></svg>
                 }
                 @case ('uploading') {
-                  <svg size="14" class="upload-item__spinner" lucideLoaderCircle></svg>
+                  <app-spinner [size]="14" />
                 }
                 @case ('error') {
-                  <svg size="14" class="upload-item__spinner" lucideCircleAlert></svg>
+                  <svg size="14" lucideCircleAlert></svg>
                 }
                 @default {
                   <svg size="14" lucideClock3></svg>
@@ -200,7 +202,7 @@
                 @if (previewKindFor(item.extension)) {
                   <button
                     type="button"
-                    class="button button--outline upload-item__action"
+                    class="button button--outline button--centered upload-item__action"
                     aria-label="Предпросмотр"
                     (click)="openPreview(item)"
                   >
@@ -209,7 +211,7 @@
                 }
                 <button
                   type="button"
-                  class="button button--outline upload-item__action"
+                  class="button button--outline button--centered upload-item__action upload-item__action--remove"
                   aria-label="Удалить"
                   (click)="removeItem(item.id)"
                 >

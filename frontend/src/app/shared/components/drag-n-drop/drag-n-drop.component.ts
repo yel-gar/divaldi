@@ -4,6 +4,7 @@ import {
   OnDestroy,
   computed,
   inject,
+  input,
   output,
   signal
 } from '@angular/core';
@@ -16,7 +17,6 @@ import {
   LucideCloudUpload,
   LucideDynamicIcon,
   LucideEye,
-  LucideLoaderCircle,
   LucideRotateCcw,
   LucideTrash2
 } from '@lucide/angular';
@@ -35,7 +35,9 @@ import { createId } from '../../utils/create-id';
 import { previewKindFor } from './file-preview.model';
 import { FilePreviewComponent } from './file-preview.component';
 import { ProgressBarComponent } from '../progress-bar/progress-bar.component';
+import { Spinner } from '../spinner/spinner.component';
 import { UploadSimulatorService } from '../../../core/services/upload-simulator.service';
+import { NotificationService } from '../../../core/services/notification.service';
 import {
   FILE_TYPE_CAD,
   FILE_TYPE_EXCEL,
@@ -80,6 +82,7 @@ const PROGRESS_CIRCLE_RADIUS = 20;
   imports: [
     FilePreviewComponent,
     ProgressBarComponent,
+    Spinner,
     LucideCheck,
     LucideChevronDown,
     LucideCircleAlert,
@@ -87,7 +90,6 @@ const PROGRESS_CIRCLE_RADIUS = 20;
     LucideCloudUpload,
     LucideDynamicIcon,
     LucideEye,
-    LucideLoaderCircle,
     LucideRotateCcw,
     LucideTrash2
   ],
@@ -109,11 +111,15 @@ export class DragNDropComponent implements OnDestroy {
   readonly etaSeconds = signal(Infinity);
   readonly previewItem = signal<UploadItem | null>(null);
 
+  readonly showItemPercent = input(true);
+  readonly inputId = input<string>();
+
   readonly filesChange = output<File[]>();
 
   readonly previewKindFor = previewKindFor;
 
   private readonly simulator = inject(UploadSimulatorService);
+  private readonly notifications = inject(NotificationService);
 
   private readonly activeUploads = new Map<string, Subscription>();
   private readonly speedSamples: UploadSpeedSample[] = [];
@@ -271,18 +277,25 @@ export class DragNDropComponent implements OnDestroy {
 
   private enqueueFiles(files: File[]): void {
     const seen = new Set(this.items().map((item) => item.file.name + ':' + item.file.size));
-    const accepted = files.filter((file) => {
+    const accepted: File[] = [];
+    const rejected: File[] = [];
+    for (const file of files) {
       const key = file.name + ':' + file.size;
       if (seen.has(key)) {
-        return false;
+        continue;
       }
       seen.add(key);
-      return (
+      const isValid =
         ACCEPTED_EXTENSIONS.includes(
           getFileExtension(file.name) as (typeof ACCEPTED_EXTENSIONS)[number]
-        ) && file.size <= MAX_FILE_SIZE
-      );
-    });
+        ) && file.size <= MAX_FILE_SIZE;
+      if (isValid) {
+        accepted.push(file);
+      } else {
+        rejected.push(file);
+      }
+    }
+    this.notifyRejected(rejected);
     if (accepted.length === 0) {
       return;
     }
@@ -341,9 +354,31 @@ export class DragNDropComponent implements OnDestroy {
     if (this.doneFiles() === this.items().length) {
       this.state.set('completed');
       this.stopSpeedTicker();
+      this.notifyUploadCompleted();
       return;
     }
     this.pumpQueue();
+  }
+
+  private notifyUploadCompleted(): void {
+    const items = this.items();
+    if (items.length === 1) {
+      this.notifications.success(`Файл «${items[0].name}» загружен`);
+    } else {
+      this.notifications.success(`Загружено файлов: ${items.length}`);
+    }
+  }
+
+  private notifyRejected(rejected: File[]): void {
+    if (rejected.length === 1) {
+      this.notifications.warning(
+        `Файл «${rejected[0].name}» не прикреплён: неподдерживаемый тип или размер`
+      );
+    } else if (rejected.length > 1) {
+      this.notifications.warning(
+        `Не прикреплено файлов: ${rejected.length} — неподдерживаемый тип или размер`
+      );
+    }
   }
 
   private failItem(id: string): void {

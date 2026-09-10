@@ -15,13 +15,14 @@ import {
   viewChild
 } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
-import { LucideFileWarning, LucideLoaderCircle, LucideX } from '@lucide/angular';
+import { LucideFileWarning, LucideX } from '@lucide/angular';
 import { getFileExtension } from '../../utils/upload-format';
+import { Spinner } from '../spinner/spinner.component';
 import { PreviewKind, mimeTypeFor, previewKindFor } from './file-preview.model';
 
 @Component({
   selector: 'app-file-preview',
-  imports: [LucideFileWarning, LucideLoaderCircle, LucideX],
+  imports: [LucideFileWarning, LucideX, Spinner],
   templateUrl: './file-preview.component.html',
   styleUrl: './file-preview.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
