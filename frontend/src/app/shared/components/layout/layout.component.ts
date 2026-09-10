@@ -1,11 +1,12 @@
 import { Component, input } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { Sidebar } from '../sidebar/sidebar.component';
+import { NotificationsComponent } from '../notifications/notifications.component';
 import type { NavItem, Role } from '../sidebar/sidebar.config';
 
 @Component({
   selector: 'app-layout',
-  imports: [RouterOutlet, Sidebar],
+  imports: [RouterOutlet, Sidebar, NotificationsComponent],
   templateUrl: './layout.html',
   styleUrl: './layout.scss'
 })

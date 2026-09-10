@@ -1,0 +1,9 @@
+.notifications {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 1000;
+
+  width: min(480px, calc(100vw - 48px));
+}

@@ -35,6 +35,5 @@ export class NotificationService {
   private add(type: Notification['type'], message: string): void {
     const id = crypto.randomUUID();
     this.notifications.update((list) => [...list, { id, type, message }]);
-    setTimeout(() => this.remove(id), 5000);
   }
 }
