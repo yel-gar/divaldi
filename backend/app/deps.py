@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette import status
 
-from app.cache import get_redis_client
+from app.cache import get_creation_key, get_generation_key, get_redis_client
 from app.database import get_db
 from app.models.auth import Session, User
 
@@ -55,3 +55,17 @@ async def redis_session() -> AsyncGenerator[Redis]:
 
 
 RedisSession = Annotated[Redis, Depends(redis_session)]
+
+
+async def chat_lock(redis_client: RedisSession, user: CurrentUser) -> AsyncGenerator[None]:
+    user_uuid = user.uuid
+    generation_key = get_generation_key(user_uuid)
+    creation_key = get_creation_key(user_uuid)
+    if await redis_client.exists(generation_key):
+        raise HTTPException(status_code=409, detail="A generation job is already running")
+    if not await redis_client.set(creation_key, "1", ex=5, nx=True):
+        raise HTTPException(status_code=429, detail="Stop spamming")
+    try:
+        yield
+    finally:
+        await redis_client.delete(creation_key)

@@ -25,11 +25,11 @@ class Content(BaseModel):
 
 class Message(BaseModel):
     role: Literal["user", "system", "assistant", "tool"]
-    content: Content
+    content: list[Content]
 
     @classmethod
     def from_chat_message(cls, obj: ChatMessage) -> Self:
-        return cls(content=Content(text=obj.content), role=obj.role)  # type: ignore
+        return cls(content=[Content(text=obj.content)], role=obj.role)  # type: ignore
 
 
 class ResponseFormat(BaseModel):
@@ -38,14 +38,14 @@ class ResponseFormat(BaseModel):
 
     type: Literal["json_schema", "text"]
     json_schema: dict | None = Field(None, alias="schema")
-    strict: bool
+    strict: bool | None = None
 
     @model_validator(mode="after")
     def validate_schema(self):
-        if self.type == "json_schema" and self.json_schema is None:
+        if self.type == "json_schema" and (self.json_schema is None or self.strict is None):
             raise ValueError("schema is required for json_schema messages")
 
-        if self.type == "text" and self.json_schema is not None:
+        if self.type == "text" and (self.json_schema is not None or self.strict is not None):
             raise ValueError("schema must not be provided for text messages")
 
         return self
@@ -62,12 +62,13 @@ class GenerationRequest(BaseModel):
 
 
 class InputTokenDetails(BaseModel):
+    prompt_tokens: int
     cached_tokens: int
 
 
 class Usage(BaseModel):
     input_tokens: int
-    input_token_details: InputTokenDetails
+    input_tokens_details: InputTokenDetails
     output_tokens: int
     total_tokens: int
 
@@ -75,7 +76,7 @@ class Usage(BaseModel):
 class GenerationResponse(BaseModel):
     messages: list[Message]
     model: str
-    thread_id: str
+    thread_id: str | None = None
     created_at: datetime
     finish_reason: Literal[
         "stop",

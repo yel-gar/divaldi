@@ -47,7 +47,8 @@ extend-exclude = "alembic/versions"
 line-length = 120
 target-version = "py313"
 exclude = [
-    "alembic/versions"
+    "alembic/versions",
+    "./createsuperuser.py"
 ]
 
 [tool.ruff.lint]

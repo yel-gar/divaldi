@@ -7,6 +7,7 @@ from app.models.chat import GenerationResultType, UserRole
 
 
 class ChatMessageSchema(BaseModel):
+    id: int
     role: UserRole
     content: str
     timestamp: datetime
@@ -35,9 +36,9 @@ class ChatCreatedSchema(BaseModel):
     session_id: uuid.UUID
 
 
-class CreateChatSchema(BaseModel):
-    initial_message: str
-
-
 class SendMessageSchema(BaseModel):
     content: str
+
+
+class ChatDeletedResponse(BaseModel):
+    deleted: bool

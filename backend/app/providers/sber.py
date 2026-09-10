@@ -59,8 +59,8 @@ class SberProvider(AIClient):
         x_request_id = str(uuid.uuid4())
         log = self._log.bind(x_request_id=x_request_id, x_client_id=x_client_id, x_session_id=x_session_id)
         headers = {
-            "X-Client-Id": x_client_id,
-            "X-Session-Id": x_session_id,
+            "X-Client-Id": str(x_client_id),
+            "X-Session-Id": str(x_session_id),
             "X-Request-Id": x_request_id,
         }
         data = GenerationRequest(
@@ -78,4 +78,6 @@ class SberProvider(AIClient):
             )
             return None
 
-        return GenerationResponse.model_validate(r.json())
+        json_data = r.json()
+        log.debug("completion_response", data=json_data)
+        return GenerationResponse.model_validate(json_data)

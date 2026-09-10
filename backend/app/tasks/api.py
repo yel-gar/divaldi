@@ -37,17 +37,17 @@ async def generate_chat_message(session: uuid.UUID):
         await db.execute(delete(GenerationResult).where(GenerationResult.message_session == session))
         await db.commit()
 
-        user_uuid = await db.scalar(
-            select(User.uuid)
+        user = await db.scalar(
+            select(User)
             .join(ChatMessage, User.id == ChatMessage.user_id)
             .where(ChatMessage.message_session == session)
             .limit(1)
         )
-        if user_uuid is None:
+        if user is None:
             log.error("no_user_for_session", session=session)
             await _add_error_result(db, session, "Invalid message session")
             return
-        key = get_generation_key(user_uuid)
+        key = get_generation_key(user.uuid)
         async with get_redis_client() as redis_client:
             acquired = await redis_client.set(key, "1", ex=300, nx=True)
             if not acquired:
@@ -66,13 +66,18 @@ async def generate_chat_message(session: uuid.UUID):
 
             log.debug("text_message_generation", last_message=messages[-1])
 
-        response = await provider.generate(
-            messages,
-            ResponseFormat(type=ResponseFormat.TYPE_TEXT, strict=False),
-            x_client_id=user_uuid,
-            x_session_id=session,
-        )
-        log.debug("text_generation_response", response=response)
+        try:
+            response = await provider.generate(
+                messages,
+                ResponseFormat(type=ResponseFormat.TYPE_TEXT),
+                x_client_id=user.uuid,
+                x_session_id=session,
+            )
+            log.debug("text_generation_response", response=response)
+        except Exception as e:
+            log.error("generate_chat_message_error", session=session, error=e)
+            await _add_error_result(db, session, "Internal server error occurred")
+            return
 
         async with tsq_db() as db:
             if not response:
@@ -84,15 +89,15 @@ async def generate_chat_message(session: uuid.UUID):
                 db.add(result)
                 await db.commit()
                 return
-            if not response.messages:
+            if not response.messages or not response.messages[0].content:
                 log.error("empty_response", session=session)
                 await _add_error_result(db, session, "Provider did not respond properly")
                 return
 
-            text = response.messages[0].content.text
+            text = response.messages[0].content[0].text
             result = GenerationResult(message_session=session, type=GenerationResultType.SUCCESS, content=text)
             message = ChatMessage(
-                user_id=user_uuid,
+                user_id=user.id,
                 message_session=session,
                 role=UserRole.ASSISTANT,
                 content=text,
