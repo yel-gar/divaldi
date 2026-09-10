@@ -1,0 +1,24 @@
+:host {
+  display: inline-flex;
+}
+
+svg {
+  // цвет наследуется от контекста использования (currentColor у lucide)
+  animation: spinner-rotate 1s linear infinite;
+}
+
+@keyframes spinner-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  svg {
+    animation: none;
+  }
+}
