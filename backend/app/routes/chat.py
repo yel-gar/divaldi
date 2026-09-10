@@ -1,10 +1,19 @@
 import uuid
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, select
 
 from app.cache import get_deletion_key, get_generation_key
-from app.deps import CurrentUser, DbSession, RedisSession, VerifiedMessageSession, chat_lock, require_login
+from app.deps import (
+    CurrentUser,
+    DbSession,
+    RedisSession,
+    VerifiedMessageSession,
+    chat_lock,
+    require_login,
+    user_rate_limiter,
+)
 from app.models.chat import ChatMessage, GenerationResult, GenerationResultType, UserRole
 from app.schemas import MessageResponse
 from app.schemas.chat import (
@@ -18,7 +27,11 @@ from app.schemas.chat import (
 )
 from app.tasks.api import generate_chat_message
 
-router = APIRouter(prefix="/chats", tags=["chat"], dependencies=[Depends(require_login)])
+router = APIRouter(
+    prefix="/chats",
+    tags=["chat"],
+    dependencies=[Depends(require_login), Depends(user_rate_limiter(100, timedelta(minutes=1), "chats:global"))],
+)
 
 
 @router.get("/", summary="Get all chats user has ever created", response_model=list[UserChatSchema])
@@ -39,7 +52,15 @@ async def get_chats(db: DbSession, user: CurrentUser):
 
 
 @router.post(
-    "/", dependencies=[Depends(chat_lock)], summary="Create new chat", response_model=ChatCreatedSchema, status_code=202
+    "/",
+    dependencies=[
+        Depends(chat_lock),
+        Depends(user_rate_limiter(20, timedelta(minutes=10), "chats:create")),
+        Depends(user_rate_limiter(5, timedelta(minutes=1), "chats:post")),
+    ],
+    summary="Create new chat",
+    response_model=ChatCreatedSchema,
+    status_code=202,
 )
 async def create_chat(db: DbSession, user: CurrentUser, data: SendMessageSchema):
     session_uuid = uuid.uuid4()
@@ -61,7 +82,7 @@ async def get_chat(session_id: VerifiedMessageSession, db: DbSession, user: Curr
 
 @router.post(
     "/{session_id}",
-    dependencies=[Depends(chat_lock)],
+    dependencies=[Depends(chat_lock), Depends(user_rate_limiter(5, timedelta(minutes=1), "chats:post"))],
     summary="Send text message to chat",
     status_code=202,
     response_model=MessageResponse,
@@ -74,7 +95,11 @@ async def send_message(session_id: VerifiedMessageSession, db: DbSession, user: 
     return MessageResponse(message="Message sent")
 
 
-@router.post("/{session_id}/retry", dependencies=[Depends(chat_lock)], response_model=MessageResponse)
+@router.post(
+    "/{session_id}/retry",
+    dependencies=[Depends(chat_lock), Depends(user_rate_limiter(5, timedelta(minutes=1), "chats:post"))],
+    response_model=MessageResponse,
+)
 async def retry_send(session_id: VerifiedMessageSession, db: DbSession):
     last_result = await db.scalar(select(GenerationResult).where(GenerationResult.message_session == session_id))
     if last_result is None or last_result.type != GenerationResultType.ERROR:

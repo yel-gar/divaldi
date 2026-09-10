@@ -27,3 +27,7 @@ def get_creation_key(user_uuid: uuid.UUID) -> str:
 
 def get_deletion_key(session_id: uuid.UUID) -> str:
     return f"chat:deletion:{session_id}"
+
+
+def get_ratelimit_key(key: str, user_id: int) -> str:
+    return f"ratelimit:{key}:{user_id}"

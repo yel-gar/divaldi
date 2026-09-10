@@ -1,6 +1,6 @@
 import uuid
 from collections.abc import AsyncGenerator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import Cookie, Depends, HTTPException
@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette import status
 
-from app.cache import get_creation_key, get_generation_key, get_redis_client
+from app.cache import get_creation_key, get_generation_key, get_ratelimit_key, get_redis_client
 from app.database import get_db
 from app.models.auth import Session, User
 from app.models.chat import ChatMessage
@@ -87,3 +87,16 @@ async def verify_chat_session(session_id: uuid.UUID, user: CurrentUser, db: DbSe
 
 
 VerifiedMessageSession = Annotated[uuid.UUID, Depends(verify_chat_session)]
+
+
+def user_rate_limiter(requests: int, per: timedelta | int, key: str):
+    async def rate_limit(redis_client: RedisSession, user: CurrentUser):
+        rkey = get_ratelimit_key(key, user.id)
+        count = await redis_client.incr(rkey)  # type: ignore
+        if count == 1:
+            await redis_client.expire(rkey, per)
+        if count > requests:
+            ttl = await redis_client.ttl(rkey)
+            raise HTTPException(status_code=429, detail="Too many requests", headers={"Retry-After": str(ttl)})
+
+    return rate_limit
