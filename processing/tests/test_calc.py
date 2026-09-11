@@ -6,10 +6,9 @@ The module under test operates on in-memory data:
 - the template is passed as ``bytes`` and the result is returned as ``bytes``.
 
 Material prices in tests are passed explicitly via the ``material_prices``
-argument (loaded from ``tests/calculator/res/test_prices.json``). This
-decouples the test suite from the contents of the production ``calc.xlsx``
-and makes tests robust against openpyxl round-trips (which drop cached
-formula values).
+argument (loaded from ``tests/data/test_prices.json``). This decouples the
+test suite from the contents of the production ``calc.xlsx`` and makes tests
+robust against openpyxl round-trips (which drop cached formula values).
 """
 
 import io
@@ -39,16 +38,9 @@ from processing.calculator.calc import (
     process_calculation,
 )
 
-TEMPLATE_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "src"
-    / "processing"
-    / "calculator"
-    / "res"
-    / "calc.xlsx"
-)
-
-PRICES_PATH = Path(__file__).resolve().parent / "res" / "test_prices.json"
+DATA_DIR = Path(__file__).resolve().parent / "data"
+TEMPLATE_PATH = DATA_DIR / "calc.xlsx"
+PRICES_PATH = DATA_DIR / "test_prices.json"
 
 
 

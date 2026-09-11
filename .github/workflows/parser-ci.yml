@@ -1,11 +1,11 @@
-name: Parser CI
+name: Processing CI
 
 on:
   pull_request:
-    paths: ["parser/**"]
+    paths: ["processing/**"]
   push:
     branches: [main]
-    paths: ["parser/**"]
+    paths: ["processing/**"]
 
 permissions:
   contents: read
@@ -15,18 +15,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  parser:
+  processing:
     name: Format, lint, test
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: parser
+        working-directory: processing
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.12"
 
       - name: Install Poetry
         run: pipx install poetry
@@ -35,16 +35,18 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pypoetry/virtualenvs
-          key: poetry-${{ runner.os }}-${{ hashFiles('parser/poetry.lock') }}
+          key: poetry-${{ runner.os }}-${{ hashFiles('processing/poetry.lock') }}
+          restore-keys: |
+            poetry-${{ runner.os }}-
 
       - name: Install dependencies
-        run: poetry install --no-root
+        run: poetry install --no-interaction --no-ansi
 
       - name: Format check (black)
-        run: poetry run black --check .
+        run: poetry run black --check src tests
 
       - name: Lint (ruff)
-        run: poetry run ruff check .
+        run: poetry run ruff check src tests
 
       - name: Test (pytest)
-        run: poetry run pytest .
+        run: poetry run pytest -v
