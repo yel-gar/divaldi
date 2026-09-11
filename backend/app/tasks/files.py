@@ -3,12 +3,18 @@ import uuid
 
 import structlog.stdlib
 
-from app.cache import get_avatar_url_key, get_avatar_waiting_key, get_redis_client
+from app.cache import get_attachment_status_key, get_avatar_url_key, get_avatar_waiting_key, get_redis_client
+from app.models.chat import Attachment
 from app.storage import get_s3_avatar_processed_key, storage
-from app.tasks.conf.broker import broker
+from app.tasks.conf.broker import broker, tsq_db
 from app.util import normalize_image
 
 log = structlog.stdlib.get_logger(__name__)
+
+
+async def _redis_error(key: str):
+    async with get_redis_client() as redis:
+        await redis.set(key, "error", nx=False, ex=3600)
 
 
 @broker.task(queue_name="default")
@@ -46,3 +52,48 @@ async def process_avatar(user_uuid: uuid.UUID):
         await s3.delete_object(Bucket="avatars", Key=s3_unprocessed_key)
     async with get_redis_client() as redis:
         await redis.delete(get_avatar_url_key(user_uuid))
+
+
+@broker.task(queue_name="default")
+async def process_attachment(attachment_id: int):
+    _log = log.bind(attachment_id=attachment_id)
+    redis_status_key = get_attachment_status_key(attachment_id)
+    async with tsq_db() as db:
+        attachment = await db.get(Attachment, attachment_id)
+    if attachment is None:
+        _log.error("null_attachment_id")
+        await _redis_error(redis_status_key)
+        return
+
+    async with storage.internal_client() as s3:
+        try:
+            resp = await s3.head_object(Bucket="uploads", Key=attachment.s3_key)
+        except Exception as e:
+            _log.error("s3_attachment_acquire_failed", exc=e)
+            await _redis_error(redis_status_key)
+            return
+
+    content_type = resp["ContentType"]
+    match content_type:
+        case "application/pdf":
+            await process_pdf.kiq(attachment_id)
+        case "application/dxf":
+            await process_dxf.kiq(attachment_id)
+        case "image/png" | "image/jpeg":
+            await process_image.kiq(attachment_id)
+        case _:
+            _log.error("s3_bad_content_type", key=attachment.s3_key, content_type=content_type)
+            await _redis_error(redis_status_key)
+            return
+
+
+@broker.task(queue_name="default")
+async def process_pdf(attachment_id: int): ...
+
+
+@broker.task(queue_name="default")
+async def process_dxf(attachment_id: int): ...
+
+
+@broker.task(queue_name="default")
+async def process_image(attachment_id: int): ...

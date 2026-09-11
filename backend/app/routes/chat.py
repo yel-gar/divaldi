@@ -1,20 +1,24 @@
 import uuid
 from datetime import timedelta
 
+import structlog.stdlib
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, select
 
-from app.cache import get_deletion_key, get_generation_key
+from app.cache import get_attachment_status_key, get_deletion_key, get_generation_key
 from app.deps import (
     CurrentUser,
     DbSession,
     RedisSession,
+    S3InternalClient,
+    S3PublicClient,
+    VerifiedAttachmentId,
     VerifiedMessageSession,
     chat_lock,
     require_login,
     user_rate_limiter,
 )
-from app.models.chat import ChatMessage, GenerationResult, GenerationResultType, UserRole
+from app.models.chat import Attachment, ChatMessage, GenerationResult, GenerationResultType, UserRole
 from app.schemas import MessageResponse
 from app.schemas.chat import (
     ChatCreatedSchema,
@@ -25,7 +29,16 @@ from app.schemas.chat import (
     SendMessageSchema,
     UserChatSchema,
 )
+from app.schemas.files import S3AttachmentStatusResponse, S3ChatUploadParams, S3ChatUploadRequest, S3UploadParams
+from app.storage import get_s3_attachment_key
 from app.tasks.api import generate_chat_message
+from app.tasks.files import process_attachment
+
+log = structlog.stdlib.get_logger(__name__)
+
+ALLOWED_CHAT_CONTENT_TYPES = ["application/pdf", "application/dxf", "image/png", "image/jpeg"]
+CHAT_MAX_UPLOAD_SIZE = 30 * 1024 * 1024
+
 
 router = APIRouter(
     prefix="/chats",
@@ -142,3 +155,80 @@ async def get_result(session_id: VerifiedMessageSession, user: CurrentUser, db: 
         running=False,
         result=ResultSchemaContent.model_validate(result, from_attributes=True),
     )
+
+
+@router.post(
+    "/{session_id}/uploads",
+    summary="Get link to upload file to chat, make sure to confirm the upload afterwards",
+    response_model=S3ChatUploadParams,
+)
+async def upload_file(
+    session_id: VerifiedMessageSession,
+    db: DbSession,
+    s3_public: S3PublicClient,
+    redis: RedisSession,
+    data: S3ChatUploadRequest,
+):
+    if data.content_type not in ALLOWED_CHAT_CONTENT_TYPES:
+        raise HTTPException(status_code=400, detail="Content type not allowed")
+    if data.file_size > CHAT_MAX_UPLOAD_SIZE:
+        raise HTTPException(status_code=400, detail="File size too large")
+
+    s3_key = get_s3_attachment_key(session_id, data.filename)
+    attachment = Attachment(name=data.filename, session_id=session_id, s3_key=s3_key)
+    db.add(attachment)
+    await db.commit()
+    await db.refresh(attachment)
+
+    await redis.set(get_attachment_status_key(attachment.id), "uploading", nx=True, ex=600)
+    s3_post = await s3_public.generate_presigned_post(
+        Bucket="uploads",
+        Key=s3_key,
+        Fields={"Content-Type": data.content_type},
+        Conditions=[
+            ["content-length-range", 1, CHAT_MAX_UPLOAD_SIZE],
+            {"Content-Type": data.content_type},
+        ],
+        ExpiresIn=300,
+    )
+    return S3ChatUploadParams(attachment_id=attachment.id, params=S3UploadParams.model_validate(s3_post))
+
+
+@router.post(
+    "/{session_id}/uploads/{attachment_id}/uploaded",
+    summary="Send request here after uploading attachment to provided URL",
+    response_model=MessageResponse,
+)
+async def attachment_uploaded(
+    session_id: VerifiedMessageSession,
+    attachment_id: int,
+    db: DbSession,
+    s3_internal: S3InternalClient,
+    redis: RedisSession,
+):
+    attachment = await db.scalar(
+        select(Attachment).where(Attachment.id == attachment_id, Attachment.session_id == session_id)
+    )
+    if attachment is None:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    try:
+        await s3_internal.head_object(Bucket="uploads", Key=attachment.s3_key)
+    except Exception as e:
+        log.warning("upload_not_uploaded", key=attachment.s3_key, exc=e)
+        raise HTTPException(status_code=400, detail="You haven't uploaded yet") from e
+
+    await redis.set(get_attachment_status_key(attachment_id), "processing", nx=False, ex=600)
+    await process_attachment.kiq(attachment_id)
+    return MessageResponse(message="File uploaded, processing started")
+
+
+@router.post(
+    "/{session_id}/uploads/{attachment_id}/status",
+    summary="Get current status of the attachment",
+    response_model=S3AttachmentStatusResponse,
+)
+async def attachment_status(attachment_id: VerifiedAttachmentId, redis: RedisSession):
+    status = await redis.get(get_attachment_status_key(attachment_id))
+    if status is None:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    return S3AttachmentStatusResponse(status=status)  # type: ignore

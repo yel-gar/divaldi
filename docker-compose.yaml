@@ -22,7 +22,9 @@ x-backend-env: &backend-env
   SBER_API_SCOPE: ${SBER_API_SCOPE:?}
 
 x-backend-service: &backend-service
-  build: ./backend
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
   restart: unless-stopped
   environment:
     <<: *backend-env
@@ -62,7 +64,9 @@ services:
     mem_limit: 1G
 
   migrate:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     environment:
       <<: *backend-env
     command: "poetry run alembic upgrade head"

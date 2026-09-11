@@ -11,10 +11,16 @@ from sqlalchemy.orm import selectinload
 from starlette import status
 from types_aiobotocore_s3.client import S3Client
 
-from app.cache import get_creation_key, get_generation_key, get_ratelimit_key, get_redis_client
+from app.cache import (
+    get_attachment_ownership_key,
+    get_creation_key,
+    get_generation_key,
+    get_ratelimit_key,
+    get_redis_client,
+)
 from app.database import get_db
 from app.models.auth import Session, User
-from app.models.chat import ChatMessage
+from app.models.chat import Attachment, ChatMessage
 from app.storage import storage
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
@@ -89,6 +95,23 @@ async def verify_chat_session(session_id: uuid.UUID, user: CurrentUser, db: DbSe
 
 
 VerifiedMessageSession = Annotated[uuid.UUID, Depends(verify_chat_session)]
+
+
+async def verify_attachment_id(
+    session_id: VerifiedMessageSession, attachment_id: int, db: DbSession, redis: RedisSession
+) -> int:
+    if await redis.exists(get_attachment_ownership_key(session_id, attachment_id)):
+        return attachment_id
+    val = await db.scalar(
+        select(select(Attachment).where(Attachment.id == attachment_id, Attachment.session_id == session_id).exists())
+    )
+    if not val:
+        raise HTTPException(status_code=403, detail="Invalid session")
+    await redis.set(get_attachment_ownership_key(session_id, attachment_id), val, ex=600, nx=True)
+    return attachment_id
+
+
+VerifiedAttachmentId = Annotated[int, Depends(verify_attachment_id)]
 
 
 def user_rate_limiter(requests: int, per: timedelta | int, key: str):

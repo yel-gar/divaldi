@@ -1,5 +1,6 @@
 import os
 import uuid
+from pathlib import PurePath
 
 import aioboto3
 from types_aiobotocore_s3.client import S3Client
@@ -27,6 +28,15 @@ def get_s3_avatar_unprocessed_key(id: uuid.UUID) -> str:
 
 def get_s3_avatar_processed_key(id: uuid.UUID) -> str:
     return f"avatars/{id}"
+
+
+def get_s3_attachment_key(session_id: uuid.UUID, filename: str) -> str:
+    """
+    Warning: this generates additional random UUID, so this function is not deterministic.
+    The key should be stored in the database upon creation.
+    """
+    ext = PurePath(filename).suffix.lower()
+    return f"attachments/{session_id}/{uuid.uuid4()}.{ext}"
 
 
 storage = ObjectStorage()

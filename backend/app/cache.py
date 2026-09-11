@@ -39,3 +39,11 @@ def get_avatar_waiting_key(user_uuid: uuid.UUID) -> str:
 
 def get_avatar_url_key(user_uuid: uuid.UUID) -> str:
     return f"avatar:url:{user_uuid}"
+
+
+def get_attachment_status_key(attachment_id: int) -> str:
+    return f"attachment:{attachment_id}:status"
+
+
+def get_attachment_ownership_key(session_id: uuid.UUID, attachment_id: int) -> str:
+    return f"attachment:ownership:{session_id}:{attachment_id}"
