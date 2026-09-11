@@ -9,8 +9,8 @@ import {
   OnInit,
   signal
 } from '@angular/core';
-import { ControlValueAccessor, NgControl } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { ControlValueAccessor, NgControl } from '@angular/forms';
 import { noop } from 'rxjs';
 
 @Component({
@@ -39,8 +39,8 @@ export class Textarea implements ControlValueAccessor, OnInit {
   readonly isDisabled = computed(() => this.formDisabled());
   readonly showError = signal(false);
 
-  private readonly injector = inject(Injector);
   private readonly ngControl = inject(NgControl, { optional: true, self: true });
+  private readonly injector = inject(Injector);
 
   private onChange: (value: string) => void = noop;
   private onTouched: () => void = noop;
