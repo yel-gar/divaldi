@@ -17,7 +17,7 @@ async def test_login_success_sets_cookie(client, test_user):
 
 @pytest.mark.asyncio
 async def test_login_wrong_password(client, test_user):
-    response = await client.post("/auth/login", json={"username": test_user.username, "password": "amogus"})
+    response = await client.post("/auth/login", json={"username": test_user.username, "password": "amogus4324232"})
 
     assert response.status_code == 401
     assert "session_token" not in response.cookies

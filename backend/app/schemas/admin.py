@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
 
 from app.models.auth import MAX_USERNAME_LENGTH, NAME_SURNAME_MAX_LENGTH
+from app.schemas import PasswordField
 
 
 class AdminUserFilters(BaseModel):
@@ -37,4 +38,4 @@ class AdminEditUserSchema(BaseModel):
 
 
 class AdminSetPasswordSchema(BaseModel):
-    password: str
+    password: PasswordField

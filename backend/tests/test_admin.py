@@ -77,7 +77,7 @@ async def test_get_users_paginated(admin_client: AsyncClient, db_session: AsyncS
 async def test_admin_set_password(
     client: AsyncClient, admin_client: AsyncClient, test_user: User, db_session: AsyncSession
 ):
-    new_password = "balls"
+    new_password = "balls34981792"
     response = await admin_client.post(f"/admin/users/{test_user.id}/set-password", json={"password": new_password})
     assert response.status_code == 200
 
