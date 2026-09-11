@@ -1,5 +1,5 @@
 """
-Parser package – provides DXF and PDF parsing utilities.
+Parser package - provides DXF and PDF parsing utilities.
 """
 
 from .dxf_parser import (

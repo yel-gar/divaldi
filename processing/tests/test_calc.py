@@ -26,7 +26,6 @@ from processing.calculator.calc import (
     COL_PRICE_PER_M2,
     DEFAULT_PARAMETERS,
     FIRST_POSITION_ROW,
-    Parameters,
     POSITION_BLOCK_HEIGHT,
     ROW_BENDING,
     ROW_LASER,
@@ -34,6 +33,7 @@ from processing.calculator.calc import (
     ROW_TURNING,
     ROW_WELDING,
     SHEET_CALC,
+    Parameters,
     _load_material_prices,
     process_calculation,
 )
@@ -41,7 +41,6 @@ from processing.calculator.calc import (
 DATA_DIR = Path(__file__).resolve().parent / "data"
 TEMPLATE_PATH = DATA_DIR / "calc.xlsx"
 PRICES_PATH = DATA_DIR / "test_prices.json"
-
 
 
 @pytest.fixture(scope="session")
@@ -69,6 +68,7 @@ def calc(template_bytes, material_prices):
     directly, so that the suite does not depend on formula caches inside the
     xlsx template.
     """
+
     def _call(data, template=None, params=None):
         return process_calculation(
             data,
@@ -152,7 +152,6 @@ def _base_row(block_index: int) -> int:
     return FIRST_POSITION_ROW + block_index * POSITION_BLOCK_HEIGHT
 
 
-
 def test_prices_fixture_covers_known_materials(material_prices):
     """The test prices cover every material used by the sample fixtures."""
     known = [
@@ -161,11 +160,8 @@ def test_prices_fixture_covers_known_materials(material_prices):
         "3,0 мм Ст3 (3000х1500)",
     ]
     for material in known:
-        assert material in material_prices, (
-            f"Material '{material}' missing from test_prices.json"
-        )
+        assert material in material_prices, f"Material '{material}' missing from test_prices.json"
         assert material_prices[material] > 0
-
 
 
 def test_process_calculation_success(calc, sample_data_single):
@@ -179,23 +175,15 @@ def test_process_calculation_success(calc, sample_data_single):
     wb, sheet = _open_calc_sheet(result)
     base = _base_row(0)
 
-    assert sheet.cell(row=base + ROW_LASER, column=COL_MATERIAL).value == (
-        "1,5 мм Оц. Сталь (2500х1250)"
-    )
+    assert sheet.cell(row=base + ROW_LASER, column=COL_MATERIAL).value == ("1,5 мм Оц. Сталь (2500х1250)")
     assert sheet.cell(row=base + ROW_LASER, column=COL_AREA).value == 0.8
     price = sheet.cell(row=base + ROW_LASER, column=COL_PRICE_PER_M2).value
     assert price is not None and price > 0
 
-    assert sheet.cell(
-        row=base + ROW_LASER, column=COL_HOURS
-    ).value == pytest.approx(0.25)
-    assert sheet.cell(
-        row=base + ROW_BENDING, column=COL_HOURS
-    ).value == pytest.approx(12 / 84)
+    assert sheet.cell(row=base + ROW_LASER, column=COL_HOURS).value == pytest.approx(0.25)
+    assert sheet.cell(row=base + ROW_BENDING, column=COL_HOURS).value == pytest.approx(12 / 84)
     assert sheet.cell(row=base + ROW_TURNING, column=COL_HOURS).value == 0.0
-    assert sheet.cell(
-        row=base + ROW_WELDING, column=COL_HOURS
-    ).value == pytest.approx(0.25)
+    assert sheet.cell(row=base + ROW_WELDING, column=COL_HOURS).value == pytest.approx(0.25)
     assert sheet.cell(row=base + ROW_PAINTING, column=COL_AREA).value == 0.8
 
     assert "КП с ндс" in wb.sheetnames
@@ -206,27 +194,15 @@ def test_process_calculation_multiple_positions(calc, sample_data_multiple):
     result = calc(sample_data_multiple)
     _, sheet = _open_calc_sheet(result)
 
-    assert sheet.cell(
-        row=_base_row(0) + ROW_LASER, column=COL_MATERIAL
-    ).value == "1,5 мм Оц. Сталь (2500х1250)"
-    assert sheet.cell(
-        row=_base_row(1) + ROW_LASER, column=COL_MATERIAL
-    ).value == "2,0 мм Оц. Сталь (2500х1250)"
-    assert sheet.cell(
-        row=_base_row(2) + ROW_LASER, column=COL_MATERIAL
-    ).value == "3,0 мм Ст3 (3000х1500)"
+    assert sheet.cell(row=_base_row(0) + ROW_LASER, column=COL_MATERIAL).value == "1,5 мм Оц. Сталь (2500х1250)"
+    assert sheet.cell(row=_base_row(1) + ROW_LASER, column=COL_MATERIAL).value == "2,0 мм Оц. Сталь (2500х1250)"
+    assert sheet.cell(row=_base_row(2) + ROW_LASER, column=COL_MATERIAL).value == "3,0 мм Ст3 (3000х1500)"
 
-    assert sheet.cell(
-        row=_base_row(3) + ROW_LASER, column=COL_MATERIAL
-    ).value is None
-    assert sheet.cell(
-        row=_base_row(3) + ROW_LASER, column=COL_AREA
-    ).value is None
+    assert sheet.cell(row=_base_row(3) + ROW_LASER, column=COL_MATERIAL).value is None
+    assert sheet.cell(row=_base_row(3) + ROW_LASER, column=COL_AREA).value is None
 
 
-def test_process_calculation_clears_old_data(
-    calc, template_bytes, sample_data_single
-):
+def test_process_calculation_clears_old_data(calc, template_bytes, sample_data_single):
     """
     Old data from the template is cleared before writing new data.
 
@@ -245,15 +221,9 @@ def test_process_calculation_clears_old_data(
     result = calc(sample_data_single, template=stale_template)
     _, out_sheet = _open_calc_sheet(result)
 
-    assert out_sheet.cell(
-        row=_base_row(0) + ROW_LASER, column=COL_MATERIAL
-    ).value == "1,5 мм Оц. Сталь (2500х1250)"
-    assert out_sheet.cell(
-        row=_base_row(1) + ROW_LASER, column=COL_MATERIAL
-    ).value is None
-    assert out_sheet.cell(
-        row=_base_row(1) + ROW_LASER, column=COL_AREA
-    ).value is None
+    assert out_sheet.cell(row=_base_row(0) + ROW_LASER, column=COL_MATERIAL).value == "1,5 мм Оц. Сталь (2500х1250)"
+    assert out_sheet.cell(row=_base_row(1) + ROW_LASER, column=COL_MATERIAL).value is None
+    assert out_sheet.cell(row=_base_row(1) + ROW_LASER, column=COL_AREA).value is None
 
 
 def test_process_calculation_custom_parameters(calc, sample_data_single):
@@ -262,9 +232,7 @@ def test_process_calculation_custom_parameters(calc, sample_data_single):
     result = calc(sample_data_single, params=params)
     _, sheet = _open_calc_sheet(result)
 
-    assert sheet.cell(
-        row=_base_row(0) + ROW_LASER, column=COL_HOURS
-    ).value == pytest.approx(0.5)
+    assert sheet.cell(row=_base_row(0) + ROW_LASER, column=COL_HOURS).value == pytest.approx(0.5)
 
 
 def test_process_calculation_uses_default_parameters(calc, sample_data_single):
@@ -277,10 +245,7 @@ def test_process_calculation_uses_default_parameters(calc, sample_data_single):
 
     result = calc(sample_data_single)
     _, sheet = _open_calc_sheet(result)
-    assert sheet.cell(
-        row=_base_row(0) + ROW_LASER, column=COL_HOURS
-    ).value == pytest.approx(0.25)
-
+    assert sheet.cell(row=_base_row(0) + ROW_LASER, column=COL_HOURS).value == pytest.approx(0.25)
 
 
 def test_process_calculation_data_not_dict(calc):
@@ -476,7 +441,6 @@ def test_process_calculation_infinity_value(calc):
         calc(data)
 
 
-
 def test_load_material_prices(template_bytes):
     """
     Known materials must be present with a positive price.
@@ -497,9 +461,7 @@ def test_load_material_prices(template_bytes):
         assert prices[material] > 0, f"Material '{material}' has non-positive price"
 
 
-def test_load_material_prices_used_when_not_supplied(
-    template_bytes, sample_data_single
-):
+def test_load_material_prices_used_when_not_supplied(template_bytes, sample_data_single):
     """
     Omitting ``material_prices`` falls back to reading them from the template.
 
@@ -508,11 +470,8 @@ def test_load_material_prices_used_when_not_supplied(
     """
     result = process_calculation(sample_data_single, template_bytes)
     _, sheet = _open_calc_sheet(result)
-    price = sheet.cell(
-        row=_base_row(0) + ROW_LASER, column=COL_PRICE_PER_M2
-    ).value
+    price = sheet.cell(row=_base_row(0) + ROW_LASER, column=COL_PRICE_PER_M2).value
     assert price is not None and price > 0
-
 
 
 def test_integration_with_real_template(calc, sample_data_single):

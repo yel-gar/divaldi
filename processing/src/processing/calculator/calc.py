@@ -13,7 +13,6 @@ from typing import Any
 
 from openpyxl import load_workbook
 
-
 SHEET_CALC = "Расчёт"
 SHEET_PRICES = "Цены на металл"
 
@@ -26,14 +25,14 @@ ROW_TURNING = 2
 ROW_WELDING = 3
 ROW_PAINTING = 4
 
-COL_MATERIAL = 3       # C
-COL_PRICE_PER_M2 = 4   # D
-COL_AREA = 5           # E
-COL_HOURS = 8          # H
+COL_MATERIAL = 3  # C
+COL_PRICE_PER_M2 = 4  # D
+COL_AREA = 5  # E
+COL_HOURS = 8  # H
 
 PRICE_FIRST_ROW = 3
-COL_PRICE_NAME = 1     # A
-COL_PRICE_VALUE = 8    # H
+COL_PRICE_NAME = 1  # A
+COL_PRICE_VALUE = 8  # H
 
 REQUIRED_FIELDS = (
     "name",
@@ -54,7 +53,6 @@ NUMERIC_FIELDS = (
     "turning_hours",
     "painting_m2",
 )
-
 
 
 @dataclass(frozen=True)
@@ -78,18 +76,18 @@ DEFAULT_PARAMETERS = Parameters()
 
 def _load_material_prices(template_bytes: bytes) -> dict[str, float]:
     """
-        Extract material prices from the template's price sheet.
+    Extract material prices from the template's price sheet.
 
-        Reads the file in data_only mode so that formula results (not formulas
-        themselves) are returned. This requires the template to have been
-        recalculated and saved by Excel at least once.
+    Reads the file in data_only mode so that formula results (not formulas
+    themselves) are returned. This requires the template to have been
+    recalculated and saved by Excel at least once.
 
-        Args:
-            template_bytes: Raw content of the Excel template.
+    Args:
+        template_bytes: Raw content of the Excel template.
 
-        Returns:
-            Mapping of material name to price per m².
-        """
+    Returns:
+        Mapping of material name to price per m².
+    """
     wb = load_workbook(io.BytesIO(template_bytes), data_only=True)
     sheet = wb[SHEET_PRICES]
     prices: dict[str, float] = {}
@@ -106,7 +104,7 @@ def _load_material_prices(template_bytes: bytes) -> dict[str, float]:
             continue
         try:
             prices[str(name).strip()] = float(value)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             continue
 
     if names_seen and not prices and values_missing:
@@ -136,28 +134,20 @@ def _validate_positions(
     """
     if len(positions) > params.max_positions:
         raise ValueError(
-            f"'positions' contains {len(positions)} items, "
-            f"but only {params.max_positions} are supported."
+            f"'positions' contains {len(positions)} items, " f"but only {params.max_positions} are supported."
         )
 
     for idx, pos in enumerate(positions):
         for field in REQUIRED_FIELDS:
             if field not in pos:
-                raise ValueError(
-                    f"Position {idx + 1} missing required field: {field}"
-                )
+                raise ValueError(f"Position {idx + 1} missing required field: {field}")
 
         material = pos["material"]
         if not isinstance(material, str):
-            raise ValueError(
-                f"Position {idx + 1}: 'material' must be a string, "
-                f"got {type(material).__name__}"
-            )
+            raise ValueError(f"Position {idx + 1}: 'material' must be a string, " f"got {type(material).__name__}")
         material = material.strip()
         if material not in material_prices:
-            raise ValueError(
-                f"Position {idx + 1}: unknown material '{material}'"
-            )
+            raise ValueError(f"Position {idx + 1}: unknown material '{material}'")
 
         for field in NUMERIC_FIELDS:
             value = pos[field]
@@ -167,10 +157,7 @@ def _validate_positions(
                     f"number, got {type(value).__name__}: {value}"
                 )
             if not math.isfinite(value) or value < 0:
-                raise ValueError(
-                    f"Position {idx + 1}: field '{field}' must be a finite "
-                    f"number >= 0, got: {value}"
-                )
+                raise ValueError(f"Position {idx + 1}: field '{field}' must be a finite " f"number >= 0, got: {value}")
 
 
 def _write_position(
@@ -197,41 +184,23 @@ def _write_position(
 
     sheet.cell(row=base + ROW_LASER, column=COL_MATERIAL).value = material
     sheet.cell(row=base + ROW_LASER, column=COL_AREA).value = area_m2
-    sheet.cell(row=base + ROW_LASER, column=COL_PRICE_PER_M2).value = (
-        material_prices[material]
-    )
+    sheet.cell(row=base + ROW_LASER, column=COL_PRICE_PER_M2).value = material_prices[material]
 
     laser_m = float(pos_data["laser_m"])
-    hours_laser = (
-        laser_m / params.laser_speed_m_per_hour
-        if params.laser_speed_m_per_hour > 0
-        else 0.0
-    )
+    hours_laser = laser_m / params.laser_speed_m_per_hour if params.laser_speed_m_per_hour > 0 else 0.0
     sheet.cell(row=base + ROW_LASER, column=COL_HOURS).value = hours_laser
 
     bends = float(pos_data["bends"])
-    hours_bending = (
-        bends / params.bending_rate_per_hour
-        if params.bending_rate_per_hour > 0
-        else 0.0
-    )
+    hours_bending = bends / params.bending_rate_per_hour if params.bending_rate_per_hour > 0 else 0.0
     sheet.cell(row=base + ROW_BENDING, column=COL_HOURS).value = hours_bending
 
-    sheet.cell(row=base + ROW_TURNING, column=COL_HOURS).value = float(
-        pos_data["turning_hours"]
-    )
+    sheet.cell(row=base + ROW_TURNING, column=COL_HOURS).value = float(pos_data["turning_hours"])
 
     welding_m = float(pos_data["welding_m"])
-    hours_welding = (
-        welding_m / params.welding_speed_m_per_hour
-        if params.welding_speed_m_per_hour > 0
-        else 0.0
-    )
+    hours_welding = welding_m / params.welding_speed_m_per_hour if params.welding_speed_m_per_hour > 0 else 0.0
     sheet.cell(row=base + ROW_WELDING, column=COL_HOURS).value = hours_welding
 
-    sheet.cell(row=base + ROW_PAINTING, column=COL_AREA).value = float(
-        pos_data["painting_m2"]
-    )
+    sheet.cell(row=base + ROW_PAINTING, column=COL_AREA).value = float(pos_data["painting_m2"])
 
 
 def _clear_positions(sheet, params: Parameters) -> None:
