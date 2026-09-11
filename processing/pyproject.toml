@@ -1,29 +1,76 @@
-[tool.poetry]
+[project]
 name = "processing"
 version = "0.1.0"
 description = ""
-authors = ["AX-Ray"]
-license = "MIT"
+authors = [
+    {name = "AX-Ray"}
+]
 readme = "README.md"
+requires-python = ">=3.14,<4"
+dependencies = [
+    "pymupdf (>=1.28.2,<2.0.0)",
+    "pillow (>=12.3.0,<13.0.0)",
+    "openpyxl (>=3.1.5,<4.0.0)"
+]
 
 packages = [{ include = "processing", from = "src" }]
 
-[tool.poetry.dependencies]
-python = "^3.12"
-pymupdf = "^1.24.0"
-pillow = "^10.0.0"
-openpyxl = "^3.1.2"
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^9.0"
-black = "^24.0"
-ruff = "^0.6.0"
-reportlab = "^4.0"
+[tool.black]
+line-length = 120
+target-version = ["py314"]
+extend-exclude = "alembic/versions"
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+exclude = [
+    "alembic/versions",
+    "./createsuperuser.py"
+]
+
+[tool.ruff.lint]
+select = [
+    "F",
+    "E",
+    "W",
+    "I",
+    "N",
+    "UP",
+    "B",
+    "ASYNC",
+    "C4",
+    "PIE",
+    "T20",
+    "Q",
+    "RET",
+    "SIM",
+    "ARG",
+    "PTH",
+    "RUF"
+]
+ignore = [
+    "PIE796",
+    "B028",
+    "RUF018",
+    "N818",
+    "B905",
+    "RUF012",
+    "B008"
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["ARG001"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[dependency-groups]
+dev = [
+    "black (>=26.5.1,<27.0.0)",
+    "pytest (>=9.1.1,<10.0.0)",
+    "ruff (>=0.16.7,<0.17.0)",
+    "reportlab (>=5.0.1,<6.0.0)"
+]
