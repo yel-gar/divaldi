@@ -4,6 +4,7 @@
   [id]="inputId()"
   [placeholder]="placeholder()"
   [attr.maxlength]="maxLength() ?? null"
+  [attr.aria-invalid]="showError()"
   [value]="value()"
   [disabled]="isDisabled()"
   (input)="onInput($event)"

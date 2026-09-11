@@ -5,6 +5,15 @@
   & > textarea {
     width: 100%;
   }
+
+  &.textarea--error > textarea {
+    border-color: var(--color-danger);
+
+    &:focus-visible {
+      border-color: var(--color-danger);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-danger) 40%, transparent);
+    }
+  }
 }
 
 .textarea__counter {
