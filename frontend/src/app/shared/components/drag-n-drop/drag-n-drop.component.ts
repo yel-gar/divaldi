@@ -190,16 +190,16 @@ export class DragNDropComponent implements OnDestroy {
     }
     this.items.update((list) => list.filter((item) => item.id !== id));
     this.emitFiles();
+
     if (this.items().length === 0) {
-      if (this.activeUploads.size === 0) {
-        this.resetToIdle();
-      }
+      this.resetToIdle();
       return;
     }
-    this.refreshSpeed();
-    if (this.state() === 'uploading') {
+
+    if (this.state() === 'uploading' && !this.settleIfFinished()) {
       this.pumpQueue();
     }
+    this.refreshSpeed();
   }
 
   retryItem(id: string): void {
