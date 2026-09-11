@@ -30,16 +30,17 @@ export class NotificationsComponent {
   readonly displayed = computed<NotificationData | null>(
     () => this.leaving()[0] ?? this.notifications()[0] ?? null
   );
+  private readonly headId = computed(() => this.notifications()[0]?.id ?? null);
 
   constructor() {
     let previousItems = new Map(this.notifications().map((n) => [n.id, n]));
 
     effect((onCleanup) => {
-      const current = this.notifications()[0];
-      if (!current) {
+      const id = this.headId();
+      if (!id) {
         return;
       }
-      const timer = setTimeout(() => this.close(current.id), NOTIFICATION_DURATION_MS);
+      const timer = setTimeout(() => this.close(id), NOTIFICATION_DURATION_MS);
       onCleanup(() => clearTimeout(timer));
     });
 
