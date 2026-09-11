@@ -1,0 +1,29 @@
+@mixin app-scrollbar {
+  @supports (-moz-appearance: none) {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-main) var(--color-white);
+  }
+
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: var(--color-white);
+    border: 1px solid var(--color-outline);
+    border-radius: 999px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+
+    background: var(--color-main);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+
+    &:hover {
+      background: var(--color-hover);
+      background-clip: padding-box;
+    }
+  }
+}
