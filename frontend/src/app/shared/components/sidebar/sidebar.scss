@@ -1,5 +1,42 @@
 @use '../../../fonts';
 
+.sidebar__header {
+  display: flex;
+  align-items: center;
+}
+
+.sidebar__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  width: 32px;
+  height: 32px;
+
+  margin-left: auto;
+
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--color-text);
+  cursor: pointer;
+
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+
+  &:hover {
+    background: var(--color-hover-secondary);
+    color: var(--color-main);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-main);
+    outline-offset: 2px;
+  }
+}
+
 .logo {
   display: flex;
   align-items: center;
@@ -8,12 +45,26 @@
 
 .cta {
   width: 100%;
+  max-width: 100%;
   margin-top: 40px;
   gap: 20px;
+
+  & > span {
+    overflow: hidden;
+    white-space: nowrap;
+
+    max-width: 200px;
+
+    transition:
+      max-width 300ms ease,
+      opacity 250ms ease;
+  }
 
   &__icon {
     position: relative;
     left: 5px;
+
+    transition: left 300ms ease;
   }
 }
 
@@ -22,6 +73,7 @@
 
   &__list {
     display: grid;
+    grid-template-columns: 1fr;
     gap: 5px;
   }
 
@@ -87,5 +139,66 @@
     display: grid;
     gap: 6px;
     margin-left: 12px;
+  }
+}
+
+:host(.sidebar--collapsed) {
+  .sidebar__header {
+    justify-content: center;
+  }
+
+  .logo {
+    display: none;
+  }
+
+  .sidebar__toggle {
+    margin-left: 0;
+  }
+
+  .cta {
+    max-width: 54px;
+
+    margin-inline: auto;
+
+    gap: 0;
+
+    & > span {
+      max-width: 0;
+      opacity: 0;
+    }
+
+    &__icon {
+      left: 0;
+    }
+  }
+
+  .navigation__item {
+    justify-content: center;
+    gap: 0;
+
+    padding-inline: 16px;
+
+    & > span {
+      display: none;
+    }
+
+    &.active-link {
+      border-left: none;
+      border-radius: 5px;
+
+      box-shadow: inset 5px 0 0 var(--color-main);
+      background: var(--color-hover-secondary);
+    }
+  }
+
+  .profile {
+    width: fit-content;
+
+    left: 50%;
+    translate: -50%;
+
+    &__content {
+      display: none;
+    }
   }
 }
