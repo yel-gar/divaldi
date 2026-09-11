@@ -20,6 +20,9 @@ dependencies = [
     "taskiq-redis (>=1.2.3,<2.0.0)",
     "taskiq-dashboard (>=0.4.4,<0.5.0)",
     "redis (>=8.1.0,<9.0.0)",
+    "aioboto3 (>=15.5.0,<16.0.0)",
+    "types-aiobotocore[s3] (>=3.9.1,<4.0.0)",
+    "pillow (>=12.3.0,<13.0.0)",
 ]
 
 
