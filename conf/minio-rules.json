@@ -1,10 +1,10 @@
 {
   "Rules": [
     {
-      "ID": "avatar-unprocessed-cleanup",
+      "ID": "avatars-unprocessed-cleanup",
       "Status": "Enabled",
       "Filter": {
-        "Prefix": "avatar-unprocessed/"
+        "Prefix": "avatars-unprocessed/"
       },
       "Expiration": {
         "Days": 1

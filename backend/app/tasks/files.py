@@ -43,6 +43,6 @@ async def process_avatar(user_uuid: uuid.UUID):
             Body=normalized,
             ContentType="image/webp",
         )
-        await s3.delete_object(Bucket="avatars", Key=avatar_waiting_key)
+        await s3.delete_object(Bucket="avatars", Key=s3_unprocessed_key)
     async with get_redis_client() as redis:
         await redis.delete(get_avatar_url_key(user_uuid))
