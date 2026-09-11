@@ -133,6 +133,11 @@ export class FilePreviewComponent implements AfterViewInit {
 
   private openDialog(): void {
     const dialog = this.dialogRef().nativeElement;
+    for (const other of document.querySelectorAll<HTMLDialogElement>('dialog[open]')) {
+      if (other !== dialog) {
+        other.close();
+      }
+    }
     if (typeof dialog.showModal === 'function') {
       dialog.showModal();
     } else {
