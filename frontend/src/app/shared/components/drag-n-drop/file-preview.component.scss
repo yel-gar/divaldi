@@ -139,7 +139,6 @@
 
   &__spinner {
     color: var(--color-main);
-    animation: file-preview-spin 1s linear infinite;
   }
 
   &__warning {
@@ -220,16 +219,6 @@
   }
 }
 
-@keyframes file-preview-spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @keyframes file-preview-fade-in {
   from {
     opacity: 0;
@@ -275,10 +264,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .file-preview__spinner {
-    animation: none;
-  }
-
   .file-preview[open],
   .file-preview::backdrop {
     animation: none;

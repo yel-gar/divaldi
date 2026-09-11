@@ -29,3 +29,30 @@ export const FILE_TYPE_EXCEL = mdiNode('file-excel-box', FILE_EXCEL_BOX);
 export const FILE_TYPE_IMAGE = mdiNode('file-image-box', FILE_IMAGE_BOX);
 
 export const FILE_TYPE_CAD = mdiNode('file-cad-box', FILE_CAD_BOX);
+
+export interface FileTypeStyle {
+  readonly icon: LucideIconData;
+  readonly color: string;
+}
+
+const FILE_TYPE_STYLES: Record<string, FileTypeStyle> = {
+  '.pdf': { icon: FILE_TYPE_PDF, color: 'var(--color-danger)' },
+  '.doc': { icon: FILE_TYPE_WORD, color: 'var(--color-main)' },
+  '.docx': { icon: FILE_TYPE_WORD, color: 'var(--color-main)' },
+  '.xls': { icon: FILE_TYPE_EXCEL, color: 'var(--color-success)' },
+  '.xlsx': { icon: FILE_TYPE_EXCEL, color: 'var(--color-success)' },
+  '.png': { icon: FILE_TYPE_IMAGE, color: 'var(--color-warning)' },
+  '.jpg': { icon: FILE_TYPE_IMAGE, color: 'var(--color-warning)' },
+  '.jpeg': { icon: FILE_TYPE_IMAGE, color: 'var(--color-warning)' },
+  '.dwg': { icon: FILE_TYPE_CAD, color: 'var(--color-cad)' },
+  '.dxf': { icon: FILE_TYPE_CAD, color: 'var(--color-cad)' }
+};
+
+const UNKNOWN_FILE_TYPE: FileTypeStyle = {
+  icon: FILE_TYPE_IMAGE,
+  color: 'var(--color-gray)'
+};
+
+export function fileTypeStyleFor(extension: string): FileTypeStyle {
+  return FILE_TYPE_STYLES[extension] ?? UNKNOWN_FILE_TYPE;
+}

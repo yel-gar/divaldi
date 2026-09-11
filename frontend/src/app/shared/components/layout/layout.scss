@@ -1,25 +1,47 @@
+@use '../../../scrollbars' as *;
+
 :host {
   --sidebar-width: 330px;
+  --sidebar-collapsed-width: 96px;
 
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
+
+  &:has(> app-sidebar.sidebar--collapsed) {
+    --sidebar-width: var(--sidebar-collapsed-width);
+  }
 
   & > main {
     position: absolute;
     left: var(--sidebar-width);
     width: calc(100% - var(--sidebar-width));
+    height: 100dvh;
+
+    overflow-y: auto;
+
+    transition:
+      left 250ms ease,
+      width 250ms ease;
+
+    @include app-scrollbar;
   }
 
   & > app-sidebar {
     background-color: var(--color-secondary);
 
     height: 100dvh;
-    width: 330px;
+    width: var(--sidebar-width);
 
     padding: 30px 30px;
 
     position: fixed;
 
     user-select: none;
+
+    transition: width 250ms ease;
+  }
+
+  & > app-sidebar.sidebar--collapsed {
+    padding: 30px 20px;
   }
 }

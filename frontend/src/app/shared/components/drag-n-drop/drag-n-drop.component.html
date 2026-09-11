@@ -1,7 +1,7 @@
 <div class="dropzone" [class.dropzone--drag]="isDragOver()">
   <input
     #fileInput
-    id="files-input"
+    [id]="inputId()"
     type="file"
     hidden
     [accept]="acceptAttr"
@@ -150,10 +150,14 @@
               <div class="upload-item__row upload-item__row--meta">
                 <span class="upload-item__size h5">{{ sizeLabel(item) }}</span>
                 @if (item.status === 'uploading') {
-                  <div class="upload-item__progress-track">
-                    <div class="upload-item__progress-fill" [style.width.%]="percentOf(item)"></div>
-                  </div>
-                  <span class="upload-item__percent h5">{{ percentOf(item) }}%</span>
+                  <app-progress-bar
+                    class="upload-item__progress"
+                    [value]="percentOf(item)"
+                    [label]="'Прогресс загрузки ' + item.name"
+                  />
+                  @if (showItemPercent()) {
+                    <span class="upload-item__percent h5">{{ percentOf(item) }}%</span>
+                  }
                 }
               </div>
             </div>
@@ -169,10 +173,10 @@
                   <svg size="14" lucideCheck></svg>
                 }
                 @case ('uploading') {
-                  <svg size="14" class="upload-item__spinner" lucideLoaderCircle></svg>
+                  <app-spinner [size]="14" />
                 }
                 @case ('error') {
-                  <svg size="14" class="upload-item__spinner" lucideCircleAlert></svg>
+                  <svg size="14" lucideCircleAlert></svg>
                 }
                 @default {
                   <svg size="14" lucideClock3></svg>
@@ -184,7 +188,7 @@
             @if (item.status === 'error') {
               <button
                 type="button"
-                class="upload-item__action upload-item__action--retry"
+                class="button button--outline upload-item__action upload-item__action--retry"
                 aria-label="Повторить"
                 title="Повторить"
                 (click)="retryItem(item.id)"
@@ -198,7 +202,7 @@
                 @if (previewKindFor(item.extension)) {
                   <button
                     type="button"
-                    class="upload-item__action"
+                    class="button button--outline button--centered upload-item__action"
                     aria-label="Предпросмотр"
                     (click)="openPreview(item)"
                   >
@@ -207,7 +211,7 @@
                 }
                 <button
                   type="button"
-                  class="upload-item__action"
+                  class="button button--danger button--outline button--centered upload-item__action"
                   aria-label="Удалить"
                   (click)="removeItem(item.id)"
                 >

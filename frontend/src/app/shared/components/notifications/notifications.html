@@ -1,0 +1,13 @@
+<ul class="notifications">
+  @if (displayed(); as notification) {
+  <li>
+    <app-notification
+      [type]="notification.type"
+      [title]="notification.message"
+      dismissible
+      [leaving]="isLeaving(notification.id)"
+      (closed)="close(notification.id)"
+    />
+  </li>
+  }
+</ul>

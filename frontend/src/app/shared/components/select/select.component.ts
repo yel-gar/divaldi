@@ -17,10 +17,10 @@ import {
   signal,
   viewChild
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ControlValueAccessor, NgControl } from '@angular/forms';
 import { LucideCheck, LucideChevronDown } from '@lucide/angular';
 import { noop } from 'rxjs';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { createId } from '../../utils/create-id';
 
 export interface SelectOption {
@@ -60,6 +60,7 @@ export class Select implements ControlValueAccessor, OnInit {
 
   readonly label = input<string>();
   readonly labelId = input<string>();
+  readonly inputId = input<string>();
 
   private onChange: (value: string | null) => void = noop;
   private onTouched: () => void = noop;

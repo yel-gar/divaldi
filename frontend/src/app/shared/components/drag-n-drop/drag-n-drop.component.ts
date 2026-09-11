@@ -4,6 +4,7 @@ import {
   OnDestroy,
   computed,
   inject,
+  input,
   output,
   signal
 } from '@angular/core';
@@ -16,7 +17,6 @@ import {
   LucideCloudUpload,
   LucideDynamicIcon,
   LucideEye,
-  LucideLoaderCircle,
   LucideRotateCcw,
   LucideTrash2
 } from '@lucide/angular';
@@ -34,37 +34,12 @@ import { formatBytes, formatEta, formatSpeed, getFileExtension } from '../../uti
 import { createId } from '../../utils/create-id';
 import { previewKindFor } from './file-preview.model';
 import { FilePreviewComponent } from './file-preview.component';
+import { ProgressBarComponent } from '../progress-bar/progress-bar.component';
+import { Spinner } from '../spinner/spinner.component';
 import { UploadSimulatorService } from '../../../core/services/upload-simulator.service';
-import {
-  FILE_TYPE_CAD,
-  FILE_TYPE_EXCEL,
-  FILE_TYPE_IMAGE,
-  FILE_TYPE_PDF,
-  FILE_TYPE_WORD
-} from './file-type-icons';
-
-interface FileTypeStyle {
-  readonly icon: LucideIconData;
-  readonly color: string;
-}
-
-const FILE_TYPE_STYLES: Record<string, FileTypeStyle> = {
-  '.pdf': { icon: FILE_TYPE_PDF, color: 'var(--color-danger)' },
-  '.doc': { icon: FILE_TYPE_WORD, color: 'var(--color-main)' },
-  '.docx': { icon: FILE_TYPE_WORD, color: 'var(--color-main)' },
-  '.xls': { icon: FILE_TYPE_EXCEL, color: 'var(--color-success)' },
-  '.xlsx': { icon: FILE_TYPE_EXCEL, color: 'var(--color-success)' },
-  '.png': { icon: FILE_TYPE_IMAGE, color: 'var(--color-warning)' },
-  '.jpg': { icon: FILE_TYPE_IMAGE, color: 'var(--color-warning)' },
-  '.jpeg': { icon: FILE_TYPE_IMAGE, color: 'var(--color-warning)' },
-  '.dwg': { icon: FILE_TYPE_CAD, color: 'var(--color-cad)' },
-  '.dxf': { icon: FILE_TYPE_CAD, color: 'var(--color-cad)' }
-};
-
-const UNKNOWN_FILE_TYPE: FileTypeStyle = {
-  icon: FILE_TYPE_IMAGE,
-  color: 'var(--color-gray)'
-};
+import { NotificationService } from '../../../core/services/notification.service';
+import { fileTypeStyleFor } from './file-type-icons';
+import type { FileTypeStyle } from './file-type-icons';
 
 const SPEED_SAMPLE_WINDOW = 5;
 
@@ -78,6 +53,8 @@ const PROGRESS_CIRCLE_RADIUS = 20;
   selector: 'app-drag-n-drop',
   imports: [
     FilePreviewComponent,
+    ProgressBarComponent,
+    Spinner,
     LucideCheck,
     LucideChevronDown,
     LucideCircleAlert,
@@ -85,7 +62,6 @@ const PROGRESS_CIRCLE_RADIUS = 20;
     LucideCloudUpload,
     LucideDynamicIcon,
     LucideEye,
-    LucideLoaderCircle,
     LucideRotateCcw,
     LucideTrash2
   ],
@@ -107,11 +83,16 @@ export class DragNDropComponent implements OnDestroy {
   readonly etaSeconds = signal(Infinity);
   readonly previewItem = signal<UploadItem | null>(null);
 
+  readonly showItemPercent = input(true);
+  readonly inputId = input<string>();
+
   readonly filesChange = output<File[]>();
+  readonly uploadingChange = output<boolean>();
 
   readonly previewKindFor = previewKindFor;
 
   private readonly simulator = inject(UploadSimulatorService);
+  private readonly notifications = inject(NotificationService);
 
   private readonly activeUploads = new Map<string, Subscription>();
   private readonly speedSamples: UploadSpeedSample[] = [];
@@ -185,6 +166,22 @@ export class DragNDropComponent implements OnDestroy {
     this.showAllFiles.update((showAll) => !showAll);
   }
 
+  reset(): void {
+    this.activeUploads.forEach((subscription) => subscription.unsubscribe());
+    this.activeUploads.clear();
+    this.stopSpeedTicker();
+    this.speedSamples.length = 0;
+    this.items.set([]);
+    this.state.set('idle');
+    this.uploadingChange.emit(false);
+    this.isCollapsed.set(false);
+    this.showAllFiles.set(false);
+    this.bytesPerSecond.set(0);
+    this.etaSeconds.set(Infinity);
+    this.previewItem.set(null);
+    this.filesChange.emit([]);
+  }
+
   removeItem(id: string): void {
     this.activeUploads.get(id)?.unsubscribe();
     this.activeUploads.delete(id);
@@ -193,16 +190,16 @@ export class DragNDropComponent implements OnDestroy {
     }
     this.items.update((list) => list.filter((item) => item.id !== id));
     this.emitFiles();
+
     if (this.items().length === 0) {
-      if (this.activeUploads.size === 0) {
-        this.resetToIdle();
-      }
+      this.resetToIdle();
       return;
     }
-    this.refreshSpeed();
-    if (this.state() === 'uploading') {
+
+    if (this.state() === 'uploading' && !this.settleIfFinished()) {
       this.pumpQueue();
     }
+    this.refreshSpeed();
   }
 
   retryItem(id: string): void {
@@ -211,6 +208,8 @@ export class DragNDropComponent implements OnDestroy {
       return;
     }
     this.patchItem(id, { status: 'queued', uploaded: 0 });
+    this.state.set('uploading');
+    this.uploadingChange.emit(true);
     this.resetForRetry();
     this.startSpeedTicker();
     this.pumpQueue();
@@ -233,7 +232,7 @@ export class DragNDropComponent implements OnDestroy {
   }
 
   private typeStyleFor(item: UploadItem): FileTypeStyle {
-    return FILE_TYPE_STYLES[item.extension] ?? UNKNOWN_FILE_TYPE;
+    return fileTypeStyleFor(item.extension);
   }
 
   private emitFiles(): void {
@@ -269,18 +268,25 @@ export class DragNDropComponent implements OnDestroy {
 
   private enqueueFiles(files: File[]): void {
     const seen = new Set(this.items().map((item) => item.file.name + ':' + item.file.size));
-    const accepted = files.filter((file) => {
+    const accepted: File[] = [];
+    const rejected: File[] = [];
+    for (const file of files) {
       const key = file.name + ':' + file.size;
       if (seen.has(key)) {
-        return false;
+        continue;
       }
       seen.add(key);
-      return (
+      const isValid =
         ACCEPTED_EXTENSIONS.includes(
           getFileExtension(file.name) as (typeof ACCEPTED_EXTENSIONS)[number]
-        ) && file.size <= MAX_FILE_SIZE
-      );
-    });
+        ) && file.size <= MAX_FILE_SIZE;
+      if (isValid) {
+        accepted.push(file);
+      } else {
+        rejected.push(file);
+      }
+    }
+    this.notifyRejected(rejected);
     if (accepted.length === 0) {
       return;
     }
@@ -296,6 +302,7 @@ export class DragNDropComponent implements OnDestroy {
     this.items.update((list) => [...list, ...newItems]);
     this.emitFiles();
     this.state.set('uploading');
+    this.uploadingChange.emit(true);
     this.isCollapsed.set(false);
     this.speedSamples.length = 0;
     this.startSpeedTicker();
@@ -336,12 +343,51 @@ export class DragNDropComponent implements OnDestroy {
     }
     this.activeUploads.delete(id);
     this.patchItem(id, { status: 'done', uploaded: item.size });
-    if (this.doneFiles() === this.items().length) {
-      this.state.set('completed');
-      this.stopSpeedTicker();
+    if (!this.settleIfFinished()) {
+      this.pumpQueue();
+    }
+  }
+
+  private settleIfFinished(): boolean {
+    const settled = this.items().every(
+      (candidate) => candidate.status === 'done' || candidate.status === 'error'
+    );
+    if (!settled) {
+      return false;
+    }
+    this.state.set('completed');
+    this.uploadingChange.emit(false);
+    this.stopSpeedTicker();
+    this.notifyUploadCompleted();
+    return true;
+  }
+
+  private notifyUploadCompleted(): void {
+    const items = this.items();
+    const failedCount = items.filter((item) => item.status === 'error').length;
+    if (failedCount > 0) {
+      this.notifications.warning(
+        `Загружено с ошибками: ${items.length - failedCount} из ${items.length}`
+      );
       return;
     }
-    this.pumpQueue();
+    if (items.length === 1) {
+      this.notifications.success(`Файл «${items[0].name}» загружен`);
+    } else {
+      this.notifications.success(`Загружено файлов: ${items.length}`);
+    }
+  }
+
+  private notifyRejected(rejected: File[]): void {
+    if (rejected.length === 1) {
+      this.notifications.warning(
+        `Файл «${rejected[0].name}» не прикреплён: неподдерживаемый тип или размер`
+      );
+    } else if (rejected.length > 1) {
+      this.notifications.warning(
+        `Не прикреплено файлов: ${rejected.length} — неподдерживаемый тип или размер`
+      );
+    }
   }
 
   private failItem(id: string): void {
@@ -351,7 +397,7 @@ export class DragNDropComponent implements OnDestroy {
     }
     this.activeUploads.delete(id);
     this.patchItem(id, { status: 'error', uploaded: 0 });
-    if (this.state() === 'uploading') {
+    if (this.state() === 'uploading' && !this.settleIfFinished()) {
       this.pumpQueue();
     }
   }
@@ -431,6 +477,7 @@ export class DragNDropComponent implements OnDestroy {
 
   private resetToIdle(): void {
     this.state.set('idle');
+    this.uploadingChange.emit(false);
     this.items.set([]);
     this.emitFiles();
     this.showAllFiles.set(false);

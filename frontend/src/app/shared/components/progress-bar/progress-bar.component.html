@@ -1,0 +1,11 @@
+<div
+  class="progress-bar__track"
+  [style.height.px]="thickness()"
+  [style.border-radius.px]="thickness() / 2"
+>
+  <div class="progress-bar__fill" [style.width.%]="clampedValue()"></div>
+</div>
+
+@if (showPercent()) {
+  <span class="progress-bar__percent h4" aria-hidden="true">{{ clampedValue() }}%</span>
+}

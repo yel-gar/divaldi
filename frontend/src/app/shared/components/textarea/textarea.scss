@@ -1,0 +1,30 @@
+:host {
+  position: relative;
+  display: block;
+
+  & > textarea {
+    width: 100%;
+  }
+
+  &.textarea--error > textarea {
+    border-color: var(--color-danger);
+
+    &:focus-visible {
+      border-color: var(--color-danger);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-danger) 40%, transparent);
+    }
+  }
+}
+
+.textarea__counter {
+  position: absolute;
+  bottom: 5px;
+  right: 10px;
+  translate: 0 -50%;
+
+  background: var(--color-white);
+
+  &--max {
+    color: var(--color-danger);
+  }
+}

@@ -1,7 +1,22 @@
 <div class="sidebar">
-  <div class="logo">
-    <img src="/assets/svgs/logo.svg" alt="logo" width="48" />
-    <div class="h1">Divaldi</div>
+  <div class="sidebar__header">
+    <div class="logo">
+      <img src="/assets/svgs/logo.svg" alt="logo" width="48" />
+      <div class="h1">Divaldi</div>
+    </div>
+    <button
+      type="button"
+      class="sidebar__toggle"
+      [attr.aria-label]="collapsed() ? 'Развернуть меню' : 'Свернуть меню'"
+      [attr.aria-expanded]="!collapsed()"
+      (click)="toggleCollapsed()"
+    >
+      @if (collapsed()) {
+      <svg size="20" lucidePanelLeftOpen aria-hidden="true"></svg>
+      } @else {
+      <svg size="20" lucidePanelLeftClose aria-hidden="true"></svg>
+      }
+    </button>
   </div>
 
   @if (role() === 'user') {
@@ -24,6 +39,7 @@
           ariaCurrentWhenActive="page"
           [attr.tabindex]="tabStop() === i ? 0 : -1"
           (focus)="onItemFocus(i)"
+          [attr.title]="collapsed() ? nav.label : null"
         >
           <svg class="navigation__icon" [lucideIcon]="nav.icon"></svg>
           <span>{{nav.label}}</span>

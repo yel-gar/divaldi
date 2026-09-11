@@ -269,24 +269,10 @@
     color: var(--color-gray);
   }
 
-  &__progress-track {
+  &__progress {
     flex: 1;
 
     max-width: 240px;
-    height: 4px;
-
-    background: var(--color-secondary);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  &__progress-fill {
-    height: 100%;
-
-    background: var(--color-main);
-    border-radius: 2px;
-
-    transition: width 300ms ease;
   }
 
   &__percent {
@@ -328,10 +314,6 @@
     }
   }
 
-  &__spinner {
-    animation: upload-item-spin 1s linear infinite;
-  }
-
   &__actions {
     display: inline-flex;
     gap: 4px;
@@ -340,32 +322,12 @@
   }
 
   &__action {
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    padding: 0;
 
     width: 28px;
     height: 28px;
 
-    color: var(--color-gray);
-    background: none;
-    border: none;
     border-radius: 6px;
-    cursor: pointer;
-
-    transition:
-      color 0.15s ease,
-      background-color 0.15s ease;
-
-    &:hover {
-      color: var(--color-main);
-      background: var(--color-hover-secondary);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--color-main);
-      outline-offset: 2px;
-    }
 
     &--retry {
       color: var(--color-danger);
@@ -378,22 +340,7 @@
   }
 }
 
-@keyframes upload-item-spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .upload-item__spinner {
-    animation: none;
-  }
-
-  .upload-item__progress-fill,
   .uploader__progress-bar,
   .uploader__chevron {
     transition: none;

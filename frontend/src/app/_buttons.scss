@@ -7,13 +7,35 @@
   border-radius: 8px;
 
   display: flex;
-  align-items: center;
+
+  &--centered {
+    align-items: center;
+    justify-content: center;
+  }
 
   &--main {
     background: var(--color-main);
 
     &:hover {
       background: var(--color-hover);
+    }
+  }
+
+  &--outline {
+    color: var(--color-text);
+    background: none;
+    border: 1px solid var(--color-outline);
+
+    &:hover {
+      color: var(--color-main);
+      background: var(--color-hover-secondary);
+    }
+  }
+
+  &--danger {
+    &:hover {
+      color: var(--color-danger);
+      background: color-mix(in srgb, var(--color-danger) 12%, transparent);
     }
   }
 

@@ -23,15 +23,3 @@
     }
   }
 }
-
-.additional-info {
-  position: absolute;
-  bottom: 5px;
-  right: 10px;
-  translate: 0 -50%;
-  background: var(--color-white);
-
-  &--max {
-    color: var(--color-danger);
-  }
-}
