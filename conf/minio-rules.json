@@ -9,6 +9,16 @@
       "Expiration": {
         "Days": 1
       }
+    },
+    {
+      "ID": "attachments-cleanup",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "attachments/"
+      },
+      "Expiration": {
+        "Days": 7
+      }
     }
   ]
 }

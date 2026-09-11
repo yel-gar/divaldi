@@ -8,9 +8,13 @@ from app.models.chat import Attachment
 from app.storage import get_s3_avatar_processed_key, storage
 from app.tasks.conf.broker import broker, tsq_db
 from app.util import normalize_image
+from processing.parser import PDFToImageConverter
 
 log = structlog.stdlib.get_logger(__name__)
 
+def _process_pdf(pdf_bytes: bytes) -> list[bytes]:
+    processor = PDFToImageConverter()
+    return processor.pdf_bytes_to_png_bytes(pdf_bytes)
 
 async def _redis_error(key: str):
     async with get_redis_client() as redis:
@@ -88,7 +92,28 @@ async def process_attachment(attachment_id: int):
 
 
 @broker.task(queue_name="default")
-async def process_pdf(attachment_id: int): ...
+async def process_pdf(attachment_id: int):
+    _log = log.bind(attachment_id=attachment_id)
+    try:
+        async with tsq_db() as db:
+            attachment = await db.get(Attachment, attachment_id)
+            if attachment is None:
+                raise ValueError("null_attachment_id")
+        async with storage.internal_client() as s3:
+            resp = await s3.get_object(
+                Bucket="uploads",
+                Key=attachment.s3_key,
+            )
+            async with resp["Body"] as body:
+                data = await body.read()
+
+        result: list[bytes] = await asyncio.to_thread(_process_pdf, data)
+        # todo: there might be just a bit too many pages in the pdf
+
+
+    except Exception as e:
+        _log.error("unknown_pdf_exception", exc=e)
+        await _redis_error(get_attachment_status_key(attachment_id))
 
 
 @broker.task(queue_name="default")
