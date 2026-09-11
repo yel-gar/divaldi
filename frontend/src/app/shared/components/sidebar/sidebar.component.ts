@@ -36,10 +36,38 @@ export class Sidebar implements AfterViewInit {
   readonly navItems = input<NavItem[]>([]);
   readonly role = input<Role>();
 
-  readonly collapsed = signal(false);
+  private static readonly STORAGE_KEY = 'sidebar-collapsed';
+
+  readonly collapsed = signal(this.readCollapsed());
+
+  private readCollapsed(): boolean {
+    if (!Sidebar.isStorageAvailable()) {
+      return false;
+    }
+    return localStorage.getItem(Sidebar.STORAGE_KEY) === 'true';
+  }
+
+  private writeCollapsed(value: boolean): void {
+    if (!Sidebar.isStorageAvailable()) {
+      return;
+    }
+    localStorage.setItem(Sidebar.STORAGE_KEY, String(value));
+  }
+
+  private static isStorageAvailable(): boolean {
+    try {
+      return typeof localStorage !== 'undefined' && localStorage !== null;
+    } catch {
+      return false;
+    }
+  }
 
   toggleCollapsed(): void {
-    this.collapsed.update((collapsed) => !collapsed);
+    this.collapsed.update((collapsed) => {
+      const next = !collapsed;
+      this.writeCollapsed(next);
+      return next;
+    });
   }
 
   private readonly tabStopIndex = signal(0);

@@ -35,7 +35,6 @@
           class="navigation__item h3"
           [routerLink]="nav.route"
           routerLinkActive="active-link"
-          [routerLinkActiveOptions]="{ exact: true }"
           (isActiveChange)="onActiveChange($event, i)"
           ariaCurrentWhenActive="page"
           [attr.tabindex]="tabStop() === i ? 0 : -1"
