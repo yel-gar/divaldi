@@ -17,7 +17,7 @@ export type NotificationType = 'success' | 'error' | 'info' | 'warning';
   styleUrl: './notification.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    role: 'alert',
+    role: 'status',
     'aria-live': 'polite',
     '[attr.data-type]': 'type()',
     '[class.notification--leaving]': 'leaving()'
