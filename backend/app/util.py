@@ -74,7 +74,7 @@ def normalize_image(data: bytes) -> bytes:
                     f"Image dimensions {width}x{height} exceed " f"the {MAX_DIMENSION}x{MAX_DIMENSION} limit"
                 )
 
-            # Convert to RGB so PNG/RGBA/etc. can safely become JPEG.
+            # Convert to RGB so PNG/RGBA/etc. can safely become WebP.
             image = image.convert("RGB")
 
             # Center crop to a square.

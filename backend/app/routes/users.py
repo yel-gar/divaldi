@@ -32,7 +32,7 @@ async def users_me(user: CurrentUser):
     return user
 
 
-@router.get("/me/set-password", response_model=MessageResponse, summary="Set password of current user")
+@router.post("/me/set-password", response_model=MessageResponse, summary="Set password of current user")
 async def users_set_password(
     user: CurrentUser,
     db: DbSession,
