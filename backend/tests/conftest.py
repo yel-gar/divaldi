@@ -22,6 +22,7 @@ def env(monkeypatch):
     monkeypatch.setenv("RABBITMQ_USER", "jut")
     monkeypatch.setenv("RABBITMQ_PASS", "jut")
     monkeypatch.setenv("TASKIQ_API_TOKEN", "jut")
+    monkeypatch.setenv("MINIO_ROOT_PASSWORD", "jut")
 
 
 @pytest.fixture(scope="session")
@@ -40,7 +41,7 @@ def redis_container():
 def redis_session(monkeypatch, redis_container: AsyncRedisContainer):
     @asynccontextmanager
     async def get_fake_redis_client() -> AsyncGenerator[Redis]:
-        client = await redis_container.get_async_client()
+        client = await redis_container.get_async_client(decode_responses=True)
         yield client
 
     monkeypatch.setattr("app.cache.get_redis_client", get_fake_redis_client)

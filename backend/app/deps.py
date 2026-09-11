@@ -9,11 +9,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette import status
+from types_aiobotocore_s3.client import S3Client
 
 from app.cache import get_creation_key, get_generation_key, get_ratelimit_key, get_redis_client
 from app.database import get_db
 from app.models.auth import Session, User
 from app.models.chat import ChatMessage
+from app.storage import storage
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
@@ -100,3 +102,19 @@ def user_rate_limiter(requests: int, per: timedelta | int, key: str):
             raise HTTPException(status_code=429, detail="Too many requests", headers={"Retry-After": str(ttl)})
 
     return rate_limit
+
+
+async def s3_public_client() -> AsyncGenerator[S3Client]:
+    async with storage.public_client() as client:
+        yield client
+
+
+S3PublicClient = Annotated[S3Client, Depends(s3_public_client)]
+
+
+async def s3_internal_client() -> AsyncGenerator[S3Client]:
+    async with storage.internal_client() as client:
+        yield client
+
+
+S3InternalClient = Annotated[S3Client, Depends(s3_internal_client)]

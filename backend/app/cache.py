@@ -8,7 +8,7 @@ from redis.asyncio import ConnectionPool, Redis
 
 @cache
 def get_redis_pool() -> ConnectionPool:
-    return ConnectionPool.from_url("redis://redis:6379/0", max_connections=20)
+    return ConnectionPool.from_url("redis://redis:6379/0", max_connections=20, decode_responses=True)
 
 
 @asynccontextmanager
@@ -31,3 +31,11 @@ def get_deletion_key(session_id: uuid.UUID) -> str:
 
 def get_ratelimit_key(key: str, user_id: int) -> str:
     return f"ratelimit:{key}:{user_id}"
+
+
+def get_avatar_waiting_key(user_uuid: uuid.UUID) -> str:
+    return f"avatar:waiting:{user_uuid}"
+
+
+def get_avatar_url_key(user_uuid: uuid.UUID) -> str:
+    return f"avatar:url:{user_uuid}"
