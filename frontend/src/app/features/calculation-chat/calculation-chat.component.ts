@@ -19,8 +19,9 @@ import {
 import { ProgressBarComponent } from '../../shared/components/progress-bar/progress-bar.component';
 import { DragNDropComponent } from '../../shared/components/drag-n-drop/drag-n-drop.component';
 import { ChatMessageComponent } from './chat-message.component';
-import { ChatMessage } from './chat-message.model';
+import { ChatMessage, ChatMessageAttachment } from './chat-message.model';
 import { AgentStatusComponent } from './agent-status.component';
+import { FilePreviewComponent } from '../../shared/components/drag-n-drop/file-preview.component';
 import { NotificationService } from '../../core/services/notification.service';
 
 const AGENT_REPLY =
@@ -28,6 +29,14 @@ const AGENT_REPLY =
 
 const TYPING_AFTER_MS = 3200;
 const REPLY_AFTER_MS = 1400;
+
+const MOCK_PNG_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+function mockFile(name: string): File {
+  const bytes = Uint8Array.from(atob(MOCK_PNG_BASE64), (char) => char.charCodeAt(0));
+  return new File([bytes], name, { type: 'image/png' });
+}
 
 @Component({
   selector: 'app-calculation-chat',
@@ -41,7 +50,8 @@ const REPLY_AFTER_MS = 1400;
     ProgressBarComponent,
     DragNDropComponent,
     ChatMessageComponent,
-    AgentStatusComponent
+    AgentStatusComponent,
+    FilePreviewComponent
   ],
   standalone: true,
   host: {
@@ -57,11 +67,21 @@ export class CalculationChatComponent {
   readonly isResultsOpen = signal<boolean>(false);
   readonly isAttachPopupOpen = signal<boolean>(false);
   readonly agentStatus = signal<'thinking' | 'typing' | null>(null);
+  readonly attachedFiles = signal<File[]>([]);
+  readonly isUploading = signal(false);
+  readonly previewedFile = signal<File | null>(null);
+
+  openAttachmentPreview(attachment: ChatMessageAttachment) {
+    if (attachment.file) {
+      this.previewedFile.set(attachment.file);
+    }
+  }
 
   private readonly attachAnchor = viewChild<ElementRef<HTMLElement>>('attachAnchor');
   private readonly messageInput =
     viewChild.required<ElementRef<HTMLTextAreaElement>>('messageInput');
   private readonly chatMessages = viewChild<ElementRef<HTMLUListElement>>('chatMessages');
+  private readonly dragNDrop = viewChild(DragNDropComponent);
 
   private thinkingTimer: ReturnType<typeof setTimeout> | null = null;
   private replyTimer: ReturnType<typeof setTimeout> | null = null;
@@ -90,7 +110,8 @@ export class CalculationChatComponent {
       direction: 'outgoing',
       text: 'Нужно рассчитать резервуар объёмом 10 м³...',
       time: '10:22',
-      status: 'read'
+      status: 'read',
+      attachments: [{ name: 'tank-spec.png', size: 245760, file: mockFile('tank-spec.png') }]
     }
   ]);
   private nextMessageId = 3;
@@ -112,14 +133,29 @@ export class CalculationChatComponent {
     textarea.style.height = `${textarea.scrollHeight}px`;
   }
 
+  onFilesChange(files: File[]) {
+    this.attachedFiles.set(files);
+  }
+
   sendMessage(event?: Event) {
     event?.preventDefault();
+
+    if (this.isUploading()) {
+      this.notifications.warning('Файлы ещё не все загрузились — дождитесь завершения');
+      return;
+    }
 
     const textarea = this.messageInput().nativeElement;
     const text = textarea.value.trim();
     if (!text) {
       return;
     }
+
+    const attachments = this.attachedFiles().map((file) => ({
+      name: file.name,
+      size: file.size,
+      file
+    }));
 
     this.messages.update((messages) => [
       ...messages,
@@ -128,11 +164,15 @@ export class CalculationChatComponent {
         direction: 'outgoing',
         text,
         time: this.formatTime(),
-        status: 'sent'
+        status: 'sent',
+        attachments: attachments.length > 0 ? attachments : undefined
       }
     ]);
     textarea.value = '';
     this.resizeMessageInput();
+
+    this.attachedFiles.set([]);
+    this.dragNDrop()?.reset();
 
     this.simulateAgentReply();
   }

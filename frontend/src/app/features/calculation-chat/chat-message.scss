@@ -92,10 +92,99 @@
   gap: 5px;
 }
 
+.message__attachments {
+  display: grid;
+  gap: 6px;
+
+  width: fit-content;
+
+  margin-top: 10px;
+}
+
+.message__attachment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 6px 10px;
+
+  background: var(--color-secondary);
+  border-radius: 8px;
+
+  transition: background-color 0.15s ease;
+
+  &:hover {
+    background: var(--color-hover-secondary);
+  }
+}
+
+.message__attachment-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.message__attachment-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  max-width: 220px;
+
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.message__attachment-size {
+  flex-shrink: 0;
+
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-gray);
+  line-height: 1;
+}
+
+.message__attachment-preview {
+  display: inline-flex;
+  flex-shrink: 0;
+
+  width: 28px;
+  height: 28px;
+
+  margin-left: auto;
+
+  padding: 0;
+
+  border-radius: 6px;
+
+  opacity: 0;
+  pointer-events: none;
+  scale: 0.85;
+
+  transition:
+    opacity 0.2s ease,
+    scale 0.2s ease,
+    background-color 0.15s ease;
+}
+
+.message__attachment:hover,
+.message__attachment:focus-within {
+  & .message__attachment-preview {
+    opacity: 1;
+    pointer-events: auto;
+    scale: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   :host,
   :host .message__bubble,
   :host .message__avatar {
     animation: none;
+  }
+
+  .message__attachment,
+  .message__attachment-preview {
+    transition: none;
   }
 }

@@ -9,6 +9,28 @@
   }
   <div class="message__bubble">
     <p class="message__text">{{ message().text }}</p>
+    @if (hasAttachments()) {
+    <ul class="message__attachments">
+      @for (attachment of message().attachments; track $index) {
+      <li class="message__attachment">
+        <span class="message__attachment-icon" [style.color]="colorFor(attachment.name)">
+          <svg size="18" [lucideIcon]="iconFor(attachment.name)" aria-hidden="true"></svg>
+        </span>
+        <span class="message__attachment-name">{{ attachment.name }}</span>
+        <span class="message__attachment-size">{{ formatBytes(attachment.size) }}</span>
+        <button
+          type="button"
+          class="button button--outline button--centered message__attachment-preview"
+          aria-label="Предпросмотр"
+          [disabled]="!attachment.file"
+          (click)="preview.emit(attachment)"
+        >
+          <svg size="16" lucideEye aria-hidden="true"></svg>
+        </button>
+      </li>
+      }
+    </ul>
+    }
     <div class="message__meta">
       <time class="message__time h5" [attr.datetime]="message().time">{{ message().time }}</time>
       @switch (message().status) { @case ('sending') {

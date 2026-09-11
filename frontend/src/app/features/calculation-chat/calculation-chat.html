@@ -1,4 +1,4 @@
-<section class="section">
+<section class="section chat-section">
   <header class="section__header chat-section-header">
     <h1 class="h2">Чат с агентом</h1>
     <button
@@ -20,7 +20,7 @@
     <ul #chatMessages class="chat-messages" role="log" aria-label="История сообщений">
       @for (message of messages(); track message.id) {
       <li>
-        <app-chat-message [message]="message" />
+        <app-chat-message [message]="message" (preview)="openAttachmentPreview($event)" />
       </li>
       } @if (agentStatus(); as status) {
       <li>
@@ -52,7 +52,11 @@
               role="dialog"
               aria-label="Прикрепить файлы"
             >
-              <app-drag-n-drop [showItemPercent]="false" />
+              <app-drag-n-drop
+                [showItemPercent]="false"
+                (filesChange)="onFilesChange($event)"
+                (uploadingChange)="isUploading.set($event)"
+              />
             </div>
           </div>
           <textarea
@@ -70,6 +74,7 @@
           type="submit"
           aria-label="Отправить"
           class="button button--main chat-input-panel__send-message"
+          [disabled]="isUploading()"
         >
           <svg size="32" lucideSendHorizontal aria-hidden="true"></svg>
         </button>
@@ -141,3 +146,7 @@
     </button>
   </footer>
 </aside>
+
+@if (previewedFile(); as file) {
+<app-file-preview [file]="file" (closed)="previewedFile.set(null)" />
+}
