@@ -13,14 +13,14 @@
 <div class="notification__body">
   <p class="notification__title">{{ title() }}</p>
   @if (description()) {
-  <p class="notification__description">{{ description() }}</p>
+  <p class="notification__description h4">{{ description() }}</p>
   }
 </div>
 
 @if (dismissible()) {
 <button
   type="button"
-  class="notification__close"
+  class="button button--danger button--outline notification__close"
   aria-label="Закрыть уведомление"
   (click)="closed.emit()"
 >

@@ -328,13 +328,6 @@
     height: 28px;
 
     border-radius: 6px;
-
-    &--remove {
-      &:hover {
-        color: var(--color-danger);
-        background: color-mix(in srgb, var(--color-danger) 12%, transparent);
-      }
-    }
   }
 }
 
