@@ -1,5 +1,6 @@
 import os
 from functools import cache
+from urllib.parse import quote
 
 import structlog.stdlib
 from sqlalchemy import URL
@@ -7,6 +8,7 @@ from sqlalchemy import URL
 log = structlog.stdlib.get_logger(__name__)
 
 
+@cache
 def get_database_url() -> str:
     postgres_user = os.environ["POSTGRES_USER"]
     postgres_password = os.environ["POSTGRES_PASSWORD"]
@@ -23,6 +25,14 @@ def get_database_url() -> str:
         database=postgres_database,
     )
     return url.render_as_string(hide_password=False)
+
+
+@cache
+def get_rabbitmq_url() -> str:
+    rmq_user = os.environ["RABBITMQ_USER"]
+    rmq_password = os.environ["RABBITMQ_PASS"]
+
+    return f"amqp://{quote(rmq_user)}:{quote(rmq_password)}@rabbitmq:5672/taskiq"
 
 
 @cache
