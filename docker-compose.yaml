@@ -11,7 +11,6 @@ x-backend-env: &backend-env
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
   RABBITMQ_USER: ${RABBITMQ_USER:-admin}
   RABBITMQ_PASS: ${RABBITMQ_PASS:?}
-  TASKIQ_DASHBOARD_PORT: ${TASKIQ_DASHBOARD_PORT:-8000}
   TASKIQ_API_TOKEN: ${TASKIQ_API_TOKEN:?}
   GIGACHAT_MODEL: ${GIGACHAT_MODEL:-GigaChat-3-Ultra}
   SBER_API_KEY: ${SBER_API_KEY:?}
@@ -87,7 +86,7 @@ services:
           memory: 1G
 
   taskiq_dashboard:
-    image: ghcr.io/danfimov/taskiq-dashboard:latest
+    image: ghcr.io/danfimov/taskiq-dashboard:v0.4.4
     depends_on:
       db:
         condition: service_healthy

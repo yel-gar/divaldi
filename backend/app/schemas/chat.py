@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.chat import GenerationResultType, UserRole
 
@@ -38,7 +38,7 @@ class ChatCreatedSchema(BaseModel):
 
 
 class SendMessageSchema(BaseModel):
-    content: str
+    content: str = Field(max_length=5000)
 
 
 class ChatDeletedResponse(BaseModel):

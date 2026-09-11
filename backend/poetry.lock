@@ -361,10 +361,7 @@ files = [
 ]
 
 [package.dependencies]
-cffi = [
-    {version = ">=1.0.1", markers = "python_version < \"3.14\""},
-    {version = ">=2", markers = "python_version >= \"3.14\""},
-]
+cffi = {version = ">=2", markers = "python_version >= \"3.14\""}
 
 [[package]]
 name = "asyncpg"
@@ -3567,5 +3564,5 @@ propcache = ">=0.2.1"
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.13,<4"
-content-hash = "143c44678ff3c38a7be55ada3d15a1a5faf0f7c0e19e99bb10a0aa7dfed5c4f6"
+python-versions = ">=3.14,<4"
+content-hash = "7664a533e6ad6f38f124776033d96effa003f8acf6eca0e04d0cd7db77c83cb5"

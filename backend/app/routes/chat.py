@@ -132,8 +132,8 @@ async def delete_chat(session_id: VerifiedMessageSession, redis_client: RedisSes
     summary="Get last result if any user message was sent",
     response_model=ResultSchema,
 )
-async def get_result(session_id: VerifiedMessageSession, db: DbSession, redis_client: RedisSession):
-    if await redis_client.exists(get_generation_key(session_id)):
+async def get_result(session_id: VerifiedMessageSession, user: CurrentUser, db: DbSession, redis_client: RedisSession):
+    if await redis_client.exists(get_generation_key(user.uuid)):
         return ResultSchema(running=True, result=None)
     result = await db.scalar(select(GenerationResult).where(GenerationResult.message_session == session_id))
     if result is None:

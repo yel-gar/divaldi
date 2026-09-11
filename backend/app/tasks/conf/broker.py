@@ -27,7 +27,7 @@ broker = (
     .with_result_backend(result_backend)
     .with_middlewares(
         DashboardMiddleware(
-            url=f"http://taskiq_dashboard:{os.getenv('TASKIQ_DASHBOARD_PORT', '8000')}",
+            url="http://taskiq_dashboard:8000",
             api_token=os.environ["TASKIQ_API_TOKEN"],
         ),
         ProviderMiddleware(),
