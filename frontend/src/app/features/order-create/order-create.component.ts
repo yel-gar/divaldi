@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { catchError, EMPTY, finalize } from 'rxjs';
@@ -71,7 +72,11 @@ export class OrderCreateComponent {
       })
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
-        catchError(() => EMPTY)
+        catchError((err: HttpErrorResponse) => {
+          const msg = err.error?.message || err.message || 'Ошибка сервера';
+          this.notifications.error('Не удалось создать чат: ' + msg);
+          return EMPTY;
+        })
       )
       .subscribe({
         next: (order) => {
