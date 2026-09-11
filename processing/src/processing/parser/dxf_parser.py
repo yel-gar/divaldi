@@ -20,7 +20,7 @@ def parse_dxf(dxf_bytes: bytes) -> list[dict[int | str, Any]]:
     """
     Parse DXF bytes and return a list of entities from the ENTITIES section.
 
-    All values are stored as lists (even for single‑value codes) to handle
+    All values are stored as lists (even for single-value codes) to handle
     repeated group codes (e.g., vertices of LWPOLYLINE).
 
     Args:
@@ -107,7 +107,7 @@ def _get_float(entity: dict, code: int, index: int = 0) -> float:
     if index < len(values):
         try:
             return float(values[index])
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return 0.0
     return 0.0
 
@@ -120,7 +120,7 @@ def _get_points_lwpolyline(entity: dict) -> list[tuple[float, float]]:
     for i in range(min(len(xs), len(ys))):
         try:
             points.append((float(xs[i]), float(ys[i])))
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             continue
     return points
 
@@ -160,7 +160,7 @@ def extract_measurements(dxf_bytes: bytes) -> str:
                 length = math.hypot(x2 - x1, y2 - y1)
                 lines.append((length, (x1, y1), (x2, y2)))
                 all_points.extend([(x1, y1), (x2, y2)])
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 continue
 
         elif ent_type == "CIRCLE":
@@ -170,10 +170,8 @@ def extract_measurements(dxf_bytes: bytes) -> str:
                 radius = _get_float(ent, 40, 0)
                 if radius > 0:
                     circles.append((radius, (cx, cy)))
-                    all_points.extend(
-                        [(cx - radius, cy - radius), (cx + radius, cy + radius)]
-                    )
-            except (ValueError, TypeError):
+                    all_points.extend([(cx - radius, cy - radius), (cx + radius, cy + radius)])
+            except ValueError, TypeError:
                 continue
 
         elif ent_type == "ARC":
@@ -183,10 +181,8 @@ def extract_measurements(dxf_bytes: bytes) -> str:
                 radius = _get_float(ent, 40, 0)
                 if radius > 0:
                     arcs.append((radius, (cx, cy)))
-                    all_points.extend(
-                        [(cx - radius, cy - radius), (cx + radius, cy + radius)]
-                    )
-            except (ValueError, TypeError):
+                    all_points.extend([(cx - radius, cy - radius), (cx + radius, cy + radius)])
+            except ValueError, TypeError:
                 continue
 
         elif ent_type in ("LWPOLYLINE", "POLYLINE"):
@@ -224,9 +220,7 @@ def extract_measurements(dxf_bytes: bytes) -> str:
 
     for i, (length, points, closed) in enumerate(polylines, 1):
         status = "closed" if closed else "open"
-        measurements.append(
-            f"Polyline {i}: length = {length:.3f}, {status}, vertices = {len(points)}"
-        )
+        measurements.append(f"Polyline {i}: length = {length:.3f}, {status}, vertices = {len(points)}")
 
     if all_points:
         xs = [p[0] for p in all_points]
@@ -236,9 +230,7 @@ def extract_measurements(dxf_bytes: bytes) -> str:
         width = max_x - min_x
         height = max_y - min_y
         measurements.append(f"Bounding box: width = {width:.3f}, height = {height:.3f}")
-        measurements.append(
-            f"X range: [{min_x:.3f}, {max_x:.3f}], Y range: [{min_y:.3f}, {max_y:.3f}]"
-        )
+        measurements.append(f"X range: [{min_x:.3f}, {max_x:.3f}], Y range: [{min_y:.3f}, {max_y:.3f}]")
 
     if not measurements:
         return "No measurements found."
@@ -296,7 +288,7 @@ def get_measurements_data(dxf_bytes: bytes) -> dict[str, Any]:
                     }
                 )
                 all_points.extend([(x1, y1), (x2, y2)])
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 continue
 
         elif ent_type == "CIRCLE":
@@ -312,7 +304,7 @@ def get_measurements_data(dxf_bytes: bytes) -> dict[str, Any]:
                             (cx + radius, cy + radius),
                         ]
                     )
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 continue
 
         elif ent_type == "ARC":
@@ -328,7 +320,7 @@ def get_measurements_data(dxf_bytes: bytes) -> dict[str, Any]:
                             (cx + radius, cy + radius),
                         ]
                     )
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 continue
 
         elif ent_type in ("LWPOLYLINE", "POLYLINE"):

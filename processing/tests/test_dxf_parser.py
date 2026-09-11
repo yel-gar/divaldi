@@ -3,15 +3,15 @@ Tests for dxf_parser module.
 """
 
 import math
-import sys
 from pathlib import Path
 
 import pytest
 
-# Add src to Python path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from parser.dxf_parser import extract_measurements, get_measurements_data, parse_dxf
+from processing.parser.dxf_parser import (
+    extract_measurements,
+    get_measurements_data,
+    parse_dxf,
+)
 
 
 @pytest.fixture
@@ -56,8 +56,7 @@ def simple_dxf_file_path(simple_dxf_content, tmp_path):
 
 def test_parse_dxf_simple(simple_dxf_file_path):
     """Test parsing a simple DXF file."""
-    with open(simple_dxf_file_path, "rb") as f:
-        dxf_bytes = f.read()
+    dxf_bytes = Path(simple_dxf_file_path).read_bytes()
     entities = parse_dxf(dxf_bytes)
     assert len(entities) == 2
 
@@ -88,16 +87,14 @@ EOF
 """
     dxf_file = tmp_path / "empty.dxf"
     dxf_file.write_text(content, encoding="utf-8")
-    with open(dxf_file, "rb") as f:
-        dxf_bytes = f.read()
+    dxf_bytes = dxf_file.read_bytes()
     entities = parse_dxf(dxf_bytes)
     assert entities == []
 
 
 def test_extract_measurements_simple(simple_dxf_file_path):
     """Test extracting measurements from a simple DXF."""
-    with open(simple_dxf_file_path, "rb") as f:
-        dxf_bytes = f.read()
+    dxf_bytes = Path(simple_dxf_file_path).read_bytes()
     result = extract_measurements(dxf_bytes)
     lines = result.split("\n")
 
@@ -123,16 +120,14 @@ EOF
 """
     dxf_file = tmp_path / "empty.dxf"
     dxf_file.write_text(content, encoding="utf-8")
-    with open(dxf_file, "rb") as f:
-        dxf_bytes = f.read()
+    dxf_bytes = dxf_file.read_bytes()
     result = extract_measurements(dxf_bytes)
     assert result == "No measurements found."
 
 
 def test_get_measurements_data_simple(simple_dxf_file_path):
     """Test getting structured measurements data."""
-    with open(simple_dxf_file_path, "rb") as f:
-        dxf_bytes = f.read()
+    dxf_bytes = Path(simple_dxf_file_path).read_bytes()
     data = get_measurements_data(dxf_bytes)
     assert isinstance(data, dict)
     assert "lines" in data
@@ -163,8 +158,7 @@ def test_extract_measurements_empty_file(tmp_path):
     """Test reaction to an empty file (empty bytes)."""
     dxf_file = tmp_path / "empty.dxf"
     dxf_file.write_text("", encoding="utf-8")
-    with open(dxf_file, "rb") as f:
-        dxf_bytes = f.read()
+    dxf_bytes = dxf_file.read_bytes()
     result = extract_measurements(dxf_bytes)
     assert result.startswith("Error parsing file:")
 
@@ -174,8 +168,7 @@ def test_with_real_dxf_file():
     path = Path(__file__).parent / "data" / "test.dxf"
     if not path.exists():
         pytest.skip("No test.dxf file in tests/data/ folder")
-    with open(path, "rb") as f:
-        dxf_bytes = f.read()
+    dxf_bytes = path.read_bytes()
     result = extract_measurements(dxf_bytes)
     assert "Line" in result or "Circle" in result
 
@@ -215,8 +208,7 @@ EOF
 """
     dxf_file = tmp_path / "polyline.dxf"
     dxf_file.write_text(content, encoding="utf-8")
-    with open(dxf_file, "rb") as f:
-        dxf_bytes = f.read()
+    dxf_bytes = dxf_file.read_bytes()
 
     entities = parse_dxf(dxf_bytes)
     assert len(entities) == 1
@@ -271,8 +263,7 @@ EOF
 """
     dxf_file = tmp_path / "polyline_open.dxf"
     dxf_file.write_text(content_open, encoding="utf-8")
-    with open(dxf_file, "rb") as f:
-        dxf_bytes = f.read()
+    dxf_bytes = dxf_file.read_bytes()
     result = extract_measurements(dxf_bytes)
     assert "Polyline 1: length = 10.000, open, vertices = 3" in result
     assert "Bounding box: width = 6.000, height = 4.000" in result
@@ -314,8 +305,7 @@ EOF
 """
     dxf_file = tmp_path / "polyline_closed.dxf"
     dxf_file.write_text(content_closed, encoding="utf-8")
-    with open(dxf_file, "rb") as f:
-        dxf_bytes = f.read()
+    dxf_bytes = dxf_file.read_bytes()
     result = extract_measurements(dxf_bytes)
     assert "Polyline 1: length = 20.000, closed, vertices = 4" in result
     assert "Bounding box: width = 5.000, height = 5.000" in result
@@ -348,8 +338,7 @@ EOF
 """
     dxf_file = tmp_path / "arc.dxf"
     dxf_file.write_text(content, encoding="utf-8")
-    with open(dxf_file, "rb") as f:
-        dxf_bytes = f.read()
+    dxf_bytes = dxf_file.read_bytes()
     result = extract_measurements(dxf_bytes)
     assert "Arc 1: radius = 5.000, center = (2.0, 3.0)" in result
     assert "Bounding box: width = 10.000, height = 10.000" in result
@@ -421,15 +410,12 @@ EOF
 """
     dxf_file = tmp_path / "mixed.dxf"
     dxf_file.write_text(content, encoding="utf-8")
-    with open(dxf_file, "rb") as f:
-        dxf_bytes = f.read()
+    dxf_bytes = dxf_file.read_bytes()
     result = extract_measurements(dxf_bytes)
     assert "Line 1: length = 10.000" in result
     assert "Circle 1: radius = 2.000" in result
     assert "Arc 1: radius = 3.000, center = (1.0, 1.0)" in result
-    assert (
-        "Polyline 1: length = 10.000, open, vertices = 3" in result
-    )  # distances: 5+5=10
+    assert "Polyline 1: length = 10.000, open, vertices = 3" in result  # distances: 5+5=10
     # Bounding box
     assert "Bounding box: width = 12.000, height = 9.000" in result
     assert "X range: [-2.000, 10.000], Y range: [-2.000, 7.000]" in result
@@ -470,8 +456,7 @@ EOF
 """
     dxf_file = tmp_path / "repeated.dxf"
     dxf_file.write_text(content, encoding="utf-8")
-    with open(dxf_file, "rb") as f:
-        dxf_bytes = f.read()
+    dxf_bytes = dxf_file.read_bytes()
     entities = parse_dxf(dxf_bytes)
     ent = entities[0]
     assert ent["type"] == "LWPOLYLINE"
@@ -500,8 +485,7 @@ def test_get_measurements_data_error_handling():
 
 def test_get_measurements_data_simple_with_polyline(simple_dxf_file_path):
     """Test structured data with existing simple DXF."""
-    with open(simple_dxf_file_path, "rb") as f:
-        dxf_bytes = f.read()
+    dxf_bytes = Path(simple_dxf_file_path).read_bytes()
     data = get_measurements_data(dxf_bytes)
     assert "polylines" in data
     assert "arcs" in data

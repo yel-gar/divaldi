@@ -2,16 +2,17 @@
 Tests for pdf_to_image module.
 """
 
-import sys
 from io import BytesIO
 from pathlib import Path
 
 import pytest
 from PIL import Image
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from parser.pdf_to_image import PDFToImageConverter, pdf_to_images, pdf_to_png_bytes
+from processing.parser.pdf_to_image import (
+    PDFToImageConverter,
+    pdf_to_images,
+    pdf_to_png_bytes,
+)
 
 
 @pytest.fixture
