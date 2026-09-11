@@ -1,0 +1,60 @@
+@if (isIncoming()) {
+<div class="message__avatar">
+  <svg lucideBot aria-hidden="true"></svg>
+</div>
+}
+<div class="message__content">
+  @if (isIncoming()) {
+  <span class="message__author">Агент</span>
+  }
+  <div class="message__bubble">
+    <p class="message__text">{{ message().text }}</p>
+    @if (hasAttachments()) {
+    <ul class="message__attachments">
+      @for (attachment of message().attachments; track $index) {
+      <li class="message__attachment">
+        <span class="message__attachment-icon" [style.color]="colorFor(attachment.name)">
+          <svg size="18" [lucideIcon]="iconFor(attachment.name)" aria-hidden="true"></svg>
+        </span>
+        <span class="message__attachment-name">{{ attachment.name }}</span>
+        <span class="message__attachment-size">{{ formatBytes(attachment.size) }}</span>
+        <button
+          type="button"
+          class="button button--outline button--centered message__attachment-preview"
+          aria-label="Предпросмотр"
+          [disabled]="!attachment.file"
+          (click)="preview.emit(attachment)"
+        >
+          <svg size="16" lucideEye aria-hidden="true"></svg>
+        </button>
+      </li>
+      }
+    </ul>
+    }
+    <div class="message__meta">
+      <time class="message__time h5" [attr.datetime]="message().time">{{ message().time }}</time>
+      @switch (message().status) { @case ('sending') {
+      <svg
+        size="16"
+        lucideClock
+        class="message__status message__status--sending"
+        aria-hidden="true"
+      ></svg>
+      <span class="visually-hidden">Отправляется</span>
+      } @case ('sent') {
+      <svg
+        size="16"
+        lucideCheck
+        class="message__status message__status--sent"
+        aria-hidden="true"
+      ></svg>
+      <span class="visually-hidden">Отправлено</span>
+      } @case ('read') {
+      <svg size="16" lucideCheckCheck class="message__status" aria-hidden="true"></svg>
+      <span class="visually-hidden">Прочитано</span>
+      } @default {
+      <span class="visually-hidden">Статус неизвестен</span>
+      } }
+    </div>
+  </div>
+</div>

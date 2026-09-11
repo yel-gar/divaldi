@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.auth import MAX_USERNAME_LENGTH, NAME_SURNAME_MAX_LENGTH
 
@@ -33,7 +33,7 @@ class AdminEditUserSchema(BaseModel):
     @classmethod
     def reject_none(cls, value):
         if value is None:
-            raise ValidationError("Field cannot be None")
+            raise ValueError("Field cannot be None")
 
 
 class AdminSetPasswordSchema(BaseModel):

@@ -1,0 +1,251 @@
+<div class="dropzone" [class.dropzone--drag]="isDragOver()">
+  <input
+    #fileInput
+    [id]="inputId()"
+    type="file"
+    hidden
+    [accept]="acceptAttr"
+    multiple
+    (change)="onFileInputChange($event)"
+  />
+
+  <div
+    class="dropzone__area"
+    role="button"
+    tabindex="0"
+    aria-label="Загрузить файлы: перетащите или выберите с диска"
+    (click)="openFilePicker(fileInput)"
+    (keydown.enter)="openFilePicker(fileInput)"
+    (keydown.space)="$event.preventDefault(); openFilePicker(fileInput)"
+    (dragover)="onDragOver($event)"
+    (dragleave)="onDragLeave($event)"
+    (drop)="onDrop($event)"
+  >
+    <svg size="48" class="dropzone__icon" lucideCloudUpload></svg>
+    <p class="dropzone__text">
+      Перетащите файлы сюда <br />
+      или нажмите <span class="active-link">для выбора</span>
+    </p>
+    <p class="dropzone__subtext">
+      Поддерживаются: PDF, DWG, DXF, XLS, XLSX, DOC, PNG, JPEG до 20 МБ.
+    </p>
+  </div>
+</div>
+
+@if (state() !== 'idle') {
+  <div class="uploader" role="region" aria-label="Загрузка файлов">
+    @if (state() === 'uploading') {
+      @if (!isCollapsed()) {
+        <header class="uploader__header">
+          <div
+            class="uploader__progress-circle"
+            role="progressbar"
+            aria-label="Общий прогресс загрузки"
+            [attr.aria-valuenow]="progressPercent()"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
+            <svg viewBox="0 0 48 48">
+              <circle class="uploader__progress-track" cx="24" cy="24" r="20" />
+              <circle
+                class="uploader__progress-bar"
+                cx="24"
+                cy="24"
+                r="20"
+                [style.stroke-dasharray]="circumference"
+                [style.stroke-dashoffset]="circumference * (1 - progressPercent() / 100)"
+              />
+            </svg>
+            <span class="uploader__progress-value">{{ progressPercent() }}%</span>
+          </div>
+
+          <div class="uploader__summary" aria-live="polite">
+            <p class="uploader__title h3">
+              Загружено {{ doneFiles() }} из {{ items().length }} файлов
+            </p>
+            <p class="uploader__meta h5">
+              {{ uploadedLabel() }} из {{ totalLabel() }} · {{ speedLabel() }} · Осталось
+              {{ etaLabel() }}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            class="uploader__collapse"
+            aria-controls="uploader-list"
+            [attr.aria-expanded]="!isCollapsed()"
+            (click)="toggleCollapse()"
+          >
+            <span>Свернуть</span>
+            <svg
+              size="16"
+              lucideChevronDown
+              class="uploader__chevron"
+              [class.uploader__chevron--rotated]="isCollapsed()"
+            ></svg>
+          </button>
+        </header>
+      } @else {
+        <header class="uploader__header">
+          <div
+            class="uploader__progress-circle"
+            role="progressbar"
+            aria-label="Общий прогресс загрузки"
+            [attr.aria-valuenow]="progressPercent()"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
+            <svg viewBox="0 0 48 48">
+              <circle class="uploader__progress-track" cx="24" cy="24" r="20" />
+              <circle
+                class="uploader__progress-bar"
+                cx="24"
+                cy="24"
+                r="20"
+                [style.stroke-dasharray]="circumference"
+                [style.stroke-dashoffset]="circumference * (1 - progressPercent() / 100)"
+              />
+            </svg>
+            <span class="uploader__progress-value">{{ progressPercent() }}%</span>
+          </div>
+
+          <div class="uploader__summary">
+            <p class="uploader__title h3">
+              Загружено {{ doneFiles() }} из {{ items().length }} файлов
+            </p>
+          </div>
+
+          <button
+            type="button"
+            class="uploader__collapse"
+            aria-controls="uploader-list"
+            [attr.aria-expanded]="!isCollapsed()"
+            (click)="toggleCollapse()"
+          >
+            <span>Развернуть</span>
+            <svg
+              size="16"
+              lucideChevronDown
+              class="uploader__chevron"
+              [class.uploader__chevron--rotated]="isCollapsed()"
+            ></svg>
+          </button>
+        </header>
+      }
+    }
+
+    @if (state() === 'completed' || !isCollapsed()) {
+      <ul class="uploader__list" id="uploader-list">
+        @for (item of listItems(); track item.id) {
+          <li class="upload-item">
+            <span class="upload-item__icon-wrap" [style.color]="colorFor(item)">
+              <svg size="20" class="upload-item__icon" [lucideIcon]="iconFor(item)"></svg>
+            </span>
+
+            <div class="upload-item__info">
+              <div class="upload-item__row">
+                <p class="upload-item__name">{{ item.name }}</p>
+              </div>
+
+              <div class="upload-item__row upload-item__row--meta">
+                <span class="upload-item__size h5">{{ sizeLabel(item) }}</span>
+                @if (item.status === 'uploading') {
+                  <app-progress-bar
+                    class="upload-item__progress"
+                    [value]="percentOf(item)"
+                    [label]="'Прогресс загрузки ' + item.name"
+                  />
+                  @if (showItemPercent()) {
+                    <span class="upload-item__percent h5">{{ percentOf(item) }}%</span>
+                  }
+                }
+              </div>
+            </div>
+
+            <span
+              class="upload-item__status"
+              [class.upload-item__status--done]="item.status === 'done'"
+              [class.upload-item__status--error]="item.status === 'error'"
+              [title]="statusLabel(item)"
+            >
+              @switch (item.status) {
+                @case ('done') {
+                  <svg size="14" lucideCheck></svg>
+                }
+                @case ('uploading') {
+                  <app-spinner [size]="14" />
+                }
+                @case ('error') {
+                  <svg size="14" lucideCircleAlert></svg>
+                }
+                @default {
+                  <svg size="14" lucideClock3></svg>
+                }
+              }
+              <span class="upload-item__status-text">{{ statusLabel(item) }}</span>
+            </span>
+
+            @if (item.status === 'error') {
+              <button
+                type="button"
+                class="button button--outline upload-item__action upload-item__action--retry"
+                aria-label="Повторить"
+                title="Повторить"
+                (click)="retryItem(item.id)"
+              >
+                <svg size="16" lucideRotateCcw></svg>
+              </button>
+            }
+
+            @if (state() === 'completed') {
+              <span class="upload-item__actions">
+                @if (previewKindFor(item.extension)) {
+                  <button
+                    type="button"
+                    class="button button--outline button--centered upload-item__action"
+                    aria-label="Предпросмотр"
+                    (click)="openPreview(item)"
+                  >
+                    <svg size="16" lucideEye></svg>
+                  </button>
+                }
+                <button
+                  type="button"
+                  class="button button--danger button--outline button--centered upload-item__action"
+                  aria-label="Удалить"
+                  (click)="removeItem(item.id)"
+                >
+                  <svg size="16" lucideTrash2></svg>
+                </button>
+              </span>
+            }
+          </li>
+        }
+      </ul>
+    }
+
+    @if (state() === 'uploading' && !isCollapsed() && items().length > visibleLimit) {
+      <footer class="uploader__footer">
+        <span class="h5">Показано {{ visibleItems().length }} из {{ items().length }} файлов</span>
+        <button
+          type="button"
+          class="uploader__show-all"
+          [attr.aria-expanded]="showAllFiles()"
+          (click)="toggleShowAll()"
+        >
+          {{ showAllFiles() ? 'Свернуть список' : 'Показать все' }}
+          <svg
+            size="14"
+            lucideChevronDown
+            class="uploader__chevron"
+            [class.uploader__chevron--rotated]="showAllFiles()"
+          ></svg>
+        </button>
+      </footer>
+    }
+  </div>
+}
+
+@if (previewItem(); as item) {
+  <app-file-preview [file]="item.file" (closed)="closePreview()" />
+}

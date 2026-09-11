@@ -4,6 +4,33 @@ x-postgres-env: &postgres-env
   POSTGRES_DB: ${POSTGRES_DB:-divaldi}
   POSTGRES_HOST: db
 
+x-backend-env: &backend-env
+  <<: *postgres-env
+  DEBUG: ${DEBUG:?}
+  BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
+  FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+  RABBITMQ_USER: ${RABBITMQ_USER:-admin}
+  RABBITMQ_PASS: ${RABBITMQ_PASS:?}
+  TASKIQ_API_TOKEN: ${TASKIQ_API_TOKEN:?}
+  GIGACHAT_MODEL: ${GIGACHAT_MODEL:-GigaChat-3-Ultra}
+  SBER_API_KEY: ${SBER_API_KEY:?}
+  SBER_API_SCOPE: ${SBER_API_SCOPE:?}
+
+x-backend-service: &backend-service
+  build: ./backend
+  restart: unless-stopped
+  environment:
+    <<: *backend-env
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+    migrate:
+      condition: service_completed_successfully
+
 services:
   frontend:
     build:
@@ -17,20 +44,61 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    mem_limit: 1G
 
   backend:
-    build: ./backend
-    environment:
-      <<: *postgres-env
-      DEBUG: ${DEBUG:?}
-      BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+    <<: *backend-service
     ports:
       - ${BACKEND_PORT:-3000}:3000
-    restart: unless-stopped
+    mem_limit: 1G
+
+  migrate:
+    build: ./backend
+    environment:
+      <<: *backend-env
+    command: "poetry run alembic upgrade head"
+    restart: no
     depends_on:
       db:
         condition: service_healthy
+
+  scheduler:
+    <<: *backend-service
+    command: "poetry run taskiq scheduler app.tasks.conf.scheduler:scheduler"
+    mem_limit: 512M
+
+  worker_default:
+    <<: *backend-service
+    command: "poetry run taskiq worker -w 2 app.tasks.conf.workers:default_worker"
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 1G
+
+  worker_network:
+    <<: *backend-service
+    command: "poetry run taskiq worker -w 2 app.tasks.conf.workers:network_worker"
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 1G
+
+  taskiq_dashboard:
+    image: ghcr.io/danfimov/taskiq-dashboard:v0.4.4
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TASKIQ_DASHBOARD__STORAGE_TYPE: postgres
+      TASKIQ_DASHBOARD__POSTGRES__HOST: db
+      TASKIQ_DASHBOARD__API__TOKEN: ${TASKIQ_API_TOKEN:?}
+      TASKIQ_DASHBOARD__POSTGRES__USER: ${POSTGRES_USER:-divaldi}
+      TASKIQ_DASHBOARD__POSTGRES__PASSWORD: ${POSTGRES_PASSWORD:?}
+      TASKIQ_DASHBOARD__POSTGRES__DATABASE: taskiq_dashboard
+    ports:
+      - "${TASKIQ_DASHBOARD_PORT:-8000}:8000"
 
   db:
     image: postgres:18-alpine
@@ -39,15 +107,55 @@ services:
       <<: *postgres-env
     volumes:
       - postgres_data:/var/lib/postgresql
+      - ./conf/postgres-init:/docker-entrypoint-initdb.d
     healthcheck:
       test:
         [
           "CMD-SHELL",
           "pg_isready -U ${POSTGRES_USER:-divaldi} -d ${POSTGRES_DB:-divaldi}",
         ]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    shm_size: '512mb'
+    mem_limit: 2G
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+      - ./conf/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    mem_limit: 2G
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    restart: unless-stopped
+    ports:
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:?}
+      RABBITMQ_DEFAULT_VHOST: taskiq
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    mem_limit: 2G
 
 volumes:
   postgres_data:
+  redis_data:
+  rabbitmq_data:

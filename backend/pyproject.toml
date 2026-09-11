@@ -5,7 +5,7 @@ description = ""
 authors = [
     {name = "yel-gar"}
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.14,<4"
 dependencies = [
     "fastapi[standard-no-fastapi-cloud-cli] (>=0.141.1,<0.142.0)",
     "alembic (>=1.19.2,<2.0.0)",
@@ -14,7 +14,12 @@ dependencies = [
     "structlog (>=26.1.0,<27.0.0)",
     "argon2-cffi (>=25.1.0,<26.0.0)",
     "starlette (>=1.6.0,<2.0.0)",
-    "pydantic (>=2.13.5,<3.0.0)"
+    "pydantic (>=2.13.5,<3.0.0)",
+    "taskiq (>=0.12.6,<0.13.0)",
+    "taskiq-aio-pika (>=0.6.0,<0.7.0)",
+    "taskiq-redis (>=1.2.3,<2.0.0)",
+    "taskiq-dashboard (>=0.4.4,<0.5.0)",
+    "redis (>=8.1.0,<9.0.0)",
 ]
 
 
@@ -30,19 +35,20 @@ dev = [
     "pytest-asyncio (>=1.4.0,<2.0.0)",
     "httpx (>=0.28.1,<0.29.0)",
     "testcontainers[postgres] (>=4.15.0,<5.0.0)",
-    "pre-commit (>=4.6.2,<5.0.0)"
+    "pre-commit (>=4.6.2,<5.0.0)",
 ]
 
 [tool.black]
 line-length = 120
-target-version = ["py313"]
+target-version = ["py314"]
 extend-exclude = "alembic/versions"
 
 [tool.ruff]
 line-length = 120
-target-version = "py313"
+target-version = "py314"
 exclude = [
-    "alembic/versions"
+    "alembic/versions",
+    "./createsuperuser.py"
 ]
 
 [tool.ruff.lint]

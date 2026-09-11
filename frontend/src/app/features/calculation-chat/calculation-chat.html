@@ -1,4 +1,152 @@
-<div class="page">
-  <h1>Чат с агентом</h1>
-  <p class="hint">ID сессии: {{ id() }}</p>
-</div>
+<section class="section chat-section">
+  <header class="section__header chat-section-header">
+    <h1 class="h2">Чат с агентом</h1>
+    <button
+      type="button"
+      class="button button--outline h3"
+      aria-label="Панель результатов расчёта"
+      [attr.aria-expanded]="isResultsOpen()"
+      [attr.aria-controls]="id()"
+      (click)="handleResultsOpen()"
+    >
+      @if (isResultsOpen()) {
+      <svg lucidePanelRightClose aria-hidden="true"></svg>
+      } @else {
+      <svg lucidePanelRightOpen aria-hidden="true"></svg>
+      }
+    </button>
+  </header>
+  <div class="chat-container">
+    <ul #chatMessages class="chat-messages" role="log" aria-label="История сообщений">
+      @for (message of messages(); track message.id) {
+      <li>
+        <app-chat-message [message]="message" (preview)="openAttachmentPreview($event)" />
+      </li>
+      } @if (agentStatus(); as status) {
+      <li>
+        <app-agent-status [status]="status" />
+      </li>
+      }
+    </ul>
+
+    <footer class="chat-input-panel">
+      <form class="chat-input-panel__form" (submit)="sendMessage($event)">
+        <div class="input-container">
+          <div #attachAnchor class="chat-input-panel__attach">
+            <button
+              type="button"
+              aria-label="Прикрепить файл"
+              aria-haspopup="dialog"
+              class="button button--outline chat-input-panel__paperclip-button"
+              [attr.aria-expanded]="isAttachPopupOpen()"
+              aria-controls="attach-popup"
+              (click)="toggleAttachPopup()"
+            >
+              <svg size="24" lucidePaperclip aria-hidden="true"></svg>
+            </button>
+
+            <div
+              id="attach-popup"
+              class="chat-input-panel__attach-popup"
+              [class.chat-input-panel__attach-popup--hidden]="!isAttachPopupOpen()"
+              role="dialog"
+              aria-label="Прикрепить файлы"
+            >
+              <app-drag-n-drop
+                [showItemPercent]="false"
+                (filesChange)="onFilesChange($event)"
+                (uploadingChange)="isUploading.set($event)"
+              />
+            </div>
+          </div>
+          <textarea
+            #messageInput
+            rows="1"
+            class="h3"
+            aria-label="Введите сообщение"
+            placeholder="Введите сообщение..."
+            autocomplete="off"
+            (input)="resizeMessageInput()"
+            (keydown)="onMessageKeydown($event)"
+          ></textarea>
+        </div>
+        <button
+          type="submit"
+          aria-label="Отправить"
+          class="button button--main chat-input-panel__send-message"
+          [disabled]="isUploading()"
+        >
+          <svg size="32" lucideSendHorizontal aria-hidden="true"></svg>
+        </button>
+      </form>
+    </footer>
+  </div>
+</section>
+<aside class="section results-aside" [attr.id]="id()">
+  <header class="section__header">
+    <h2 class="h2">Результаты расчёта</h2>
+  </header>
+
+  <section class="calculation-results__section">
+    <h3 class="calculation-results__subtitle">Итоговые параметры</h3>
+
+    <dl class="calculation-results__params">
+      <div class="calculation-results__param-row">
+        <dt>Объём</dt>
+        <dd>10 м³</dd>
+      </div>
+      <div class="calculation-results__param-row">
+        <dt>Рабочее давление</dt>
+        <dd>6 бар</dd>
+      </div>
+      <div class="calculation-results__param-row">
+        <dt>Материал</dt>
+        <dd>Сталь 09Г2С</dd>
+      </div>
+      <div class="calculation-results__param-row">
+        <dt>Температурный режим</dt>
+        <dd>от -20°C до +50°C</dd>
+      </div>
+      <div class="calculation-results__param-row">
+        <dt>Тип резервуара</dt>
+        <dd>Горизонтальный</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="calculation-results__section">
+    <h3 class="calculation-results__subtitle">Статус</h3>
+    <p class="calculation-results__status-text">Идёт расчёт...</p>
+
+    <app-progress-bar
+      class="calculation-results__progress"
+      [value]="46"
+      [thickness]="8"
+      label="Прогресс расчёта"
+      [showPercent]="true"
+    />
+  </section>
+
+  <section class="calculation-results__section">
+    <h3 class="calculation-results__subtitle">Файлы</h3>
+    <p class="calculation-results__files-placeholder h4">
+      После завершения расчёта файлы появятся здесь.
+    </p>
+  </section>
+
+  <footer class="calculation-results__actions">
+    <button type="button" class="button button--main h3">
+      <svg lucideFileText aria-hidden="true"></svg>
+      Создать КП
+    </button>
+
+    <button type="button" class="button button--outline h3">
+      <svg lucideHistory aria-hidden="true"></svg>
+      Показать историю
+    </button>
+  </footer>
+</aside>
+
+@if (previewedFile(); as file) {
+<app-file-preview [file]="file" (closed)="previewedFile.set(null)" />
+}

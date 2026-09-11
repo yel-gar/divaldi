@@ -1,0 +1,29 @@
+<div class="notification__icon">
+  @switch (type()) { @case ('success') {
+  <svg size="20" lucideCircleCheck aria-hidden="true"></svg>
+  } @case ('error') {
+  <svg size="20" lucideCircleX aria-hidden="true"></svg>
+  } @case ('info') {
+  <svg size="20" lucideInfo aria-hidden="true"></svg>
+  } @case ('warning') {
+  <svg size="20" lucideTriangleAlert aria-hidden="true"></svg>
+  } }
+</div>
+
+<div class="notification__body">
+  <p class="notification__title">{{ title() }}</p>
+  @if (description()) {
+  <p class="notification__description h4">{{ description() }}</p>
+  }
+</div>
+
+@if (dismissible()) {
+<button
+  type="button"
+  class="button button--danger button--outline notification__close"
+  aria-label="Закрыть уведомление"
+  (click)="closed.emit()"
+>
+  <svg size="16" lucideX aria-hidden="true"></svg>
+</button>
+}
