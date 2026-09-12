@@ -27,18 +27,14 @@
   }
 
   <nav class="navigation" aria-label="Основная навигация">
-    <ul class="navigation__list" tabindex="-1" (keydown)="onListKeydown($event)">
-      @for (nav of navItems(); track nav.route; let i = $index) {
+    <ul class="navigation__list">
+      @for (nav of navItems(); track nav.route) {
       <li>
         <a
-          #navLink
           class="navigation__item h3"
           [routerLink]="nav.route"
           routerLinkActive="active-link"
-          (isActiveChange)="onActiveChange($event, i)"
           ariaCurrentWhenActive="page"
-          [attr.tabindex]="tabStop() === i ? 0 : -1"
-          (focus)="onItemFocus(i)"
           [attr.title]="collapsed() ? nav.label : null"
         >
           <svg class="navigation__icon" [lucideIcon]="nav.icon"></svg>
@@ -52,9 +48,20 @@
     <img src="/assets/imgs/stock-man.jpg" alt="profile photo" class="photo" />
     <div class="profile__content">
       <div class="profile__info">
-        <span class="profile__name h3">Иван Иванов</span>
-        <p class="profile__mail h4">ivan@example.com</p>
+        <span class="profile__name h3">{{ displayName() }}</span>
+        @if (user(); as currentUser) {
+        <p class="profile__mail h4">&#64;{{ currentUser.username }}</p>
+        }
       </div>
+      <button
+        type="button"
+        class="profile__logout"
+        aria-label="Выйти"
+        [disabled]="isLoggingOut()"
+        (click)="logout()"
+      >
+        <svg size="18" lucideLogOut aria-hidden="true"></svg>
+      </button>
     </div>
   </div>
 </div>

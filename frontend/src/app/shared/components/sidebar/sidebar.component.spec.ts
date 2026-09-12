@@ -97,16 +97,11 @@ describe('Sidebar accessibility', () => {
   });
 });
 
-describe('Sidebar roving tabindex navigation', () => {
+describe('Sidebar tab navigation', () => {
   let fixture: ComponentFixture<TestHost>;
   let router: Router;
 
   const getNavLinks = () => fixture.debugElement.queryAll(By.css('.navigation__item'));
-
-  function pressKey(element: Element, key: string): void {
-    element.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
-    fixture.detectChanges();
-  }
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -119,55 +114,19 @@ describe('Sidebar roving tabindex navigation', () => {
     fixture.detectChanges();
   });
 
-  it('keeps exactly one tab stop in the nav list', async () => {
+  it('keeps every nav link in the natural tab order', async () => {
     await router.navigateByUrl('/settings');
     fixture.detectChanges();
 
-    const tabStops = getNavLinks().filter(
-      (link) => link.nativeElement.getAttribute('tabindex') === '0'
-    );
-    expect(tabStops.length).toBe(1);
-    expect(tabStops[0].nativeElement.textContent).toContain('Настройки');
+    const links = getNavLinks();
+    expect(links.length).toBe(USER_NAV_ITEMS.length);
+    links.forEach((link) => {
+      expect(link.nativeElement.getAttribute('tabindex')).toBeNull();
+    });
   });
 
-  it('defaults the tab stop to the first link when no route is active', () => {
-    const tabStops = getNavLinks().filter(
-      (link) => link.nativeElement.getAttribute('tabindex') === '0'
-    );
-    expect(tabStops.length).toBe(1);
-    expect(tabStops[0].nativeElement.textContent).toContain('История заявок');
-  });
-
-  it('moves focus and the tab stop down with ArrowDown', () => {
-    getNavLinks()[0].nativeElement.focus();
-    pressKey(getNavLinks()[0].nativeElement, 'ArrowDown');
-
-    expect(document.activeElement).toBe(getNavLinks()[1].nativeElement);
-    expect(getNavLinks()[1].nativeElement.getAttribute('tabindex')).toBe('0');
-    expect(getNavLinks()[0].nativeElement.getAttribute('tabindex')).toBe('-1');
-  });
-
-  it('wraps from the last link to the first with ArrowDown', () => {
-    getNavLinks()[1].nativeElement.focus();
-    pressKey(getNavLinks()[1].nativeElement, 'ArrowDown');
-
-    expect(document.activeElement).toBe(getNavLinks()[0].nativeElement);
-  });
-
-  it('wraps from the first link to the last with ArrowUp', () => {
-    getNavLinks()[0].nativeElement.focus();
-    pressKey(getNavLinks()[0].nativeElement, 'ArrowUp');
-
-    expect(document.activeElement).toBe(getNavLinks()[1].nativeElement);
-    expect(getNavLinks()[1].nativeElement.getAttribute('tabindex')).toBe('0');
-  });
-
-  it('jumps to the first link with Home and the last with End', () => {
-    getNavLinks()[1].nativeElement.focus();
-    pressKey(getNavLinks()[1].nativeElement, 'Home');
-    expect(document.activeElement).toBe(getNavLinks()[0].nativeElement);
-
-    pressKey(getNavLinks()[0].nativeElement, 'End');
-    expect(document.activeElement).toBe(getNavLinks()[1].nativeElement);
+  it('renders the list without arrow-key widget semantics', () => {
+    const list = fixture.debugElement.query(By.css('.navigation__list'));
+    expect(list.nativeElement.getAttribute('tabindex')).toBeNull();
   });
 });

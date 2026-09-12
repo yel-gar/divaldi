@@ -81,16 +81,6 @@
   animation: agent-status-pulse 1.6s ease-in-out infinite;
 }
 
-.agent-status__body {
-  min-width: 0;
-}
-
-.agent-status__author {
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--color-gray);
-}
-
 .agent-status__bubble {
   background: var(--color-white);
 
@@ -117,8 +107,6 @@
 }
 
 .agent-status__text {
-  font-size: 16px;
-
   background: linear-gradient(
     90deg,
     var(--color-gray) 30%,

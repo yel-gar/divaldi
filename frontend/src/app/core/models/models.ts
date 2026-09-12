@@ -37,6 +37,7 @@ export interface User {
   username: string;
   first_name: string | null;
   last_name: string | null;
+  is_superuser: boolean;
 }
 
 export type UploadState = 'idle' | 'uploading' | 'completed';

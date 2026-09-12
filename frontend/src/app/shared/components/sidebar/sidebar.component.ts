@@ -1,20 +1,16 @@
-import {
-  AfterViewInit,
-  Component,
-  ElementRef,
-  computed,
-  input,
-  signal,
-  viewChildren
-} from '@angular/core';
+import { Component, computed, inject, input, signal } from '@angular/core';
 import type { NavItem, Role } from './sidebar.config';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import {
   LucideDynamicIcon,
+  LucideLogOut,
   LucidePanelLeftClose,
   LucidePanelLeftOpen,
   LucidePlus
 } from '@lucide/angular';
+import { AuthService } from '../../../core/services/auth.service';
+import { NotificationService } from '../../../core/services/notification.service';
+import { ProfileService } from '../../../core/services/profile.service';
 
 @Component({
   selector: 'app-sidebar',
@@ -24,7 +20,8 @@ import {
     RouterLinkActive,
     LucidePlus,
     LucidePanelLeftClose,
-    LucidePanelLeftOpen
+    LucidePanelLeftOpen,
+    LucideLogOut
   ],
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.scss',
@@ -32,9 +29,42 @@ import {
     '[class.sidebar--collapsed]': 'collapsed()'
   }
 })
-export class Sidebar implements AfterViewInit {
+export class Sidebar {
   readonly navItems = input<NavItem[]>([]);
   readonly role = input<Role>();
+
+  private readonly auth = inject(AuthService);
+  private readonly profile = inject(ProfileService);
+  private readonly notifications = inject(NotificationService);
+  private readonly router = inject(Router);
+
+  readonly user = this.profile.user;
+  readonly displayName = computed(() => {
+    const user = this.user();
+    if (!user) {
+      return '';
+    }
+    const name = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim();
+    return name || user.username;
+  });
+  readonly isLoggingOut = signal(false);
+
+  logout(): void {
+    this.isLoggingOut.set(true);
+    this.auth.logout().subscribe({
+      next: () => {
+        this.isLoggingOut.set(false);
+        this.profile.clear();
+        this.notifications.info('Вы вышли из аккаунта');
+        this.router.navigate(['/login']);
+      },
+      error: (err: { error?: { detail?: string; message?: string }; message?: string }) => {
+        this.isLoggingOut.set(false);
+        const reason = err.error?.detail ?? err.error?.message ?? err.message ?? 'Ошибка сервера';
+        this.notifications.error('Не удалось выйти: ' + reason);
+      }
+    });
+  }
 
   private static readonly STORAGE_KEY = 'sidebar-collapsed';
 
@@ -68,60 +98,5 @@ export class Sidebar implements AfterViewInit {
       this.writeCollapsed(next);
       return next;
     });
-  }
-
-  private readonly tabStopIndex = signal(0);
-  private readonly navLinks = viewChildren<ElementRef<HTMLAnchorElement>>('navLink');
-
-  readonly tabStop = computed(() => {
-    const lastIndex = Math.max(0, this.navItems().length - 1);
-    return Math.min(Math.max(this.tabStopIndex(), 0), lastIndex);
-  });
-
-  ngAfterViewInit(): void {
-    const activeIndex = this.navLinks().findIndex(
-      (link) => link.nativeElement.getAttribute('aria-current') === 'page'
-    );
-    if (activeIndex >= 0) {
-      this.tabStopIndex.set(activeIndex);
-    }
-  }
-
-  onItemFocus(index: number): void {
-    this.tabStopIndex.set(index);
-  }
-
-  onActiveChange(isActive: boolean, index: number): void {
-    if (isActive) {
-      this.tabStopIndex.set(index);
-    }
-  }
-
-  onListKeydown(event: KeyboardEvent): void {
-    switch (event.key) {
-      case 'ArrowDown':
-        this.moveFocus(event, this.tabStop() + 1);
-        break;
-      case 'ArrowUp':
-        this.moveFocus(event, this.tabStop() - 1);
-        break;
-      case 'Home':
-        this.moveFocus(event, 0);
-        break;
-      case 'End':
-        this.moveFocus(event, this.navItems().length - 1);
-        break;
-    }
-  }
-
-  private moveFocus(event: KeyboardEvent, target: number): void {
-    event.preventDefault();
-    const count = this.navLinks().length;
-    if (count === 0) {
-      return;
-    }
-    const next = ((target % count) + count) % count;
-    this.tabStopIndex.set(next);
-    this.navLinks()[next]?.nativeElement.focus();
   }
 }

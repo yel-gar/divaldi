@@ -1,0 +1,17 @@
+<label class="toggle" [class.toggle--disabled]="checkbox.disabled">
+  <input
+    #checkbox
+    type="checkbox"
+    class="toggle__input"
+    [attr.aria-label]="label()"
+    (change)="onInput($event)"
+    (blur)="onBlur()"
+  />
+  <span class="toggle__track" [attr.aria-hidden]="true">
+    <span class="toggle__thumb" [attr.aria-hidden]="true"></span>
+  </span>
+  <span class="toggle__label">{{ label() }}</span>
+  @if (caption()) {
+    <span class="toggle__caption">{{ caption() }}</span>
+  }
+</label>

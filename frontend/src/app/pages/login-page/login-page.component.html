@@ -1,0 +1,44 @@
+<div class="auth-wrapper">
+  <h1 class="h2">Вход в аккаунт</h1>
+
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <div class="field-container">
+      <label for="username">Логин <span class="required" aria-hidden="true">*</span></label>
+      <app-input
+        formControlName="username"
+        inputId="username"
+        type="text"
+        placeholder="ivan"
+        autocomplete="username"
+        [maxLength]="32"
+        [leftIcon]="userIcon"
+        (keydown.enter)="submit()"
+      />
+    </div>
+
+    <div class="field-container">
+      <label for="password">Пароль <span class="required" aria-hidden="true">*</span></label>
+      <app-input
+        formControlName="password"
+        inputId="password"
+        [type]="showPassword() ? 'text' : 'password'"
+        placeholder="••••••••"
+        autocomplete="current-password"
+        [maxLength]="128"
+        [leftIcon]="lockIcon"
+        [rightIcon]="showPassword() ? eyeOffIcon : eyeIcon"
+        [rightIconInteractive]="true"
+        (rightIconClick)="togglePassword()"
+        (keydown.enter)="submit()"
+      />
+    </div>
+
+    <button
+      class="button button--main button--centered h3"
+      type="submit"
+      [disabled]="isSubmitting()"
+    >
+      Войти
+    </button>
+  </form>
+</div>
