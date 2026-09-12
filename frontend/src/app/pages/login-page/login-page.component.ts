@@ -1,15 +1,16 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
-import { LucideEye, LucideEyeOff, LucideLock, LucideMail } from '@lucide/angular';
+import { ActivatedRoute, Router } from '@angular/router';
+import { LucideEye, LucideEyeOff, LucideLock, LucideUser } from '@lucide/angular';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { InputComponent } from '../../shared/components/input/input.component';
-import { CheckboxComponent } from '../../shared/components/checkbox/checkbox.component';
+
+const USERNAME_MAX_LENGTH = 32;
 
 @Component({
   selector: 'app-login-page',
-  imports: [ReactiveFormsModule, InputComponent, CheckboxComponent],
+  imports: [ReactiveFormsModule, InputComponent],
   templateUrl: './login-page.component.html',
   styleUrl: './login-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -19,44 +20,74 @@ export class LoginPageComponent {
   private readonly auth = inject(AuthService);
   private readonly notifications = inject(NotificationService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
-  readonly mailIcon = LucideMail;
+  readonly userIcon = LucideUser;
   readonly lockIcon = LucideLock;
   readonly eyeIcon = LucideEye;
   readonly eyeOffIcon = LucideEyeOff;
 
   readonly form = this.fb.group({
-    email: ['', [Validators.required, Validators.email]],
-    password: ['', Validators.required],
-    rememberMe: [false]
+    username: ['', [Validators.required, Validators.maxLength(USERNAME_MAX_LENGTH)]],
+    password: ['', Validators.required]
   });
 
   readonly isSubmitting = signal(false);
   readonly showPassword = signal(false);
+
+  private readonly returnUrl = this.route.snapshot.queryParamMap.get('return')?.startsWith('/')
+    ? this.route.snapshot.queryParamMap.get('return')
+    : '/create';
 
   togglePassword(): void {
     this.showPassword.update((visible) => !visible);
   }
 
   submit(): void {
+    if (this.isSubmitting()) {
+      return;
+    }
+
+    this.clearCredentialsError();
+
     if (this.form.invalid) {
       this.form.markAllAsTouched();
-      this.notifications.error('Заполните email и пароль');
+      this.notifications.error('Заполните логин и пароль');
       return;
     }
 
     this.isSubmitting.set(true);
-    const { email, password } = this.form.getRawValue();
-    this.auth.login(email ?? '', password ?? '').subscribe({
+    const { username, password } = this.form.getRawValue();
+    this.auth.login(username?.trim() ?? '', password ?? '').subscribe({
       next: () => {
         this.isSubmitting.set(false);
         this.notifications.success('Вы вошли в систему');
-        this.router.navigate(['/create']);
+        this.router.navigate([this.returnUrl]);
       },
-      error: (err: { message?: string }) => {
+      error: (err: { error?: { detail?: string; message?: string }; message?: string }) => {
         this.isSubmitting.set(false);
-        this.notifications.error('Не удалось войти: ' + (err.message ?? 'Ошибка сервера'));
+        const reason = err.error?.detail ?? err.error?.message ?? err.message ?? 'Ошибка сервера';
+        this.notifications.error('Не удалось войти: ' + reason);
+        this.showCredentialsError();
       }
     });
+  }
+
+  private clearCredentialsError(): void {
+    for (const control of [this.form.controls.username, this.form.controls.password]) {
+      if (!control.hasError('credentials')) {
+        continue;
+      }
+      const errors = { ...control.errors };
+      delete errors['credentials'];
+      control.setErrors(Object.keys(errors).length ? errors : null);
+    }
+  }
+
+  private showCredentialsError(): void {
+    for (const control of [this.form.controls.username, this.form.controls.password]) {
+      control.setErrors({ ...(control.errors ?? {}), credentials: true });
+      control.markAsTouched();
+    }
   }
 }

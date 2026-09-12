@@ -3,14 +3,16 @@
 
   <form [formGroup]="form" (ngSubmit)="submit()">
     <div class="field-container">
-      <label for="email">Email <span class="required" aria-hidden="true">*</span></label>
+      <label for="username">Логин <span class="required" aria-hidden="true">*</span></label>
       <app-input
-        formControlName="email"
-        inputId="email"
-        type="email"
-        placeholder="ivan@example.com"
-        autocomplete="email"
-        [leftIcon]="mailIcon"
+        formControlName="username"
+        inputId="username"
+        type="text"
+        placeholder="ivan"
+        autocomplete="username"
+        [maxLength]="32"
+        [leftIcon]="userIcon"
+        (keydown.enter)="submit()"
       />
     </div>
 
@@ -26,11 +28,8 @@
         [rightIcon]="showPassword() ? eyeOffIcon : eyeIcon"
         [rightIconInteractive]="true"
         (rightIconClick)="togglePassword()"
+        (keydown.enter)="submit()"
       />
-    </div>
-
-    <div class="field-container auth-wrapper__remember">
-      <app-checkbox formControlName="rememberMe" label="Запомнить меня" />
     </div>
 
     <button
