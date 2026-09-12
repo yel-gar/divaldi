@@ -2,10 +2,12 @@ import asyncio
 import uuid
 
 import structlog.stdlib
+from sqlalchemy.orm import selectinload
 
-from app.cache import get_attachment_status_key, get_avatar_url_key, get_avatar_waiting_key, get_redis_client
-from app.models.chat import Attachment
-from app.storage import get_s3_avatar_processed_key, storage
+from app.cache import get_attachment_status_key, get_avatar_url_key, get_avatar_waiting_key, get_redis_client, \
+    get_pdf_sync_key
+from app.models.chat import Attachment, ProcessingResultUploadable
+from app.storage import get_s3_avatar_processed_key, storage, get_s3_pdf_image_key
 from app.tasks.conf.broker import broker, tsq_db
 from app.util import normalize_image
 from processing.parser import PDFToImageConverter
@@ -20,6 +22,34 @@ async def _redis_error(key: str):
     async with get_redis_client() as redis:
         await redis.set(key, "error", nx=False, ex=3600)
 
+async def _add_pdf_image_to_s3(attachment_id: int, data: bytes) -> int:
+    async with tsq_db() as db, storage.internal_client() as s3:
+        key = get_s3_pdf_image_key(attachment_id)
+        await s3.put_object(
+            Bucket="uploads",
+            Key=key,
+            Body=data
+        )
+        uploadable = ProcessingResultUploadable(
+            attachment_id=attachment_id,
+            s3_key=key,
+            sber_id=None,
+        )
+        db.add(uploadable)
+        await db.commit()
+        await db.refresh(uploadable)
+    return uploadable.id
+
+
+async def _cleanup_pdf_uploadable(uploadable_s3_key: str):
+    try:
+        async with storage.internal_client() as s3:
+            await s3.delete_object(
+                Bucket="uploads",
+                Key=uploadable_s3_key
+            )
+    except Exception as e:
+        log.error("uploadable_s3_cleanup_failed", s3_key=uploadable_s3_key, exc=e)
 
 @broker.task(queue_name="default")
 async def process_avatar(user_uuid: uuid.UUID):
@@ -109,7 +139,13 @@ async def process_pdf(attachment_id: int):
 
         result: list[bytes] = await asyncio.to_thread(_process_pdf, data)
         # todo: there might be just a bit too many pages in the pdf
+        s3_add_tasks = [_add_pdf_image_to_s3(attachment_id, d) for d in result]
+        uploadables_ids = await asyncio.gather(*s3_add_tasks)
 
+        async with get_redis_client() as redis:
+            await redis.set(get_pdf_sync_key(attachment_id), len(uploadables_ids), nx=True, ex=600)
+        for id_ in uploadables_ids:
+            await upload_pdf_image.kiq(attachment_id, id_)
 
     except Exception as e:
         _log.error("unknown_pdf_exception", exc=e)
@@ -122,3 +158,34 @@ async def process_dxf(attachment_id: int): ...
 
 @broker.task(queue_name="default")
 async def process_image(attachment_id: int): ...
+
+@broker.task(queue_name="network")
+async def upload_pdf_image(attachment_id: int, uploadable_id: int):
+    try:
+        ...
+    finally:
+        async with get_redis_client() as redis:
+            count = await redis.decr(get_pdf_sync_key(attachment_id))
+            if count <= 0:
+                await pdf_upload_cleanup.kiq(attachment_id)
+
+@broker.task(queue_name="default")
+async def pdf_upload_cleanup(attachment_id: int):
+    async with get_redis_client() as redis:
+        if await redis.getdel(get_pdf_sync_key(attachment_id)) is None:
+            log.warning("pdf_duplicate_cleanup", attachment_id=attachment_id)
+            return
+    try:
+        async with tsq_db() as db:
+            attachment = await db.get(Attachment, attachment_id, options=[selectinload(Attachment.processing_result_uploadables)])
+            if attachment is None:
+                raise ValueError("null_attachment_id")
+            tasks = [_cleanup_pdf_uploadable(uploadable) for uploadable in attachment.processing_result_uploadables]
+
+    except Exception as e:
+        log.error("pdf_upload_cleanup_failure", exc=e, attachment_id=attachment_id)
+        await _redis_error(get_attachment_status_key(attachment_id))
+    else:
+        log.info("pdf_upload_cleanup_ok", attachment_id=attachment_id)
+        if await redis.get(get_attachment_status_key(attachment_id)) != "error":
+            await redis.set(get_attachment_status_key(attachment_id), "completed", nx=True, ex=600)

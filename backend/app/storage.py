@@ -39,4 +39,11 @@ def get_s3_attachment_key(session_id: uuid.UUID, filename: str) -> str:
     return f"attachments/{session_id}/{uuid.uuid4()}.{ext}"
 
 
+def get_s3_pdf_image_key(id: int) -> str:
+    """
+    Warning: non deterministic
+    """
+    return f"artifacts/pdf/{id}/{uuid.uuid4()}.png"
+
+
 storage = ObjectStorage()

@@ -47,3 +47,7 @@ def get_attachment_status_key(attachment_id: int) -> str:
 
 def get_attachment_ownership_key(session_id: uuid.UUID, attachment_id: int) -> str:
     return f"attachment:ownership:{session_id}:{attachment_id}"
+
+
+def get_pdf_sync_key(attachment_id: int) -> str:
+    return f"attachment:pdf:sync:{attachment_id}"
