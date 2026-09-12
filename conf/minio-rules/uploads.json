@@ -1,16 +1,6 @@
 {
   "Rules": [
     {
-      "ID": "avatars-unprocessed-cleanup",
-      "Status": "Enabled",
-      "Filter": {
-        "Prefix": "avatars-unprocessed/"
-      },
-      "Expiration": {
-        "Days": 1
-      }
-    },
-    {
       "ID": "attachments-cleanup",
       "Status": "Enabled",
       "Filter": {
@@ -18,6 +8,16 @@
       },
       "Expiration": {
         "Days": 7
+      }
+    },
+    {
+      "ID": "artifacts-cleanup",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "artifacts/"
+      },
+      "Expiration": {
+        "Days": 1
       }
     }
   ]

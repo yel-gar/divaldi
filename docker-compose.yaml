@@ -193,7 +193,7 @@ services:
       <<: *minio-env
     volumes:
       - ./conf/minio-init.sh:/init.sh:ro
-      - ./conf/minio-rules.json:/minio-rules.json:ro
+      - ./conf/minio-rules:/rules:ro
     entrypoint: ["/bin/sh", "/init.sh"]
 
 volumes:
