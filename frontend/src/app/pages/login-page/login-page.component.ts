@@ -64,11 +64,21 @@ export class LoginPageComponent {
         this.notifications.success('Вы вошли в систему');
         this.router.navigate([this.returnUrl]);
       },
-      error: (err: { error?: { detail?: string; message?: string }; message?: string }) => {
+      error: (err: {
+        status?: number;
+        error?: { detail?: string; message?: string };
+        message?: string;
+      }) => {
         this.isSubmitting.set(false);
+        this.showCredentialsError();
+
+        if (err.status === 401) {
+          this.notifications.error('Перепроверьте правильность введённого логина и пароля');
+          return;
+        }
+
         const reason = err.error?.detail ?? err.error?.message ?? err.message ?? 'Ошибка сервера';
         this.notifications.error('Не удалось войти: ' + reason);
-        this.showCredentialsError();
       }
     });
   }
