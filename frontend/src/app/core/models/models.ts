@@ -9,6 +9,17 @@ export interface ChatMessageApi {
   timestamp: string;
 }
 
+export interface ChatResultContent {
+  type: 'error' | 'success';
+  content: string;
+  timestamp: string;
+}
+
+export interface ChatResult {
+  running: boolean;
+  result: ChatResultContent | null;
+}
+
 export interface User {
   id: number;
   username: string;

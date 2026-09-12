@@ -81,4 +81,18 @@ describe('ChatService', () => {
 
     expect(result?.message).toBe('Message accepted');
   });
+
+  it('fetches the generation result', () => {
+    let result: { running: boolean } | undefined;
+
+    service.result(SESSION_ID).subscribe((chatResult) => {
+      result = chatResult;
+    });
+
+    const req = http.expectOne(`${environment.apiUrl}/chats/${SESSION_ID}/result`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ running: true, result: null });
+
+    expect(result?.running).toBe(true);
+  });
 });
