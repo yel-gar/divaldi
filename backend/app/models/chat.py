@@ -37,6 +37,8 @@ class ChatMessage(Base):
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), nullable=False)
     content: Mapped[str] = mapped_column(Text(None), nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    # list of file ids, if any present, separated by , and no spaces
+    files_str: Mapped[str] = mapped_column(Text(None), nullable=True, default=None)
 
     session: Mapped[ChatSession] = relationship("ChatSession", back_populates="messages")
     attachments: Mapped[list[Attachment]] = relationship(
