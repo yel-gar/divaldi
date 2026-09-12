@@ -23,6 +23,7 @@ import { ChatMessage, ChatMessageAttachment } from './chat-message.model';
 import { AgentStatusComponent } from './agent-status.component';
 import { FilePreviewComponent } from '../../shared/components/drag-n-drop/file-preview.component';
 import { NotificationService } from '../../core/services/notification.service';
+import { InitialChatStateService } from '../../core/services/initial-chat-state.service';
 import { InputComponent } from '../../shared/components/input/input.component';
 
 const AGENT_REPLY =
@@ -30,14 +31,6 @@ const AGENT_REPLY =
 
 const TYPING_AFTER_MS = 3200;
 const REPLY_AFTER_MS = 1400;
-
-const MOCK_PNG_BASE64 =
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-
-function mockFile(name: string): File {
-  const bytes = Uint8Array.from(atob(MOCK_PNG_BASE64), (char) => char.charCodeAt(0));
-  return new File([bytes], name, { type: 'image/png' });
-}
 
 @Component({
   selector: 'app-calculation-chat',
@@ -87,9 +80,26 @@ export class CalculationChatComponent {
   private replyTimer: ReturnType<typeof setTimeout> | null = null;
 
   private readonly notifications = inject(NotificationService);
+  private readonly initialChatState = inject(InitialChatStateService);
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.clearAgentTimers());
+
+    const initial = this.initialChatState.consume();
+    if (initial) {
+      this.messages.set([
+        {
+          id: this.nextMessageId++,
+          direction: 'outgoing',
+          text: initial.text,
+          time: this.formatTime(),
+          status: 'sent',
+          attachments: initial.files.length
+            ? initial.files.map((file) => ({ name: file.name, size: file.size, file }))
+            : undefined
+        }
+      ]);
+    }
 
     afterRenderEffect({
       write: () => {
@@ -103,18 +113,8 @@ export class CalculationChatComponent {
     });
   }
 
-  readonly messages = signal<ChatMessage[]>([
-    { id: 1, direction: 'incoming', text: 'Здравствуйте! Чем могу помочь?', time: '10:21' },
-    {
-      id: 2,
-      direction: 'outgoing',
-      text: 'Нужно рассчитать резервуар объёмом 10 м³...',
-      time: '10:22',
-      status: 'read',
-      attachments: [{ name: 'tank-spec.png', size: 245760, file: mockFile('tank-spec.png') }]
-    }
-  ]);
-  private nextMessageId = 3;
+  readonly messages = signal<ChatMessage[]>([]);
+  private nextMessageId = 1;
 
   readonly messageInputValue = signal('');
 

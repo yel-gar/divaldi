@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { catchError, EMPTY, finalize } from 'rxjs';
 import { SessionService } from '../../core/services/session.service';
+import { InitialChatStateService } from '../../core/services/initial-chat-state.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { DragNDropComponent } from '../../shared/components/drag-n-drop/drag-n-drop.component';
 import { Select, SelectOption } from '../../shared/components/select/select.component';
@@ -21,6 +22,7 @@ export class OrderCreateComponent {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly sessionService = inject(SessionService);
+  private readonly initialChatState = inject(InitialChatStateService);
   private readonly notifications = inject(NotificationService);
 
   readonly isSubmitting = signal<boolean>(false);
@@ -54,6 +56,7 @@ export class OrderCreateComponent {
   onSubmit() {
     if (this.orderForm.invalid) {
       this.orderForm.markAllAsTouched();
+      this.notifications.error('Заполните все поля заявки');
       return;
     }
     if (this.isSubmitting()) {
@@ -81,6 +84,10 @@ export class OrderCreateComponent {
       .subscribe({
         next: (order) => {
           this.notifications.success('Новый чат создан');
+          this.initialChatState.set({
+            text: description,
+            files: this.selectedFiles()
+          });
           this.orderForm.reset();
           this.router.navigate(['/chats', order.id]);
         }
