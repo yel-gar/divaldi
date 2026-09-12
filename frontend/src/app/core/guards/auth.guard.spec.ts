@@ -75,6 +75,11 @@ describe('Auth guards', () => {
     expect(profile.user()?.username).toBe('admin');
   });
 
+  it('adminGuard redirects to /login when the profile is not loaded', () => {
+    const result = runGuard(adminGuard);
+    expect(result.toString()).toBe('/login');
+  });
+
   it('adminGuard blocks non-superusers', () => {
     profile.user.set({ ...testUser, is_superuser: false });
 
