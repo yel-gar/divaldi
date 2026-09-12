@@ -142,16 +142,41 @@ export class CalculationChatComponent {
         })
       )
       .subscribe((apiMessages) => {
-        if (apiMessages.length === 0) {
-          return;
+        this.mergeApiMessages(apiMessages);
+
+        const last = this.messages()[this.messages().length - 1];
+        if (last && last.direction === 'outgoing') {
+          this.startReplyPolling();
         }
-        const mapped = apiMessages.map((message) => this.mapApiMessage(message));
-        if (this.hasLocalAttachments && mapped[0]?.direction === 'outgoing') {
-          this.hasLocalAttachments = false;
-          mapped[0] = { ...mapped[0], attachments: this.messages()[0]?.attachments };
-        }
-        this.messages.set(mapped);
       });
+  }
+
+  private mergeApiMessages(apiMessages: ChatMessageApi[]): void {
+    if (apiMessages.length === 0) {
+      return;
+    }
+
+    const mapped = apiMessages.map((message) => this.mapApiMessage(message));
+    if (this.hasLocalAttachments && mapped[0]?.direction === 'outgoing') {
+      this.hasLocalAttachments = false;
+      mapped[0] = { ...mapped[0], attachments: this.messages()[0]?.attachments };
+    }
+
+    const pending = this.messages().filter((message) => message.id < 0);
+    const remaining = [...pending];
+    const merged: ChatMessage[] = [];
+    for (const message of mapped) {
+      const localIndex = remaining.findIndex(
+        (local) => local.direction === message.direction && local.text === message.text
+      );
+      if (localIndex >= 0) {
+        merged.push({ ...message, attachments: remaining[localIndex].attachments });
+        remaining.splice(localIndex, 1);
+      } else {
+        merged.push(message);
+      }
+    }
+    this.messages.set([...merged, ...remaining]);
   }
 
   private mapApiMessage(message: ChatMessageApi): ChatMessage {
@@ -259,28 +284,49 @@ export class CalculationChatComponent {
     }
 
     this.agentStatus.set('thinking');
-    this.pollTimer = setInterval(() => this.checkForReply(), POLL_INTERVAL_MS);
+    this.pollTimer = setInterval(() => this.checkForResult(), POLL_INTERVAL_MS);
     this.pollTimeoutTimer = setTimeout(() => {
       this.stopReplyPolling();
       this.notifications.error('Агент не ответил — попробуйте позже');
     }, POLL_TIMEOUT_MS);
   }
 
-  private checkForReply() {
+  private checkForResult() {
     this.chatService
-      .messages(this.id())
+      .result(this.id())
       .pipe(catchError(() => EMPTY))
-      .subscribe((apiMessages) => {
-        const last = apiMessages[apiMessages.length - 1];
-        if (!last || last.role !== 'assistant') {
+      .subscribe((chatResult) => {
+        if (chatResult.running || chatResult.result === null) {
           return;
         }
+
         this.stopReplyPolling();
+        if (chatResult.result.type === 'error') {
+          this.notifications.error('Агент не смог обработать запрос — попробуйте позже');
+          return;
+        }
+
+        const reply = chatResult.result;
         this.messages.update((messages) => {
-          if (messages.some((message) => message.id === last.id)) {
+          if (
+            messages.some(
+              (message) => message.text === reply.content && message.direction === 'incoming'
+            )
+          ) {
             return messages;
           }
-          return [...messages, this.mapApiMessage(last)];
+          return [
+            ...messages,
+            {
+              id: this.nextLocalMessageId--,
+              direction: 'incoming',
+              text: reply.content,
+              time: new Date(reply.timestamp).toLocaleTimeString('ru-RU', {
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            }
+          ];
         });
         this.notifications.info('Агент ответил на ваше сообщение');
       });
