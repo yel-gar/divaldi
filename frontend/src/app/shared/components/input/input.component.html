@@ -1,0 +1,55 @@
+<div class="input-wrapper">
+  @if (leftIcon()) {
+    <span
+      class="input__icon input__icon--left"
+      [class.input__icon--interactive]="leftIconInteractive()"
+      (click)="onLeftIconClick($event)"
+      aria-hidden="true"
+    >
+      <svg [lucideIcon]="leftIcon() ?? null" size="20" aria-hidden="true"></svg>
+    </span>
+  }
+  @if (asTextarea()) {
+    <textarea
+      #inputRef
+      class="form-control form-control--textarea"
+      [id]="inputId()"
+      [placeholder]="placeholder()"
+      [attr.maxlength]="maxLength() ?? null"
+      [attr.aria-invalid]="showError()"
+      [attr.aria-label]="ariaLabel() || null"
+      [attr.autocomplete]="autocomplete()"
+      [value]="displayValue"
+      [disabled]="isDisabled()"
+      [rows]="rows()"
+      (input)="onInput($event)"
+      (blur)="onBlur()"
+    ></textarea>
+  } @else {
+    <input
+      #inputRef
+      class="form-control"
+      [id]="inputId()"
+      [type]="type()"
+      [placeholder]="placeholder()"
+      [attr.maxlength]="maxLength() ?? null"
+      [attr.aria-invalid]="showError()"
+      [attr.aria-label]="ariaLabel() || null"
+      [attr.autocomplete]="autocomplete()"
+      [value]="displayValue"
+      [disabled]="isDisabled()"
+      (input)="onInput($event)"
+      (blur)="onBlur()"
+    />
+  }
+  @if (rightIcon()) {
+    <span
+      class="input__icon input__icon--right"
+      [class.input__icon--interactive]="rightIconInteractive()"
+      (click)="onRightIconClick($event)"
+      aria-hidden="true"
+    >
+      <svg [lucideIcon]="rightIcon() ?? null" size="20" aria-hidden="true"></svg>
+    </span>
+  }
+</div>
