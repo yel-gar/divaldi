@@ -140,6 +140,46 @@
     gap: 6px;
     margin-left: 12px;
   }
+
+  &__logout {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    width: 36px;
+    height: 36px;
+    padding: 0;
+
+    color: var(--color-gray);
+    background: none;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+
+    transition:
+      color 0.15s ease,
+      background-color 0.15s ease;
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+
+    &:hover {
+      color: var(--color-danger);
+      background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-main);
+      outline-offset: 2px;
+    }
+
+    &:disabled {
+      pointer-events: none;
+      opacity: 0.6;
+    }
+  }
 }
 
 :host(.sidebar--collapsed) {
