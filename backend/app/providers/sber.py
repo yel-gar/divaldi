@@ -3,7 +3,7 @@ import ssl
 import uuid
 from pathlib import Path
 
-from httpx import AsyncClient
+from httpx import AsyncClient, Timeout
 
 from app.providers.client import AIClient, AuthorizationError
 from app.providers.models import (
@@ -23,7 +23,9 @@ class SberProvider(AIClient):
         super().__init__(api_key, scope)
 
         self._client = AsyncClient(
-            base_url="https://api.giga.chat/v2", verify=ssl.create_default_context(cafile=Path("res/gigachat-ca.cer"))
+            base_url="https://api.giga.chat/v2",
+            verify=ssl.create_default_context(cafile=Path("res/gigachat-ca.cer")),
+            timeout=Timeout(connect=5.0, read=120.0, write=30.0, pool=5.0),
         )
 
     async def auth(self):
