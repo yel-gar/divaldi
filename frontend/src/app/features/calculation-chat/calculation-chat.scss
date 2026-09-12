@@ -93,6 +93,7 @@
     padding: 8px 12px 20px 12px;
 
     overflow-y: auto;
+    overflow-x: clip;
 
     @include app-scrollbar;
   }

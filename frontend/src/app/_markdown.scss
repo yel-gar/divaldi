@@ -1,5 +1,6 @@
 .message__text {
   line-height: 1.5;
+  overflow-wrap: anywhere;
 
   > *:first-child {
     margin-top: 0;
