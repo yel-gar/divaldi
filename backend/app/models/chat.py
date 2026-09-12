@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import UUID, VARCHAR, DateTime, Enum, ForeignKey, Text, false, func
+from sqlalchemy import UUID, VARCHAR, DateTime, Enum, ForeignKey, Index, Text, false, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -43,6 +43,15 @@ class ChatMessage(Base):
     session: Mapped[ChatSession] = relationship("ChatSession", back_populates="messages")
     attachments: Mapped[list[Attachment]] = relationship(
         "Attachment", back_populates="message", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        Index(
+            "ix_chat_messages_session_id_timestamp_id",
+            "chat_session_id",
+            timestamp.desc(),
+            "id",
+        ),
     )
 
 

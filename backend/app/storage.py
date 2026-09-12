@@ -36,7 +36,7 @@ def get_s3_attachment_key(session_id: uuid.UUID, filename: str) -> str:
     The key should be stored in the database upon creation.
     """
     ext = PurePath(filename).suffix.lower()
-    return f"attachments/{session_id}/{uuid.uuid4()}.{ext}"
+    return f"attachments/{session_id}/{uuid.uuid4()}{ext}"
 
 
 def get_s3_pdf_image_key(id: int) -> str:

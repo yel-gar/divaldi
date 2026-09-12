@@ -98,6 +98,7 @@ class SberProvider(AIClient):
         r = await self._post(
             "https://api.giga.chat/v1/files",
             headers=headers,
+            data={"purpose": "general"},
             files={"file": (filename, data, "application/octet-stream")},
         )
         if r.status_code != 200:

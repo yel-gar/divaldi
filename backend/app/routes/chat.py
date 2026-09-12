@@ -3,7 +3,8 @@ from datetime import timedelta
 
 import structlog.stdlib
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
+from sqlalchemy.orm import aliased, selectinload
 
 from app.cache import get_attachment_status_key, get_deletion_key, get_generation_key
 from app.deps import (
@@ -18,7 +19,17 @@ from app.deps import (
     require_login,
     user_rate_limiter,
 )
-from app.models.chat import Attachment, ChatMessage, GenerationResult, GenerationResultType, UserRole
+from app.harness import FILE_ADDED_DESCRIPTION
+from app.models.chat import (
+    Attachment,
+    ChatMessage,
+    ChatSession,
+    GenerationResult,
+    GenerationResultType,
+    ProcessingResult,
+    ProcessingResultUploadable,
+    UserRole,
+)
 from app.schemas import MessageResponse
 from app.schemas.chat import (
     ChatCreatedSchema,
@@ -49,11 +60,25 @@ router = APIRouter(
 
 @router.get("/", summary="Get all chats user has ever created", response_model=list[UserChatSchema])
 async def get_chats(db: DbSession, user: CurrentUser):
-    data = await db.scalars(
+    latest_per_session = (
         select(ChatMessage)
-        .where(ChatMessage.user_id == user.id)  # todo: this field no longer exists
-        .order_by(ChatMessage.chat_session_id, ChatMessage.timestamp.desc())
+        .join(ChatMessage.session)
+        .where(ChatSession.user_id == user.id)
+        .order_by(
+            ChatMessage.chat_session_id,
+            ChatMessage.timestamp.desc(),
+            ChatMessage.id.desc(),  # tiebreaker for equal timestamps
+        )
         .distinct(ChatMessage.chat_session_id)
+        .subquery()
+    )
+
+    LatestMessage = aliased(ChatMessage, latest_per_session)  # noqa: N806
+
+    data = await db.scalars(
+        select(LatestMessage)
+        .order_by(LatestMessage.timestamp.desc())  # most recently active sessions first
+        .options(selectinload(LatestMessage.attachments))
     )
     return [
         UserChatSchema(
@@ -71,23 +96,25 @@ async def get_chats(db: DbSession, user: CurrentUser):
         Depends(user_rate_limiter(20, timedelta(minutes=10), "chats:create")),
         Depends(user_rate_limiter(5, timedelta(minutes=1), "chats:post")),
     ],
-    summary="Create new chat",
+    summary="Create new chat, get session to send messages to",
     response_model=ChatCreatedSchema,
     status_code=202,
 )
-async def create_chat(db: DbSession, data: SendMessageSchema):
+async def create_chat(user: CurrentUser, db: DbSession):
     session_uuid = uuid.uuid4()
-    new_message = ChatMessage(message_session=session_uuid, role=UserRole.USER, content=data.content)
-    db.add(new_message)
+    new_session = ChatSession(session_id=session_uuid, user_id=user.id)
+    db.add(new_session)
     await db.commit()
-    await generate_chat_message.kiq(session_uuid)
     return ChatCreatedSchema(session_id=session_uuid)
 
 
 @router.get("/{session_id}", summary="Get messages in chat", response_model=list[ChatMessageSchema])
 async def get_chat(session_id: VerifiedMessageSession, db: DbSession):
     return await db.scalars(
-        select(ChatMessage).where(ChatMessage.chat_session_id == session_id).order_by(ChatMessage.id)
+        select(ChatMessage)
+        .where(ChatMessage.chat_session_id == session_id)
+        .order_by(ChatMessage.id)
+        .options(selectinload(ChatMessage.attachments.and_(Attachment.ready == True)))
     )
 
 
@@ -99,8 +126,50 @@ async def get_chat(session_id: VerifiedMessageSession, db: DbSession):
     response_model=MessageResponse,
 )
 async def send_message(session_id: VerifiedMessageSession, db: DbSession, data: SendMessageSchema):
-    new_message = ChatMessage(message_session=session_id, role=UserRole.USER, content=data.content)
+    if await db.scalar(
+        select(select(Attachment).where(Attachment.session_id == session_id, Attachment.ready == False).exists())
+    ):
+        raise HTTPException(status_code=400, detail="Not all attachments are ready")
+    attachment_ids = select(Attachment.id).where(
+        Attachment.session_id == session_id, Attachment.chat_message_id == None
+    )
+    uploadables = await db.scalars(
+        select(ProcessingResultUploadable).where(
+            ProcessingResultUploadable.attachment_id.in_(attachment_ids), ProcessingResultUploadable.sber_id != None
+        )
+    )
+    files_str = None
+    if uploadables:
+        files_str = ",".join(u.sber_id for u in uploadables.all())  # type: ignore guaranteed to be non-none
+    new_message = ChatMessage(chat_session_id=session_id, role=UserRole.USER, content=data.content, files_str=files_str)
     db.add(new_message)
+    await db.execute(
+        delete(ProcessingResultUploadable).where(ProcessingResultUploadable.attachment_id.in_(attachment_ids))
+    )
+
+    processing_results = await db.scalars(
+        select(ProcessingResult)
+        .where(ProcessingResult.attachment_id.in_(attachment_ids))
+        .options(selectinload(ProcessingResult.attachment))
+    )
+    system_message = ""
+    for result in processing_results:
+        system_message += FILE_ADDED_DESCRIPTION.format(filename=result.attachment.name, description=result.output)
+    if system_message:
+        sys_msg = ChatMessage(
+            chat_session_id=session_id,
+            role=UserRole.SYSTEM,
+            content=system_message,
+        )
+        db.add(sys_msg)
+    await db.execute(delete(ProcessingResult).where(ProcessingResult.attachment_id.in_(attachment_ids)))
+    await db.commit()
+    await db.refresh(new_message)
+    await db.execute(
+        update(Attachment)
+        .where(Attachment.session_id == session_id, Attachment.chat_message_id == None)
+        .values(chat_message_id=new_message.id)
+    )
     await db.commit()
     await generate_chat_message.kiq(session_id)
     return MessageResponse(message="Message sent")
@@ -128,8 +197,7 @@ async def delete_chat(session_id: VerifiedMessageSession, redis_client: RedisSes
     await redis_client.set(
         get_deletion_key(session_id), "1", ex=300, nx=True
     )  # let worker know not to save results if it's running currently
-    res = await db.execute(delete(ChatMessage).where(ChatMessage.chat_session_id == session_id))
-    await db.execute(delete(GenerationResult).where(GenerationResult.chat_session_id == session_id))
+    res = await db.execute(delete(ChatSession).where(ChatSession.session_id == session_id))
     await db.commit()
     if res.rowcount == 0:
         return ChatDeletedResponse(deleted=False)
