@@ -94,6 +94,11 @@ You should generally only touch variables marked as **Required**.
 | GIGACHAT_MODEL           | GigaChat model used. Consult [Sber website](https://developers.sber.ru/docs/ru/gigachat/models/main) for more info                                       | ❌           | GigaChat-3-Ultra      |
 | SBER_API_KEY             | API Key from [Sber developers](https://developers.sber.ru/docs/ru/gigachat/api/reference/rest/post-token).                                               | ✅           | mock                  |
 | SBER_API_SCOPE           | API scope from [Sber developers](https://developers.sber.ru/docs/ru/gigachat/api/reference/rest/post-token). One of the following: `PERS`, `B2B`, `CORP` | ✅           | PERS                  |
+| MINIO_ROOT_USER          | MinIO user.                                                                                                                                              | ❌           | minio                 |
+| MINIO_ROOT_PASSWORD      | MinIO password. ⚠️ **WARNING**: MinIO is open in production, so if this password is weak, you could face severe security issues.                         | ✅           |                       |
+| MINIO_PORT               | Production port where MinIO will run.                                                                                                                    | ❌           | 9000                  |
+| MINIO_DASHBOARD_PORT     | MinIO dashboard port.                                                                                                                                    | ❌           | 9001                  |
+| MINIO_URL                | Public base URL of MinIO.                                                                                                                                | ✅           | http://localhost:9000 |
 
 ## Redis designation
 `/0` - general

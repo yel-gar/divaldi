@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.schemas import PasswordField
+
 
 class UserSchema(BaseModel):
     id: int
@@ -15,3 +17,8 @@ class UserSchema(BaseModel):
 
 class AdminUserSchema(UserSchema):
     expires_at: datetime | None
+
+
+class SetPasswordSchema(BaseModel):
+    old_password: PasswordField
+    new_password: PasswordField

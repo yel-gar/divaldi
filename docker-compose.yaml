@@ -1,3 +1,7 @@
+x-minio-env: &minio-env
+  MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+  MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
+
 x-postgres-env: &postgres-env
   POSTGRES_USER: ${POSTGRES_USER:-divaldi}
   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
@@ -5,10 +9,11 @@ x-postgres-env: &postgres-env
   POSTGRES_HOST: db
 
 x-backend-env: &backend-env
-  <<: *postgres-env
+  <<: [*postgres-env, *minio-env]
   DEBUG: ${DEBUG:?}
   BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+  MINIO_URL: ${MINIO_URL:-http://localhost:9000}
   RABBITMQ_USER: ${RABBITMQ_USER:-admin}
   RABBITMQ_PASS: ${RABBITMQ_PASS:?}
   TASKIQ_API_TOKEN: ${TASKIQ_API_TOKEN:?}
@@ -30,6 +35,10 @@ x-backend-service: &backend-service
       condition: service_healthy
     migrate:
       condition: service_completed_successfully
+#    minio:
+#      condition: service_healthy
+#    minio-init:
+#      condition: service_completed_successfully
 
 services:
   frontend:
@@ -64,12 +73,12 @@ services:
 
   scheduler:
     <<: *backend-service
-    command: "poetry run taskiq scheduler app.tasks.conf.scheduler:scheduler"
+    command: "poetry run taskiq scheduler app.tasks.conf.scheduler:scheduler -fsd -tp 'app/tasks/*.py'"
     mem_limit: 512M
 
   worker_default:
     <<: *backend-service
-    command: "poetry run taskiq worker -w 2 app.tasks.conf.workers:default_worker"
+    command: "poetry run taskiq worker -w 2 app.tasks.conf.workers:default_worker -fsd -tp 'app/tasks/*.py'"
     deploy:
       replicas: 2
       resources:
@@ -78,7 +87,7 @@ services:
 
   worker_network:
     <<: *backend-service
-    command: "poetry run taskiq worker -w 2 app.tasks.conf.workers:network_worker"
+    command: "poetry run taskiq worker -w 2 app.tasks.conf.workers:network_worker -fsd -tp 'app/tasks/*.py'"
     deploy:
       replicas: 2
       resources:
@@ -155,7 +164,36 @@ services:
       start_period: 10s
     mem_limit: 2G
 
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772
+    command: server /data --console-address ":9001"
+    environment:
+      <<: *minio-env
+    volumes:
+      - minio_data:/data
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_DASHBOARD_PORT:-9001}:9001"
+    healthcheck:
+      test: [ "CMD", "mc", "ready", "local" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z-cpuv1
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      <<: *minio-env
+    volumes:
+      - ./conf/minio-init.sh:/init.sh:ro
+      - ./conf/minio-rules.json:/minio-rules.json:ro
+    entrypoint: ["/bin/sh", "/init.sh"]
+
 volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
+  minio_data:
