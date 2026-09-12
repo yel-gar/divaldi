@@ -8,7 +8,7 @@
   <span class="message__author">Агент</span>
   }
   <div class="message__bubble">
-    <p class="message__text">{{ message().text }}</p>
+    <div class="message__text" [innerHTML]="renderedText()"></div>
     @if (hasAttachments()) {
     <ul class="message__attachments">
       @for (attachment of message().attachments; track $index) {

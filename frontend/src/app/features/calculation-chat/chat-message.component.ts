@@ -12,6 +12,7 @@ import {
 import type { LucideIconData } from '@lucide/angular';
 import { fileTypeStyleFor } from '../../shared/components/drag-n-drop/file-type-icons';
 import { formatBytes, getFileExtension } from '../../shared/utils/upload-format';
+import { renderMarkdown } from '../../shared/utils/markdown';
 import { ChatMessage, ChatMessageAttachment } from './chat-message.model';
 
 @Component({
@@ -48,6 +49,8 @@ export class ChatMessageComponent {
   private copiedTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly isIncoming = computed(() => this.message().direction === 'incoming');
+
+  readonly renderedText = computed(() => renderMarkdown(this.message().text));
 
   readonly hasAttachments = computed(() => (this.message().attachments?.length ?? 0) > 0);
 
