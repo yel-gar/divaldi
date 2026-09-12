@@ -20,7 +20,7 @@ from app.cache import (
 )
 from app.database import get_db
 from app.models.auth import Session, User
-from app.models.chat import Attachment, ChatMessage
+from app.models.chat import Attachment, ChatSession
 from app.storage import storage
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
@@ -83,11 +83,7 @@ async def chat_lock(redis_client: RedisSession, user: CurrentUser) -> AsyncGener
 
 async def verify_chat_session(session_id: uuid.UUID, user: CurrentUser, db: DbSession) -> uuid.UUID:
     session_valid = await db.scalar(
-        select(
-            select(ChatMessage)
-            .where(ChatMessage.message_session == session_id, ChatMessage.user_id == user.id)
-            .exists()
-        )
+        select(select(ChatSession).where(ChatSession.user_id == user.id, ChatSession.session_id == session_id).exists())
     )
     if not session_valid:
         raise HTTPException(status_code=403, detail="Invalid session")

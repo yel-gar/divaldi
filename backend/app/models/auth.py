@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if typing.TYPE_CHECKING:
-    from app.models.chat import ChatMessage
+    from app.models.chat import ChatSession
 
 MAX_USERNAME_LENGTH = 32
 NAME_SURNAME_MAX_LENGTH = 60
@@ -34,7 +34,7 @@ class User(Base):
     is_superuser: Mapped[bool] = mapped_column(default=False, nullable=False, server_default=sqlalchemy.false())
 
     sessions: Mapped[list[Session]] = relationship(back_populates="user", cascade="all, delete-orphan")
-    chat_messages: Mapped[list[ChatMessage]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    chat_sessions: Mapped[list[ChatSession]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 class Session(Base):

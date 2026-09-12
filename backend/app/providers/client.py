@@ -34,6 +34,11 @@ class AIClient(ABC):
     async def auth(self): ...
 
     @abstractmethod
+    async def upload(
+        self, filename: str, data: bytes, x_client_id: uuid.UUID, x_session_id: uuid.UUID
+    ) -> str | None: ...
+
+    @abstractmethod
     async def generate(
         self,
         message_history: list[Message],

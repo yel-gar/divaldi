@@ -51,13 +51,13 @@ router = APIRouter(
 async def get_chats(db: DbSession, user: CurrentUser):
     data = await db.scalars(
         select(ChatMessage)
-        .where(ChatMessage.user_id == user.id)
-        .order_by(ChatMessage.message_session, ChatMessage.timestamp.desc())
-        .distinct(ChatMessage.message_session)
+        .where(ChatMessage.user_id == user.id)  # todo: this field no longer exists
+        .order_by(ChatMessage.chat_session_id, ChatMessage.timestamp.desc())
+        .distinct(ChatMessage.chat_session_id)
     )
     return [
         UserChatSchema(
-            session_id=d.message_session,
+            session_id=d.chat_session_id,
             last_message=ChatMessageSchema(id=d.id, role=d.role, content=d.content, timestamp=d.timestamp),
         )
         for d in data
@@ -75,9 +75,9 @@ async def get_chats(db: DbSession, user: CurrentUser):
     response_model=ChatCreatedSchema,
     status_code=202,
 )
-async def create_chat(db: DbSession, user: CurrentUser, data: SendMessageSchema):
+async def create_chat(db: DbSession, data: SendMessageSchema):
     session_uuid = uuid.uuid4()
-    new_message = ChatMessage(user_id=user.id, message_session=session_uuid, role=UserRole.USER, content=data.content)
+    new_message = ChatMessage(message_session=session_uuid, role=UserRole.USER, content=data.content)
     db.add(new_message)
     await db.commit()
     await generate_chat_message.kiq(session_uuid)
@@ -85,11 +85,9 @@ async def create_chat(db: DbSession, user: CurrentUser, data: SendMessageSchema)
 
 
 @router.get("/{session_id}", summary="Get messages in chat", response_model=list[ChatMessageSchema])
-async def get_chat(session_id: VerifiedMessageSession, db: DbSession, user: CurrentUser):
+async def get_chat(session_id: VerifiedMessageSession, db: DbSession):
     return await db.scalars(
-        select(ChatMessage)
-        .where(ChatMessage.user_id == user.id, ChatMessage.message_session == session_id)
-        .order_by(ChatMessage.id)
+        select(ChatMessage).where(ChatMessage.chat_session_id == session_id).order_by(ChatMessage.id)
     )
 
 
@@ -100,8 +98,8 @@ async def get_chat(session_id: VerifiedMessageSession, db: DbSession, user: Curr
     status_code=202,
     response_model=MessageResponse,
 )
-async def send_message(session_id: VerifiedMessageSession, db: DbSession, user: CurrentUser, data: SendMessageSchema):
-    new_message = ChatMessage(user_id=user.id, message_session=session_id, role=UserRole.USER, content=data.content)
+async def send_message(session_id: VerifiedMessageSession, db: DbSession, data: SendMessageSchema):
+    new_message = ChatMessage(message_session=session_id, role=UserRole.USER, content=data.content)
     db.add(new_message)
     await db.commit()
     await generate_chat_message.kiq(session_id)
@@ -114,7 +112,7 @@ async def send_message(session_id: VerifiedMessageSession, db: DbSession, user: 
     response_model=MessageResponse,
 )
 async def retry_send(session_id: VerifiedMessageSession, db: DbSession):
-    last_result = await db.scalar(select(GenerationResult).where(GenerationResult.message_session == session_id))
+    last_result = await db.scalar(select(GenerationResult).where(GenerationResult.chat_session_id == session_id))
     if last_result is None or last_result.type != GenerationResultType.ERROR:
         raise HTTPException(status_code=400, detail="There's nothing to retry")
     await generate_chat_message.kiq(session_id)
@@ -126,14 +124,12 @@ async def retry_send(session_id: VerifiedMessageSession, db: DbSession):
     summary="Delete chat",
     response_model=ChatDeletedResponse,
 )
-async def delete_chat(session_id: VerifiedMessageSession, redis_client: RedisSession, db: DbSession, user: CurrentUser):
+async def delete_chat(session_id: VerifiedMessageSession, redis_client: RedisSession, db: DbSession):
     await redis_client.set(
         get_deletion_key(session_id), "1", ex=300, nx=True
     )  # let worker know not to save results if it's running currently
-    res = await db.execute(
-        delete(ChatMessage).where(ChatMessage.user_id == user.id, ChatMessage.message_session == session_id)
-    )
-    await db.execute(delete(GenerationResult).where(GenerationResult.message_session == session_id))
+    res = await db.execute(delete(ChatMessage).where(ChatMessage.chat_session_id == session_id))
+    await db.execute(delete(GenerationResult).where(GenerationResult.chat_session_id == session_id))
     await db.commit()
     if res.rowcount == 0:
         return ChatDeletedResponse(deleted=False)
@@ -148,7 +144,7 @@ async def delete_chat(session_id: VerifiedMessageSession, redis_client: RedisSes
 async def get_result(session_id: VerifiedMessageSession, user: CurrentUser, db: DbSession, redis_client: RedisSession):
     if await redis_client.exists(get_generation_key(user.uuid)):
         return ResultSchema(running=True, result=None)
-    result = await db.scalar(select(GenerationResult).where(GenerationResult.message_session == session_id))
+    result = await db.scalar(select(GenerationResult).where(GenerationResult.chat_session_id == session_id))
     if result is None:
         return ResultSchema(running=False, result=None)
     return ResultSchema(

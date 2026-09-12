@@ -34,13 +34,13 @@ async def cleanup_old_results():
 @broker.task(queue_name="network")
 async def generate_chat_message(session: uuid.UUID):
     async with tsq_db() as db:
-        await db.execute(delete(GenerationResult).where(GenerationResult.message_session == session))
+        await db.execute(delete(GenerationResult).where(GenerationResult.chat_session_id == session))
         await db.commit()
 
         user = await db.scalar(
             select(User)
             .join(ChatMessage, User.id == ChatMessage.user_id)
-            .where(ChatMessage.message_session == session)
+            .where(ChatMessage.chat_session_id == session)
             .limit(1)
         )
         if user is None:
@@ -56,7 +56,7 @@ async def generate_chat_message(session: uuid.UUID):
     try:
         async with tsq_db() as db:
             messages_data = await db.scalars(
-                select(ChatMessage).where(ChatMessage.message_session == session).order_by(ChatMessage.id)
+                select(ChatMessage).where(ChatMessage.chat_session_id == session).order_by(ChatMessage.id)
             )
             messages = [Message.from_chat_message(msg) for msg in messages_data]
             if not messages:
