@@ -76,7 +76,7 @@
           type="submit"
           aria-label="Отправить"
           class="button button--main chat-input-panel__send-message"
-          [disabled]="isUploading()"
+          [disabled]="isUploading() || isSending() || agentStatus() !== null"
         >
           <svg size="32" lucideSendHorizontal aria-hidden="true"></svg>
         </button>

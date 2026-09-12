@@ -18,11 +18,11 @@ import {
   LucideSendHorizontal
 } from '@lucide/angular';
 import { HttpErrorResponse } from '@angular/common/http';
-import { EMPTY, catchError } from 'rxjs';
+import { EMPTY, catchError, finalize } from 'rxjs';
 import { ProgressBarComponent } from '../../shared/components/progress-bar/progress-bar.component';
 import { DragNDropComponent } from '../../shared/components/drag-n-drop/drag-n-drop.component';
 import { ChatMessageComponent } from './chat-message.component';
-import { ChatMessage, ChatMessageAttachment } from './chat-message.model';
+import { ChatMessage, ChatMessageAttachment, ChatMessageStatus } from './chat-message.model';
 import { AgentStatusComponent } from './agent-status.component';
 import { FilePreviewComponent } from '../../shared/components/drag-n-drop/file-preview.component';
 import { NotificationService } from '../../core/services/notification.service';
@@ -31,11 +31,9 @@ import { ChatMessageApi } from '../../core/models/models';
 import { ChatService } from '../../core/services/chat.service';
 import { InputComponent } from '../../shared/components/input/input.component';
 
-const AGENT_REPLY =
-  'Готово! Предварительный расчёт для резервуара 10 м³ готов — итоговые параметры смотрите в панели «Результаты расчёта».';
-
 const TYPING_AFTER_MS = 3200;
-const REPLY_AFTER_MS = 1400;
+const POLL_INTERVAL_MS = 2000;
+const POLL_TIMEOUT_MS = 5 * 60 * 1000;
 
 @Component({
   selector: 'app-calculation-chat',
@@ -69,6 +67,7 @@ export class CalculationChatComponent {
   readonly agentStatus = signal<'thinking' | 'typing' | null>(null);
   readonly attachedFiles = signal<File[]>([]);
   readonly isUploading = signal(false);
+  readonly isSending = signal(false);
   readonly previewedFile = signal<File | null>(null);
 
   openAttachmentPreview(attachment: ChatMessageAttachment) {
@@ -81,8 +80,9 @@ export class CalculationChatComponent {
   private readonly chatMessages = viewChild<ElementRef<HTMLUListElement>>('chatMessages');
   private readonly dragNDrop = viewChild(DragNDropComponent);
 
-  private thinkingTimer: ReturnType<typeof setTimeout> | null = null;
-  private replyTimer: ReturnType<typeof setTimeout> | null = null;
+  private typingTimer: ReturnType<typeof setTimeout> | null = null;
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private pollTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
 
   private readonly notifications = inject(NotificationService);
   private readonly initialChatState = inject(InitialChatStateService);
@@ -95,7 +95,7 @@ export class CalculationChatComponent {
     if (initial) {
       this.messages.set([
         {
-          id: this.nextMessageId++,
+          id: this.nextLocalMessageId--,
           direction: 'outgoing',
           text: initial.text,
           time: this.formatTime(),
@@ -128,7 +128,7 @@ export class CalculationChatComponent {
   }
 
   readonly messages = signal<ChatMessage[]>([]);
-  private nextMessageId = 1;
+  private nextLocalMessageId = -1;
   private hasLocalAttachments = false;
 
   private loadHistory(sessionId: string): void {
@@ -153,7 +153,6 @@ export class CalculationChatComponent {
           mapped[0] = { ...mapped[0], attachments: this.messages()[0]?.attachments };
         }
         this.messages.set(mapped);
-        this.nextMessageId = Math.max(...apiMessages.map((m) => m.id)) + 1;
       });
   }
 
@@ -198,6 +197,9 @@ export class CalculationChatComponent {
       this.notifications.warning('Файлы ещё не все загрузились — дождитесь завершения');
       return;
     }
+    if (this.isSending() || this.agentStatus() !== null) {
+      return;
+    }
 
     const text = this.messageInputValue().trim();
     if (!text) {
@@ -209,60 +211,113 @@ export class CalculationChatComponent {
       size: file.size,
       file
     }));
+    const messageId = this.nextLocalMessageId--;
 
     this.messages.update((messages) => [
       ...messages,
       {
-        id: this.nextMessageId++,
+        id: messageId,
         direction: 'outgoing',
         text,
         time: this.formatTime(),
-        status: 'sent',
+        status: 'sending',
         attachments: attachments.length > 0 ? attachments : undefined
       }
     ]);
     this.messageInputValue.set('');
-
     this.attachedFiles.set([]);
     this.dragNDrop()?.reset();
 
-    this.simulateAgentReply();
+    this.isSending.set(true);
+    this.chatService
+      .send(this.id(), text)
+      .pipe(
+        finalize(() => this.isSending.set(false)),
+        catchError((err: HttpErrorResponse) => {
+          this.notifications.error(
+            'Не удалось отправить сообщение: ' +
+              (err.error?.detail ?? err.error?.message ?? err.message ?? 'Ошибка сервера')
+          );
+          this.messages.update((messages) => messages.filter((m) => m.id !== messageId));
+          this.messageInputValue.set(text);
+          return EMPTY;
+        })
+      )
+      .subscribe(() => {
+        this.setStatusForMessage(messageId, 'sent');
+        this.startReplyPolling();
+      });
+  }
+
+  private setStatusForMessage(messageId: number, status: ChatMessageStatus): void {
+    this.messages.update((messages) =>
+      messages.map((message) => (message.id === messageId ? { ...message, status } : message))
+    );
+  }
+
+  private startReplyPolling() {
+    if (this.agentStatus() !== null) {
+      return;
+    }
+
+    this.agentStatus.set('thinking');
+    this.typingTimer = setTimeout(() => this.agentStatus.set('typing'), TYPING_AFTER_MS);
+    this.pollTimer = setInterval(() => this.checkForReply(), POLL_INTERVAL_MS);
+    this.pollTimeoutTimer = setTimeout(() => {
+      this.stopReplyPolling();
+      this.notifications.error('Агент не ответил — попробуйте позже');
+    }, POLL_TIMEOUT_MS);
+  }
+
+  private checkForReply() {
+    this.chatService
+      .messages(this.id())
+      .pipe(catchError(() => EMPTY))
+      .subscribe((apiMessages) => {
+        const last = apiMessages[apiMessages.length - 1];
+        if (!last || last.role !== 'assistant') {
+          return;
+        }
+        this.stopReplyPolling();
+        this.messages.update((messages) => {
+          if (messages.some((message) => message.id === last.id)) {
+            return messages;
+          }
+          return [...messages, this.mapApiMessage(last)];
+        });
+        this.notifications.info('Агент ответил на ваше сообщение');
+      });
+  }
+
+  private stopReplyPolling() {
+    if (this.pollTimer !== null) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
+    if (this.pollTimeoutTimer !== null) {
+      clearTimeout(this.pollTimeoutTimer);
+      this.pollTimeoutTimer = null;
+    }
+    if (this.typingTimer !== null) {
+      clearTimeout(this.typingTimer);
+      this.typingTimer = null;
+    }
+    this.agentStatus.set(null);
   }
 
   private formatTime() {
     return new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   }
 
-  private simulateAgentReply() {
-    if (this.agentStatus() !== null) {
-      return;
-    }
-
-    this.agentStatus.set('thinking');
-    this.thinkingTimer = setTimeout(() => {
-      this.agentStatus.set('typing');
-      this.replyTimer = setTimeout(() => {
-        this.messages.update((messages) => [
-          ...messages,
-          {
-            id: this.nextMessageId++,
-            direction: 'incoming',
-            text: AGENT_REPLY,
-            time: this.formatTime()
-          }
-        ]);
-        this.notifications.info('Агент ответил на ваше сообщение');
-        this.agentStatus.set(null);
-      }, REPLY_AFTER_MS);
-    }, TYPING_AFTER_MS);
-  }
-
   private clearAgentTimers() {
-    if (this.thinkingTimer !== null) {
-      clearTimeout(this.thinkingTimer);
+    if (this.typingTimer !== null) {
+      clearTimeout(this.typingTimer);
     }
-    if (this.replyTimer !== null) {
-      clearTimeout(this.replyTimer);
+    if (this.pollTimer !== null) {
+      clearInterval(this.pollTimer);
+    }
+    if (this.pollTimeoutTimer !== null) {
+      clearTimeout(this.pollTimeoutTimer);
     }
   }
 
