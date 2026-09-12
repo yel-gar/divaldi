@@ -1,0 +1,21 @@
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import { ChatCreated, ChatMessageApi } from '../models/models';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class ChatService {
+  private readonly http = inject(HttpClient);
+  private readonly baseUrl = `${environment.apiUrl}/chats`;
+
+  create(content: string): Observable<ChatCreated> {
+    return this.http.post<ChatCreated>(`${this.baseUrl}/`, { content });
+  }
+
+  messages(sessionId: string): Observable<ChatMessageApi[]> {
+    return this.http.get<ChatMessageApi[]>(`${this.baseUrl}/${sessionId}`);
+  }
+}
