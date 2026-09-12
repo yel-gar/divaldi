@@ -95,4 +95,32 @@ describe('ChatService', () => {
 
     expect(result?.running).toBe(true);
   });
+
+  it('removes the chat session', () => {
+    let result: { deleted: boolean } | undefined;
+
+    service.remove(SESSION_ID).subscribe((response) => {
+      result = response;
+    });
+
+    const req = http.expectOne(`${environment.apiUrl}/chats/${SESSION_ID}`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush({ deleted: true });
+
+    expect(result?.deleted).toBe(true);
+  });
+
+  it('retries the last generation', () => {
+    let result: { message: string } | undefined;
+
+    service.retry(SESSION_ID).subscribe((response) => {
+      result = response;
+    });
+
+    const req = http.expectOne(`${environment.apiUrl}/chats/${SESSION_ID}/retry`);
+    expect(req.request.method).toBe('POST');
+    req.flush({ message: 'Retry accepted' }, { status: 202, statusText: 'Accepted' });
+
+    expect(result?.message).toBe('Retry accepted');
+  });
 });

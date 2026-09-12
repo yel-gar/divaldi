@@ -20,7 +20,12 @@
     <ul #chatMessages class="chat-messages" role="log" aria-label="История сообщений">
       @for (message of messages(); track message.id) {
       <li>
-        <app-chat-message [message]="message" (preview)="openAttachmentPreview($event)" />
+        <app-chat-message
+          [message]="message"
+          [replyDisabled]="agentStatus() !== null"
+          (preview)="openAttachmentPreview($event)"
+          (reply)="onRetryRequest()"
+        />
       </li>
       } @if (agentStatus(); as status) {
       <li>
@@ -142,9 +147,13 @@
       Создать КП
     </button>
 
-    <button type="button" class="button button--outline h3">
-      <svg lucideHistory aria-hidden="true"></svg>
-      Показать историю
+    <button
+      type="button"
+      class="button button--outline button--danger h3"
+      (click)="deleteSession()"
+    >
+      <svg lucideTrash2 aria-hidden="true"></svg>
+      Удалить сессию
     </button>
   </footer>
 </aside>

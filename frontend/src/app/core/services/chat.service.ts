@@ -26,4 +26,12 @@ export class ChatService {
   send(sessionId: string, content: string): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${this.baseUrl}/${sessionId}`, { content });
   }
+
+  remove(sessionId: string): Observable<{ deleted: boolean }> {
+    return this.http.delete<{ deleted: boolean }>(`${this.baseUrl}/${sessionId}`);
+  }
+
+  retry(sessionId: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.baseUrl}/${sessionId}/retry`, {});
+  }
 }

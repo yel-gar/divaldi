@@ -57,4 +57,29 @@
       } }
     </div>
   </div>
+  <div class="message__backdrop">
+    <button
+      type="button"
+      class="message__action"
+      aria-label="Копировать текст"
+      (click)="copyText()"
+    >
+      @if (copied()) {
+      <svg size="14" lucideCheck aria-hidden="true"></svg>
+      } @else {
+      <svg size="14" lucideCopy aria-hidden="true"></svg>
+      }
+    </button>
+    @if (isIncoming()) {
+    <button
+      type="button"
+      class="message__action"
+      aria-label="Повторить запрос"
+      [disabled]="replyDisabled()"
+      (click)="reply.emit()"
+    >
+      <svg size="14" lucideRefreshCw aria-hidden="true"></svg>
+    </button>
+    }
+  </div>
 </div>

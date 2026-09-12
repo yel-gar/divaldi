@@ -11,11 +11,11 @@ import {
 } from '@angular/core';
 import {
   LucideFileText,
-  LucideHistory,
   LucidePanelRightClose,
   LucidePanelRightOpen,
   LucidePaperclip,
-  LucideSendHorizontal
+  LucideSendHorizontal,
+  LucideTrash2
 } from '@lucide/angular';
 import { HttpErrorResponse } from '@angular/common/http';
 import { EMPTY, catchError, finalize } from 'rxjs';
@@ -29,6 +29,8 @@ import { NotificationService } from '../../core/services/notification.service';
 import { InitialChatStateService } from '../../core/services/initial-chat-state.service';
 import { ChatMessageApi } from '../../core/models/models';
 import { ChatService } from '../../core/services/chat.service';
+import { extractApiErrorMessage } from '../../shared/utils/api-error';
+import { Router } from '@angular/router';
 import { InputComponent } from '../../shared/components/input/input.component';
 
 const POLL_INTERVAL_MS = 2000;
@@ -42,9 +44,9 @@ const POLL_TIMEOUT_MS = 5 * 60 * 1000;
     LucidePaperclip,
     LucideSendHorizontal,
     LucideFileText,
-    LucideHistory,
     ProgressBarComponent,
     DragNDropComponent,
+    LucideTrash2,
     ChatMessageComponent,
     AgentStatusComponent,
     FilePreviewComponent,
@@ -85,6 +87,7 @@ export class CalculationChatComponent {
   private readonly notifications = inject(NotificationService);
   private readonly initialChatState = inject(InitialChatStateService);
   private readonly chatService = inject(ChatService);
+  private readonly router = inject(Router);
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.clearAgentTimers());
@@ -278,6 +281,23 @@ export class CalculationChatComponent {
     );
   }
 
+  onRetryRequest(): void {
+    this.chatService
+      .retry(this.id())
+      .pipe(
+        catchError((err: HttpErrorResponse) => {
+          this.notifications.error(
+            'Не удалось отправить повторный запрос: ' + extractApiErrorMessage(err)
+          );
+          return EMPTY;
+        })
+      )
+      .subscribe(() => {
+        this.notifications.success('Повторный запрос отправлен');
+        this.startReplyPolling();
+      });
+  }
+
   private startReplyPolling() {
     if (this.agentStatus() !== null) {
       return;
@@ -289,6 +309,26 @@ export class CalculationChatComponent {
       this.stopReplyPolling();
       this.notifications.error('Агент не ответил — попробуйте позже');
     }, POLL_TIMEOUT_MS);
+  }
+
+  deleteSession(): void {
+    this.chatService
+      .remove(this.id())
+      .pipe(
+        catchError((err: HttpErrorResponse) => {
+          const detail = extractApiErrorMessage(err);
+          this.notifications.error(
+            detail === 'Invalid session'
+              ? 'Сессия не найдена или уже удалена'
+              : 'Не удалось удалить сессию: ' + detail
+          );
+          return EMPTY;
+        })
+      )
+      .subscribe(() => {
+        this.notifications.success('Сессия удалена');
+        this.router.navigate(['/create']);
+      });
   }
 
   private checkForResult() {
