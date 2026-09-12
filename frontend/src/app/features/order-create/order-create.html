@@ -33,7 +33,12 @@
       <div class="field-container">
         <label for="priority">Приоритет</label>
 
-        <app-select formControlName="priority" [options]="priorityOptions" labelId="priority" />
+        <app-select
+          formControlName="priority"
+          [options]="priorityOptions"
+          placeholder="Выберите приоритет"
+          labelId="priority"
+        />
       </div>
     </div>
 
