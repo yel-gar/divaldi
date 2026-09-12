@@ -21,29 +21,6 @@
   }
 }
 
-@keyframes agent-status-sparkle {
-  0%,
-  100% {
-    transform: scale(1) rotate(0deg);
-    opacity: 1;
-  }
-
-  50% {
-    transform: scale(1.18) rotate(12deg);
-    opacity: 0.65;
-  }
-}
-
-@keyframes agent-status-shimmer {
-  from {
-    background-position: 200% 0;
-  }
-
-  to {
-    background-position: -200% 0;
-  }
-}
-
 @keyframes agent-status-dot-wave {
   0%,
   60%,
@@ -91,37 +68,6 @@
   padding: 12px 15px;
 }
 
-.agent-status__thinking {
-  display: flex;
-  align-items: center;
-
-  gap: 8px;
-
-  & > svg {
-    flex-shrink: 0;
-
-    stroke: var(--color-main);
-
-    animation: agent-status-sparkle 1.6s ease-in-out infinite;
-  }
-}
-
-.agent-status__text {
-  background: linear-gradient(
-    90deg,
-    var(--color-gray) 30%,
-    var(--color-main) 50%,
-    var(--color-gray) 70%
-  );
-  background-size: 200% 100%;
-
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-
-  animation: agent-status-shimmer 2.2s linear infinite;
-}
-
 .agent-status__typing {
   display: flex;
   align-items: center;
@@ -152,8 +98,6 @@
 @media (prefers-reduced-motion: reduce) {
   :host,
   :host .agent-status__avatar,
-  :host .agent-status__thinking > svg,
-  :host .agent-status__text,
   :host .agent-status__dot {
     animation: none;
   }

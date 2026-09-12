@@ -31,7 +31,6 @@ import { ChatMessageApi } from '../../core/models/models';
 import { ChatService } from '../../core/services/chat.service';
 import { InputComponent } from '../../shared/components/input/input.component';
 
-const TYPING_AFTER_MS = 3200;
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -80,7 +79,6 @@ export class CalculationChatComponent {
   private readonly chatMessages = viewChild<ElementRef<HTMLUListElement>>('chatMessages');
   private readonly dragNDrop = viewChild(DragNDropComponent);
 
-  private typingTimer: ReturnType<typeof setTimeout> | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private pollTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -261,7 +259,6 @@ export class CalculationChatComponent {
     }
 
     this.agentStatus.set('thinking');
-    this.typingTimer = setTimeout(() => this.agentStatus.set('typing'), TYPING_AFTER_MS);
     this.pollTimer = setInterval(() => this.checkForReply(), POLL_INTERVAL_MS);
     this.pollTimeoutTimer = setTimeout(() => {
       this.stopReplyPolling();
@@ -298,10 +295,6 @@ export class CalculationChatComponent {
       clearTimeout(this.pollTimeoutTimer);
       this.pollTimeoutTimer = null;
     }
-    if (this.typingTimer !== null) {
-      clearTimeout(this.typingTimer);
-      this.typingTimer = null;
-    }
     this.agentStatus.set(null);
   }
 
@@ -310,9 +303,6 @@ export class CalculationChatComponent {
   }
 
   private clearAgentTimers() {
-    if (this.typingTimer !== null) {
-      clearTimeout(this.typingTimer);
-    }
     if (this.pollTimer !== null) {
       clearInterval(this.pollTimer);
     }
