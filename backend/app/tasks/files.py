@@ -73,8 +73,9 @@ async def _s3_try_delete(s3_key: str):
 async def _s3_get_object(bucket: str, s3_key: str):
     async with storage.internal_client() as s3:
         resp = await s3.get_object(Bucket=bucket, Key=s3_key)
+        content_type = resp["ContentType"]
         async with resp["Body"] as body:
-            return await body.read()
+            return await body.read(), content_type
 
 
 @broker.task(queue_name="default", schedule=[{"interval": timedelta(hours=1)}])
@@ -117,7 +118,7 @@ async def process_avatar(user_uuid: uuid.UUID):
             return
 
     try:
-        data = await _s3_get_object("avatars", s3_unprocessed_key)
+        data, _ = await _s3_get_object("avatars", s3_unprocessed_key)
     except Exception as e:
         _log.error("s3_avatar_acquire_failed", exc=e)
         return
@@ -181,7 +182,7 @@ async def process_pdf(attachment_id: int):
             attachment = await db.get(Attachment, attachment_id)
             if attachment is None:
                 raise ValueError("null_attachment_id")
-        data = _s3_get_object("uploads", attachment.s3_key)
+        data, _ = _s3_get_object("uploads", attachment.s3_key)
 
         result: list[bytes] = await asyncio.to_thread(_process_pdf, data)
         # todo: there might be just a bit too many pages in the pdf
@@ -206,7 +207,7 @@ async def process_dxf(attachment_id: int):
             if attachment is None:
                 raise ValueError("null_attachment_id")
 
-            data = await _s3_get_object("uploads", attachment.s3_key)
+            data, _ = await _s3_get_object("uploads", attachment.s3_key)
             output: str = await asyncio.to_thread(_process_dxf, data)
             result = ProcessingResult(
                 attachment_id=attachment_id,
@@ -231,7 +232,7 @@ async def process_image(attachment_id: int):
             attachment = await db.get(Attachment, attachment_id)
             if attachment is None:
                 raise ValueError("null_attachment")
-            user_uuid = _get_user_uuid_from_attachment_id(attachment_id, db=db)
+            user_uuid = await _get_user_uuid_from_attachment_id(attachment_id, db=db)
             session_id = await db.scalar(
                 select(ChatSession.session_id).join(ChatSession.attachments).where(Attachment.id == attachment_id)
             )
@@ -239,8 +240,10 @@ async def process_image(attachment_id: int):
                 log.error("required_data_null", user_uuid=user_uuid, session_id=session_id)
                 raise ValueError("required_data_null")
 
-            data = await _s3_get_object("uploads", attachment.s3_key)
-            sber_id = await provider.upload(attachment.name, data, x_client_id=user_uuid, x_session_id=session_id)
+            data, content_type = await _s3_get_object("uploads", attachment.s3_key)
+            sber_id = await provider.upload(
+                attachment.name, data, x_client_id=user_uuid, x_session_id=session_id, content_type=content_type
+            )
 
             uploadable = ProcessingResultUploadable(
                 attachment_id=attachment_id,
@@ -264,7 +267,7 @@ async def upload_image(filename: str, attachment_id: int, uploadable_id: int):
     failed = False
     try:
         async with tsq_db() as db:
-            user_uuid = _get_user_uuid_from_attachment_id(attachment_id, db=db)
+            user_uuid = await _get_user_uuid_from_attachment_id(attachment_id, db=db)
             session_id = await db.scalar(
                 select(ChatSession.session_id).join(ChatSession.attachments).where(Attachment.id == attachment_id)
             )
@@ -272,8 +275,10 @@ async def upload_image(filename: str, attachment_id: int, uploadable_id: int):
             if user_uuid is None or session_id is None or uploadable is None:
                 log.error("required_data_null", user_uuid=user_uuid, session_id=session_id, uploadable=uploadable)
                 raise ValueError("required_data_null")
-            data = await _s3_get_object("uploads", uploadable.s3_key)
-            sber_id = await provider.upload(filename, data, x_client_id=user_uuid, x_session_id=session_id)
+            data, content_type = await _s3_get_object("uploads", uploadable.s3_key)
+            sber_id = await provider.upload(
+                filename, data, x_client_id=user_uuid, x_session_id=session_id, content_type=content_type
+            )
             uploadable.sber_id = sber_id
             await db.commit()
     except Exception as e:

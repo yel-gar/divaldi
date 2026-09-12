@@ -270,20 +270,26 @@ async def attachment_uploaded(
     s3_internal: S3InternalClient,
     redis: RedisSession,
 ):
-    attachment = await db.scalar(
-        select(Attachment).where(Attachment.id == attachment_id, Attachment.session_id == session_id)
-    )
-    if attachment is None:
-        raise HTTPException(status_code=404, detail="Attachment not found")
-    try:
-        await s3_internal.head_object(Bucket="uploads", Key=attachment.s3_key)
-    except Exception as e:
-        log.warning("upload_not_uploaded", key=attachment.s3_key, exc=e)
-        raise HTTPException(status_code=400, detail="You haven't uploaded yet") from e
+    lock = redis.lock(f"attachment:upload:lock:{attachment_id}", timeout=10)
+    if not await lock.acquire(blocking=False):
+        raise HTTPException(status_code=422, detail="Stop spamming")
+    async with lock:
+        if await redis.get(get_attachment_status_key(attachment_id)) != "uploading":
+            raise HTTPException(status_code=400, detail="File has already been uploaded")
+        attachment = await db.scalar(
+            select(Attachment).where(Attachment.id == attachment_id, Attachment.session_id == session_id)
+        )
+        if attachment is None:
+            raise HTTPException(status_code=404, detail="Attachment not found")
+        try:
+            await s3_internal.head_object(Bucket="uploads", Key=attachment.s3_key)
+        except Exception as e:
+            log.warning("upload_not_uploaded", key=attachment.s3_key, exc=e)
+            raise HTTPException(status_code=400, detail="You haven't uploaded yet") from e
 
-    await redis.set(get_attachment_status_key(attachment_id), "processing", nx=False, ex=600)
-    await process_attachment.kiq(attachment_id)
-    return MessageResponse(message="File uploaded, processing started")
+        await redis.set(get_attachment_status_key(attachment_id), "processing", nx=False, ex=600)
+        await process_attachment.kiq(attachment_id)
+        return MessageResponse(message="File uploaded, processing started")
 
 
 @router.post(

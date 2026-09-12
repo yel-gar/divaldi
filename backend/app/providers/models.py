@@ -41,7 +41,7 @@ class Message(BaseModel):
     def from_chat_message(cls, obj: ChatMessage) -> Self:
         files = None
         if obj.files_str:
-            files = [f.strip() for f in obj.files_str.split(",")]
+            files = [FileSchema(id=f.strip()) for f in obj.files_str.split(",")]
         return cls(content=[Content(text=obj.content, files=files)], role=obj.role)  # type: ignore
 
 

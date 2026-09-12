@@ -103,7 +103,7 @@ async def verify_attachment_id(
     )
     if not val:
         raise HTTPException(status_code=403, detail="Invalid session")
-    await redis.set(get_attachment_ownership_key(session_id, attachment_id), val, ex=600, nx=True)
+    await redis.set(get_attachment_ownership_key(session_id, attachment_id), "1", ex=600, nx=True)
     return attachment_id
 
 

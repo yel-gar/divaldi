@@ -35,7 +35,7 @@ class AIClient(ABC):
 
     @abstractmethod
     async def upload(
-        self, filename: str, data: bytes, x_client_id: uuid.UUID, x_session_id: uuid.UUID
+        self, filename: str, data: bytes, x_client_id: uuid.UUID, x_session_id: uuid.UUID, content_type: str
     ) -> str | None: ...
 
     @abstractmethod
