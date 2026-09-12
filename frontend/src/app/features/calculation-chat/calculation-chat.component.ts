@@ -137,10 +137,15 @@ export class CalculationChatComponent {
       .messages(sessionId)
       .pipe(
         catchError((err: HttpErrorResponse) => {
-          this.notifications.error(
-            'Не удалось загрузить историю чата: ' +
-              (err.error?.detail ?? err.message ?? 'Ошибка сервера')
-          );
+          if (err.status === 403) {
+            this.notifications.error('Заявка не найдена');
+          } else {
+            this.notifications.error(
+              'Не удалось загрузить историю чата: ' +
+                (err.error?.detail ?? err.message ?? 'Ошибка сервера')
+            );
+          }
+
           return EMPTY;
         })
       )
