@@ -23,6 +23,7 @@ import { ChatMessage, ChatMessageAttachment } from './chat-message.model';
 import { AgentStatusComponent } from './agent-status.component';
 import { FilePreviewComponent } from '../../shared/components/drag-n-drop/file-preview.component';
 import { NotificationService } from '../../core/services/notification.service';
+import { InputComponent } from '../../shared/components/input/input.component';
 
 const AGENT_REPLY =
   'Готово! Предварительный расчёт для резервуара 10 м³ готов — итоговые параметры смотрите в панели «Результаты расчёта».';
@@ -51,7 +52,8 @@ function mockFile(name: string): File {
     DragNDropComponent,
     ChatMessageComponent,
     AgentStatusComponent,
-    FilePreviewComponent
+    FilePreviewComponent,
+    InputComponent
   ],
   standalone: true,
   host: {
@@ -78,8 +80,6 @@ export class CalculationChatComponent {
   }
 
   private readonly attachAnchor = viewChild<ElementRef<HTMLElement>>('attachAnchor');
-  private readonly messageInput =
-    viewChild.required<ElementRef<HTMLTextAreaElement>>('messageInput');
   private readonly chatMessages = viewChild<ElementRef<HTMLUListElement>>('chatMessages');
   private readonly dragNDrop = viewChild(DragNDropComponent);
 
@@ -116,8 +116,15 @@ export class CalculationChatComponent {
   ]);
   private nextMessageId = 3;
 
+  readonly messageInputValue = signal('');
+
   handleResultsOpen() {
     this.isResultsOpen.set(!this.isResultsOpen());
+  }
+
+  onMessageInput(event: Event) {
+    const target = event.target as HTMLTextAreaElement;
+    this.messageInputValue.set(target.value);
   }
 
   onMessageKeydown(event: KeyboardEvent) {
@@ -125,12 +132,6 @@ export class CalculationChatComponent {
       event.preventDefault();
       this.sendMessage();
     }
-  }
-
-  resizeMessageInput() {
-    const textarea = this.messageInput().nativeElement;
-    textarea.style.height = 'auto';
-    textarea.style.height = `${textarea.scrollHeight}px`;
   }
 
   onFilesChange(files: File[]) {
@@ -145,8 +146,7 @@ export class CalculationChatComponent {
       return;
     }
 
-    const textarea = this.messageInput().nativeElement;
-    const text = textarea.value.trim();
+    const text = this.messageInputValue().trim();
     if (!text) {
       return;
     }
@@ -168,8 +168,7 @@ export class CalculationChatComponent {
         attachments: attachments.length > 0 ? attachments : undefined
       }
     ]);
-    textarea.value = '';
-    this.resizeMessageInput();
+    this.messageInputValue.set('');
 
     this.attachedFiles.set([]);
     this.dragNDrop()?.reset();

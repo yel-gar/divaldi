@@ -50,11 +50,6 @@
     transition: none;
   }
 
-  .input-container,
-  .input-container > textarea {
-    transition: none;
-  }
-
   .chat-input-panel__attach-popup,
   .chat-input-panel__attach-popup--hidden {
     transition: none;
@@ -95,8 +90,7 @@
 
     min-height: 0;
 
-    padding-right: 12px;
-    padding-bottom: 20px;
+    padding: 8px 12px 20px 12px;
 
     overflow-y: auto;
 
@@ -112,7 +106,7 @@
 
     width: 100%;
 
-    padding: 8px;
+    padding: 15px;
 
     font-size: 16px;
     line-height: 1.5;
@@ -202,51 +196,10 @@
 }
 
 .input-container {
-  outline: none;
-  border: 1px solid var(--color-outline);
-  border-radius: 8px;
-  background: var(--color-white);
-
-  padding: 10px 15px;
-
   width: 100%;
-
   display: flex;
   align-items: center;
-
-  gap: 5px;
-
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-
-  &:focus-within {
-    border-color: var(--color-main);
-    box-shadow: 0 0 0 2px var(--color-main);
-  }
-
-  & > textarea {
-    display: block;
-    outline: none;
-    border: none;
-
-    width: 100%;
-    height: auto;
-    max-height: 160px;
-
-    padding: 16px;
-
-    resize: none;
-    overflow-y: auto;
-
-    transition: height 0.15s ease;
-
-    @include app-scrollbar;
-
-    &:focus-visible {
-      outline: none;
-    }
-  }
+  gap: 15px;
 }
 
 .calculation-results {

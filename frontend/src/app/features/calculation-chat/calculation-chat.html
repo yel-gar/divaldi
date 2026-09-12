@@ -59,16 +59,18 @@
               />
             </div>
           </div>
-          <textarea
+          <app-input
             #messageInput
-            rows="1"
-            class="h3"
-            aria-label="Введите сообщение"
+            [asTextarea]="true"
+            [autoResize]="true"
+            [rows]="1"
             placeholder="Введите сообщение..."
+            ariaLabel="Введите сообщение"
             autocomplete="off"
-            (input)="resizeMessageInput()"
+            [value]="messageInputValue()"
+            (inputEvent)="onMessageInput($event)"
             (keydown)="onMessageKeydown($event)"
-          ></textarea>
+          ></app-input>
         </div>
         <button
           type="submit"
