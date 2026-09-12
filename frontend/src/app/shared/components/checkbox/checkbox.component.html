@@ -1,0 +1,19 @@
+<label class="checkbox" [class.checkbox--disabled]="isDisabled()">
+  <input
+    #input
+    type="checkbox"
+    class="checkbox__input"
+    [disabled]="isDisabled()"
+    (change)="onInput($event)"
+    (blur)="onBlur()"
+  />
+  <span class="checkbox__box" aria-hidden="true">
+    <svg class="checkbox__check" lucideCheck size="14" aria-hidden="true"></svg>
+  </span>
+  @if (label()) {
+    <span class="checkbox__label">{{ label() }}</span>
+  }
+  @if (caption()) {
+    <span class="checkbox__caption">{{ caption() }}</span>
+  }
+</label>
