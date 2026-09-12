@@ -1,12 +1,17 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LucideEye, LucideEyeOff, LucideLock, LucideUser } from '@lucide/angular';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { extractApiErrorMessage } from '../../shared/utils/api-error';
 import { InputComponent } from '../../shared/components/input/input.component';
 
 const USERNAME_MAX_LENGTH = 32;
+
+const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_MAX_LENGTH = 128;
 
 @Component({
   selector: 'app-login-page',
@@ -29,7 +34,14 @@ export class LoginPageComponent {
 
   readonly form = this.fb.group({
     username: ['', [Validators.required, Validators.maxLength(USERNAME_MAX_LENGTH)]],
-    password: ['', Validators.required]
+    password: [
+      '',
+      [
+        Validators.required,
+        Validators.minLength(PASSWORD_MIN_LENGTH),
+        Validators.maxLength(PASSWORD_MAX_LENGTH)
+      ]
+    ]
   });
 
   readonly isSubmitting = signal(false);
@@ -52,7 +64,16 @@ export class LoginPageComponent {
 
     if (this.form.invalid) {
       this.form.markAllAsTouched();
-      this.notifications.error('Заполните логин и пароль');
+      const { username, password } = this.form.controls;
+      if (username.hasError('required') || password.hasError('required')) {
+        this.notifications.error('Заполните логин и пароль');
+      } else if (password.hasError('minlength')) {
+        this.notifications.error('Пароль должен быть не короче 8 символов');
+      } else if (username.hasError('maxlength')) {
+        this.notifications.error('Логин не может быть длиннее 32 символов');
+      } else {
+        this.notifications.error('Пароль не может быть длиннее 128 символов');
+      }
       return;
     }
 
@@ -64,11 +85,7 @@ export class LoginPageComponent {
         this.notifications.success('Вы вошли в систему');
         this.router.navigate([this.returnUrl]);
       },
-      error: (err: {
-        status?: number;
-        error?: { detail?: string; message?: string };
-        message?: string;
-      }) => {
+      error: (err: HttpErrorResponse) => {
         this.isSubmitting.set(false);
         this.showCredentialsError();
 
@@ -77,8 +94,7 @@ export class LoginPageComponent {
           return;
         }
 
-        const reason = err.error?.detail ?? err.error?.message ?? err.message ?? 'Ошибка сервера';
-        this.notifications.error('Не удалось войти: ' + reason);
+        this.notifications.error('Не удалось войти: ' + extractApiErrorMessage(err));
       }
     });
   }

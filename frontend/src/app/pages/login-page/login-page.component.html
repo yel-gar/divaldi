@@ -24,6 +24,7 @@
         [type]="showPassword() ? 'text' : 'password'"
         placeholder="••••••••"
         autocomplete="current-password"
+        [maxLength]="128"
         [leftIcon]="lockIcon"
         [rightIcon]="showPassword() ? eyeOffIcon : eyeIcon"
         [rightIconInteractive]="true"
