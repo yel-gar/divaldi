@@ -2,6 +2,7 @@ import {
   afterRenderEffect,
   Component,
   DestroyRef,
+  effect,
   ElementRef,
   inject,
   input,
@@ -16,6 +17,8 @@ import {
   LucidePaperclip,
   LucideSendHorizontal
 } from '@lucide/angular';
+import { HttpErrorResponse } from '@angular/common/http';
+import { EMPTY, catchError } from 'rxjs';
 import { ProgressBarComponent } from '../../shared/components/progress-bar/progress-bar.component';
 import { DragNDropComponent } from '../../shared/components/drag-n-drop/drag-n-drop.component';
 import { ChatMessageComponent } from './chat-message.component';
@@ -24,6 +27,8 @@ import { AgentStatusComponent } from './agent-status.component';
 import { FilePreviewComponent } from '../../shared/components/drag-n-drop/file-preview.component';
 import { NotificationService } from '../../core/services/notification.service';
 import { InitialChatStateService } from '../../core/services/initial-chat-state.service';
+import { ChatMessageApi } from '../../core/models/models';
+import { ChatService } from '../../core/services/chat.service';
 import { InputComponent } from '../../shared/components/input/input.component';
 
 const AGENT_REPLY =
@@ -81,6 +86,7 @@ export class CalculationChatComponent {
 
   private readonly notifications = inject(NotificationService);
   private readonly initialChatState = inject(InitialChatStateService);
+  private readonly chatService = inject(ChatService);
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.clearAgentTimers());
@@ -99,7 +105,15 @@ export class CalculationChatComponent {
             : undefined
         }
       ]);
+      this.hasLocalAttachments = initial.files.length > 0;
     }
+
+    effect(() => {
+      const sessionId = this.id();
+      if (sessionId) {
+        this.loadHistory(sessionId);
+      }
+    });
 
     afterRenderEffect({
       write: () => {
@@ -115,6 +129,45 @@ export class CalculationChatComponent {
 
   readonly messages = signal<ChatMessage[]>([]);
   private nextMessageId = 1;
+  private hasLocalAttachments = false;
+
+  private loadHistory(sessionId: string): void {
+    this.chatService
+      .messages(sessionId)
+      .pipe(
+        catchError((err: HttpErrorResponse) => {
+          this.notifications.error(
+            'Не удалось загрузить историю чата: ' +
+              (err.error?.detail ?? err.message ?? 'Ошибка сервера')
+          );
+          return EMPTY;
+        })
+      )
+      .subscribe((apiMessages) => {
+        if (apiMessages.length === 0) {
+          return;
+        }
+        const mapped = apiMessages.map((message) => this.mapApiMessage(message));
+        if (this.hasLocalAttachments && mapped[0]?.direction === 'outgoing') {
+          this.hasLocalAttachments = false;
+          mapped[0] = { ...mapped[0], attachments: this.messages()[0]?.attachments };
+        }
+        this.messages.set(mapped);
+        this.nextMessageId = Math.max(...apiMessages.map((m) => m.id)) + 1;
+      });
+  }
+
+  private mapApiMessage(message: ChatMessageApi): ChatMessage {
+    return {
+      id: message.id,
+      direction: message.role === 'assistant' ? 'incoming' : 'outgoing',
+      text: message.content,
+      time: new Date(message.timestamp).toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    };
+  }
 
   readonly messageInputValue = signal('');
 
