@@ -1,0 +1,25 @@
+:host {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+}
+
+.auth-wrapper {
+  width: min(420px, 100% - 32px);
+
+  display: grid;
+  gap: 24px;
+
+  & > h1 {
+    text-align: center;
+  }
+}
+
+form {
+  display: grid;
+  gap: 20px;
+}
+
+.auth-wrapper__remember {
+  justify-items: start;
+}

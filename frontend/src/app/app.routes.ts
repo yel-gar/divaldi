@@ -6,8 +6,13 @@ import { ADMIN_NAV_ITEMS, USER_NAV_ITEMS } from './shared/components/sidebar/sid
 import { HistoryPage } from './pages/history-page/history-page.component';
 import { SettingsPage } from './pages/settings-page/settings-page.component';
 import { ProfilePage } from './pages/profile-page/profile-page';
+import { LoginPageComponent } from './pages/login-page/login-page.component';
 
 export const routes: Routes = [
+  {
+    path: 'login',
+    component: LoginPageComponent
+  },
   {
     path: '',
     component: Layout,

@@ -1,0 +1,44 @@
+<div class="auth-wrapper">
+  <h1 class="h2">Вход в аккаунт</h1>
+
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <div class="field-container">
+      <label for="email">Email <span class="required" aria-hidden="true">*</span></label>
+      <app-input
+        formControlName="email"
+        inputId="email"
+        type="email"
+        placeholder="ivan@example.com"
+        autocomplete="email"
+        [leftIcon]="mailIcon"
+      />
+    </div>
+
+    <div class="field-container">
+      <label for="password">Пароль <span class="required" aria-hidden="true">*</span></label>
+      <app-input
+        formControlName="password"
+        inputId="password"
+        [type]="showPassword() ? 'text' : 'password'"
+        placeholder="••••••••"
+        autocomplete="current-password"
+        [leftIcon]="lockIcon"
+        [rightIcon]="showPassword() ? eyeOffIcon : eyeIcon"
+        [rightIconInteractive]="true"
+        (rightIconClick)="togglePassword()"
+      />
+    </div>
+
+    <div class="field-container auth-wrapper__remember">
+      <app-checkbox formControlName="rememberMe" label="Запомнить меня" />
+    </div>
+
+    <button
+      class="button button--main button--centered h3"
+      type="submit"
+      [disabled]="isSubmitting()"
+    >
+      Войти
+    </button>
+  </form>
+</div>
