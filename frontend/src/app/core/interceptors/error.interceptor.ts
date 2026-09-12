@@ -3,6 +3,7 @@ import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 import { NotificationService } from '../services/notification.service';
+import { extractApiErrorMessage } from '../../shared/utils/api-error';
 import { SKIP_AUTH_ERROR_HANDLING } from './skip-auth-error-handling';
 
 let redirectingToLogin = false;
@@ -17,8 +18,7 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
         return throwError(() => error);
       }
 
-      const message =
-        error.error?.message || error.error?.detail || error.message || 'Неизвестная ошибка';
+      const message = extractApiErrorMessage(error);
 
       if (error.status === 401) {
         if (!redirectingToLogin && !router.url.startsWith('/login')) {
