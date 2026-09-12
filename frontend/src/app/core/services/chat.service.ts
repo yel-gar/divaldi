@@ -18,4 +18,8 @@ export class ChatService {
   messages(sessionId: string): Observable<ChatMessageApi[]> {
     return this.http.get<ChatMessageApi[]>(`${this.baseUrl}/${sessionId}`);
   }
+
+  send(sessionId: string, content: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.baseUrl}/${sessionId}`, { content });
+  }
 }

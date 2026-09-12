@@ -66,4 +66,19 @@ describe('ChatService', () => {
       }
     ]);
   });
+
+  it('sends a message to the chat', () => {
+    let result: { message: string } | undefined;
+
+    service.send(SESSION_ID, 'Уточни толщину стенки').subscribe((response) => {
+      result = response;
+    });
+
+    const req = http.expectOne(`${environment.apiUrl}/chats/${SESSION_ID}`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ content: 'Уточни толщину стенки' });
+    req.flush({ message: 'Message accepted' }, { status: 202, statusText: 'Accepted' });
+
+    expect(result?.message).toBe('Message accepted');
+  });
 });
