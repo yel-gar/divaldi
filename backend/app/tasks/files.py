@@ -47,10 +47,10 @@ async def _redis_error(key: str):
         await redis.set(key, "error", nx=False, ex=3600)
 
 
-async def _add_image_to_s3(attachment_id: int, data: bytes) -> int:
+async def _add_pdf_image_to_s3(attachment_id: int, data: bytes) -> int:
     async with tsq_db() as db, storage.internal_client() as s3:
         key = get_s3_pdf_image_key(attachment_id)
-        await s3.put_object(Bucket="uploads", Key=key, Body=data)
+        await s3.put_object(Bucket="uploads", Key=key, Body=data, ContentType="image/png")
         uploadable = ProcessingResultUploadable(
             attachment_id=attachment_id,
             s3_key=key,
@@ -182,17 +182,17 @@ async def process_pdf(attachment_id: int):
             attachment = await db.get(Attachment, attachment_id)
             if attachment is None:
                 raise ValueError("null_attachment_id")
-        data, _ = _s3_get_object("uploads", attachment.s3_key)
+        data, _ = await _s3_get_object("uploads", attachment.s3_key)
 
         result: list[bytes] = await asyncio.to_thread(_process_pdf, data)
         # todo: there might be just a bit too many pages in the pdf
-        s3_add_tasks = [_add_image_to_s3(attachment_id, d) for d in result]
+        s3_add_tasks = [_add_pdf_image_to_s3(attachment_id, d) for d in result]
         uploadables_ids = await asyncio.gather(*s3_add_tasks)
 
         async with get_redis_client() as redis:
             await redis.set(get_pdf_sync_key(attachment_id), len(uploadables_ids), nx=False, ex=600)
         for id_ in uploadables_ids:
-            await upload_image.kiq(f"{attachment.name}-{id_}.png", attachment_id, id_)
+            await upload_pdf_image.kiq(f"{attachment.name}-{id_}.png", attachment_id, id_)
 
     except Exception as e:
         _log.error("unknown_pdf_exception", exc=e)
@@ -263,10 +263,10 @@ async def process_image(attachment_id: int):
 
 
 @broker.task(queue_name="network")
-async def upload_image(filename: str, attachment_id: int, uploadable_id: int):
+async def upload_pdf_image(filename: str, attachment_id: int, uploadable_id: int):
     failed = False
     try:
-        async with tsq_db() as db:
+        async with tsq_db() as db, get_redis_client() as redis:
             user_uuid = await _get_user_uuid_from_attachment_id(attachment_id, db=db)
             session_id = await db.scalar(
                 select(ChatSession.session_id).join(ChatSession.attachments).where(Attachment.id == attachment_id)
@@ -276,9 +276,11 @@ async def upload_image(filename: str, attachment_id: int, uploadable_id: int):
                 log.error("required_data_null", user_uuid=user_uuid, session_id=session_id, uploadable=uploadable)
                 raise ValueError("required_data_null")
             data, content_type = await _s3_get_object("uploads", uploadable.s3_key)
-            sber_id = await provider.upload(
-                filename, data, x_client_id=user_uuid, x_session_id=session_id, content_type=content_type
-            )
+            async with redis.lock("uploads:pdf:lock", timeout=30):
+                sber_id = await provider.upload(
+                    filename, data, x_client_id=user_uuid, x_session_id=session_id, content_type=content_type
+                )
+                await asyncio.sleep(1)  # gigachat will literally throw 429 on two concurrent requests
             uploadable.sber_id = sber_id
             await db.commit()
     except Exception as e:
