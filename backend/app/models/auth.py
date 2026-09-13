@@ -22,7 +22,10 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     uuid: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), nullable=False, server_default=text("gen_random_uuid()"), unique=True
+        UUID(as_uuid=True),
+        nullable=False,
+        server_default=text("gen_random_uuid()"),
+        unique=True,
     )
     username: Mapped[str] = mapped_column(String(MAX_USERNAME_LENGTH), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)

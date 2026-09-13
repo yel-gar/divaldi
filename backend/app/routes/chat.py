@@ -6,7 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import aliased, selectinload
 
-from app.cache import get_attachment_status_key, get_deletion_key, get_generation_key
+from app.cache import (
+    get_attachment_status_key,
+    get_attachment_url_key,
+    get_deletion_key,
+    get_generation_key,
+)
 from app.deps import (
     CurrentUser,
     DbSession,
@@ -19,7 +24,7 @@ from app.deps import (
     require_login,
     user_rate_limiter,
 )
-from app.harness import FILE_ADDED_DESCRIPTION
+from app.harness import FILE_ADDED_DESCRIPTION, SYSTEM_PROMPT
 from app.models.chat import (
     Attachment,
     ChatMessage,
@@ -32,6 +37,7 @@ from app.models.chat import (
 )
 from app.schemas import MessageResponse
 from app.schemas.chat import (
+    ChatAttachment,
     ChatCreatedSchema,
     ChatDeletedResponse,
     ChatMessageSchema,
@@ -40,30 +46,48 @@ from app.schemas.chat import (
     SendMessageSchema,
     UserChatSchema,
 )
-from app.schemas.files import S3AttachmentStatusResponse, S3ChatUploadParams, S3ChatUploadRequest, S3UploadParams
+from app.schemas.files import (
+    S3AttachmentSchema,
+    S3AttachmentStatusResponse,
+    S3ChatUploadParams,
+    S3ChatUploadRequest,
+    S3UploadParams,
+)
 from app.storage import get_s3_attachment_key
 from app.tasks.api import generate_chat_message
 from app.tasks.files import process_attachment
 
 log = structlog.stdlib.get_logger(__name__)
 
-ALLOWED_CHAT_CONTENT_TYPES = ["application/pdf", "application/dxf", "image/png", "image/jpeg"]
+ALLOWED_CHAT_CONTENT_TYPES = [
+    "application/pdf",
+    "application/dxf",
+    "image/png",
+    "image/jpeg",
+]
 CHAT_MAX_UPLOAD_SIZE = 30 * 1024 * 1024
 
 
 router = APIRouter(
     prefix="/chats",
     tags=["chat"],
-    dependencies=[Depends(require_login), Depends(user_rate_limiter(100, timedelta(minutes=1), "chats:global"))],
+    dependencies=[
+        Depends(require_login),
+        Depends(user_rate_limiter(100, timedelta(minutes=1), "chats:global")),
+    ],
 )
 
 
-@router.get("/", summary="Get all chats user has ever created", response_model=list[UserChatSchema])
+@router.get(
+    "/",
+    summary="Get all chats user has ever created",
+    response_model=list[UserChatSchema],
+)
 async def get_chats(db: DbSession, user: CurrentUser):
     latest_per_session = (
         select(ChatMessage)
         .join(ChatMessage.session)
-        .where(ChatSession.user_id == user.id)
+        .where(ChatSession.user_id == user.id, ChatMessage.role != UserRole.SYSTEM)
         .order_by(
             ChatMessage.chat_session_id,
             ChatMessage.timestamp.desc(),
@@ -78,12 +102,19 @@ async def get_chats(db: DbSession, user: CurrentUser):
     data = await db.scalars(
         select(LatestMessage)
         .order_by(LatestMessage.timestamp.desc())  # most recently active sessions first
-        .options(selectinload(LatestMessage.attachments))
+        .options(selectinload(LatestMessage.attachments, LatestMessage.session))
     )
     return [
         UserChatSchema(
             session_id=d.chat_session_id,
-            last_message=ChatMessageSchema(id=d.id, role=d.role, content=d.content, timestamp=d.timestamp),
+            last_message=ChatMessageSchema(
+                id=d.id,
+                role=d.role,
+                content=d.get_chat_text(),
+                timestamp=d.timestamp,
+                attachments=[ChatAttachment.model_validate(a, from_attributes=True) for a in d.attachments],
+            ),
+            name=d.session.name,
         )
         for d in data
     ]
@@ -103,24 +134,50 @@ async def get_chats(db: DbSession, user: CurrentUser):
 async def create_chat(user: CurrentUser, db: DbSession):
     session_uuid = uuid.uuid4()
     new_session = ChatSession(session_id=session_uuid, user_id=user.id)
+    system_message = ChatMessage(
+        chat_session_id=session_uuid,
+        role=UserRole.SYSTEM,
+        content=SYSTEM_PROMPT,
+    )
     db.add(new_session)
+    db.add(system_message)
     await db.commit()
     return ChatCreatedSchema(session_id=session_uuid)
 
 
-@router.get("/{session_id}", summary="Get messages in chat", response_model=list[ChatMessageSchema])
+@router.get(
+    "/{session_id}",
+    summary="Get messages in chat",
+    response_model=list[ChatMessageSchema],
+)
 async def get_chat(session_id: VerifiedMessageSession, db: DbSession):
-    return await db.scalars(
+    data = await db.scalars(
         select(ChatMessage)
-        .where(ChatMessage.chat_session_id == session_id)
+        .where(
+            ChatMessage.chat_session_id == session_id,
+            ChatMessage.role != UserRole.SYSTEM,
+        )
         .order_by(ChatMessage.id)
         .options(selectinload(ChatMessage.attachments.and_(Attachment.ready == True)))  # noqa: E712
     )
+    return [
+        ChatMessageSchema(
+            id=d.id,
+            role=d.role,
+            content=d.get_chat_text(),
+            attachments=[ChatAttachment.model_validate(a, from_attributes=True) for a in d.attachments],
+            timestamp=d.timestamp,
+        )
+        for d in data
+    ]
 
 
 @router.post(
     "/{session_id}",
-    dependencies=[Depends(chat_lock), Depends(user_rate_limiter(5, timedelta(minutes=1), "chats:post"))],
+    dependencies=[
+        Depends(chat_lock),
+        Depends(user_rate_limiter(5, timedelta(minutes=1), "chats:post")),
+    ],
     summary="Send text message to chat",
     status_code=202,
     response_model=MessageResponse,
@@ -142,7 +199,12 @@ async def send_message(session_id: VerifiedMessageSession, db: DbSession, data: 
     files_str = None
     if uploadables:
         files_str = ",".join(u.sber_id for u in uploadables.all())  # type: ignore guaranteed to be non-none
-    new_message = ChatMessage(chat_session_id=session_id, role=UserRole.USER, content=data.content, files_str=files_str)
+    new_message = ChatMessage(
+        chat_session_id=session_id,
+        role=UserRole.USER,
+        content=data.content,
+        files_str=files_str,
+    )
     db.add(new_message)
     await db.execute(
         delete(ProcessingResultUploadable).where(ProcessingResultUploadable.attachment_id.in_(attachment_ids))
@@ -157,12 +219,7 @@ async def send_message(session_id: VerifiedMessageSession, db: DbSession, data: 
     for result in processing_results:
         system_message += FILE_ADDED_DESCRIPTION.format(filename=result.attachment.name, description=result.output)
     if system_message:
-        sys_msg = ChatMessage(
-            chat_session_id=session_id,
-            role=UserRole.SYSTEM,
-            content=system_message,
-        )
-        db.add(sys_msg)
+        new_message.content += system_message
     await db.execute(delete(ProcessingResult).where(ProcessingResult.attachment_id.in_(attachment_ids)))
     await db.commit()
     await db.refresh(new_message)
@@ -178,7 +235,10 @@ async def send_message(session_id: VerifiedMessageSession, db: DbSession, data: 
 
 @router.post(
     "/{session_id}/retry",
-    dependencies=[Depends(chat_lock), Depends(user_rate_limiter(5, timedelta(minutes=1), "chats:post"))],
+    dependencies=[
+        Depends(chat_lock),
+        Depends(user_rate_limiter(5, timedelta(minutes=1), "chats:post")),
+    ],
     response_model=MessageResponse,
 )
 async def retry_send(session_id: VerifiedMessageSession, db: DbSession):
@@ -210,7 +270,12 @@ async def delete_chat(session_id: VerifiedMessageSession, redis_client: RedisSes
     summary="Get last result if any user message was sent",
     response_model=ResultSchema,
 )
-async def get_result(session_id: VerifiedMessageSession, user: CurrentUser, db: DbSession, redis_client: RedisSession):
+async def get_result(
+    session_id: VerifiedMessageSession,
+    user: CurrentUser,
+    db: DbSession,
+    redis_client: RedisSession,
+):
     if await redis_client.exists(get_generation_key(user.uuid)):
         return ResultSchema(running=True, result=None)
     result = await db.scalar(select(GenerationResult).where(GenerationResult.chat_session_id == session_id))
@@ -259,6 +324,44 @@ async def upload_file(
     return S3ChatUploadParams(attachment_id=attachment.id, params=S3UploadParams.model_validate(s3_post))
 
 
+@router.get(
+    "/{session_id}/attachments/{attachment_id}",
+    summary="Get link to download file from chat",
+    response_model=S3AttachmentSchema,
+)
+async def get_attachment(
+    attachment_id: VerifiedAttachmentId,
+    s3_public: S3PublicClient,
+    s3_internal: S3InternalClient,
+    redis: RedisSession,
+    db: DbSession,
+):
+    cache_key = get_attachment_url_key(attachment_id)
+    url = await redis.get(cache_key)
+    if url is not None:
+        return S3AttachmentSchema(attachment_url=url)
+
+    attachment = await db.get(Attachment, attachment_id)
+    if attachment is None:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    try:
+        await s3_internal.head_object(Bucket="uploads", Key=attachment.s3_key)
+    except Exception as e:
+        log.warning("attachment_s3_not_found", exc=e)
+        raise HTTPException(status_code=404, detail="Attachment not found, it might have expired") from e
+
+    url = await s3_public.generate_presigned_url(
+        ClientMethod="get_object",
+        Params={
+            "Bucket": "uploads",
+            "Key": attachment.s3_key,
+        },
+        ExpiresIn=3600,
+    )
+    await redis.set(cache_key, url, nx=False, ex=3600)
+    return S3AttachmentSchema(attachment_url=url, filename=attachment.name)
+
+
 @router.post(
     "/{session_id}/uploads/{attachment_id}/uploaded",
     summary="Send request here after uploading attachment to provided URL",
@@ -275,7 +378,10 @@ async def attachment_uploaded(
     if not await lock.acquire(blocking=False):
         raise HTTPException(status_code=422, detail="Stop spamming")
     try:
-        if await redis.get(get_attachment_status_key(attachment_id)) not in {"uploading", "error"}:
+        if await redis.get(get_attachment_status_key(attachment_id)) not in {
+            "uploading",
+            "error",
+        }:
             raise HTTPException(status_code=400, detail="File has already been uploaded")
         attachment = await db.scalar(
             select(Attachment).where(Attachment.id == attachment_id, Attachment.session_id == session_id)

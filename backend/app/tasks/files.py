@@ -16,7 +16,12 @@ from app.cache import (
     get_redis_client,
 )
 from app.models.auth import User
-from app.models.chat import Attachment, ChatSession, ProcessingResult, ProcessingResultUploadable
+from app.models.chat import (
+    Attachment,
+    ChatSession,
+    ProcessingResult,
+    ProcessingResultUploadable,
+)
 from app.providers.containers import provider
 from app.storage import get_s3_avatar_processed_key, get_s3_pdf_image_key, storage
 from app.tasks.conf.broker import broker, tsq_db
@@ -245,7 +250,11 @@ async def process_image(attachment_id: int):
 
             data, content_type = await _s3_get_object("uploads", attachment.s3_key)
             sber_id = await provider.upload(
-                attachment.name, data, x_client_id=user_uuid, x_session_id=session_id, content_type=content_type
+                attachment.name,
+                data,
+                x_client_id=user_uuid,
+                x_session_id=session_id,
+                content_type=content_type,
             )
 
             uploadable = ProcessingResultUploadable(
@@ -276,18 +285,32 @@ async def upload_pdf_image(filename: str, attachment_id: int, uploadable_id: int
             )
             uploadable = await db.get(ProcessingResultUploadable, uploadable_id)
             if user_uuid is None or session_id is None or uploadable is None:
-                log.error("required_data_null", user_uuid=user_uuid, session_id=session_id, uploadable=uploadable)
+                log.error(
+                    "required_data_null",
+                    user_uuid=user_uuid,
+                    session_id=session_id,
+                    uploadable=uploadable,
+                )
                 raise ValueError("required_data_null")
             data, content_type = await _s3_get_object("uploads", uploadable.s3_key)
             async with redis.lock("uploads:pdf:lock", timeout=30):
                 sber_id = await provider.upload(
-                    filename, data, x_client_id=user_uuid, x_session_id=session_id, content_type=content_type
+                    filename,
+                    data,
+                    x_client_id=user_uuid,
+                    x_session_id=session_id,
+                    content_type=content_type,
                 )
                 await asyncio.sleep(1)  # gigachat will literally throw 429 on two concurrent requests
             uploadable.sber_id = sber_id
             await db.commit()
     except Exception as e:
-        log.error("image_upload_failure", exc=e, attachment_id=attachment_id, uploadable_id=uploadable_id)
+        log.error(
+            "image_upload_failure",
+            exc=e,
+            attachment_id=attachment_id,
+            uploadable_id=uploadable_id,
+        )
         failed = True
         async with get_redis_client() as redis:
             await redis.set(get_attachment_status_key(attachment_id), "error", nx=False, ex=600)
@@ -309,14 +332,21 @@ async def pdf_upload_cleanup(attachment_id: int):
         try:
             async with tsq_db() as db:
                 attachment = await db.get(
-                    Attachment, attachment_id, options=[selectinload(Attachment.processing_result_uploadables)]
+                    Attachment,
+                    attachment_id,
+                    options=[selectinload(Attachment.processing_result_uploadables)],
                 )
                 if attachment is None:
                     raise ValueError("null_attachment_id")
                 tasks = [_s3_try_delete(uploadable.s3_key) for uploadable in attachment.processing_result_uploadables]
                 await asyncio.gather(*tasks)
                 if await redis.get(get_attachment_status_key(attachment_id)) != "error":
-                    await redis.set(get_attachment_status_key(attachment_id), "completed", nx=False, ex=600)
+                    await redis.set(
+                        get_attachment_status_key(attachment_id),
+                        "completed",
+                        nx=False,
+                        ex=600,
+                    )
                     attachment.ready = True
                 await db.commit()
         except Exception as e:

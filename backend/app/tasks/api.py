@@ -1,15 +1,33 @@
+import asyncio
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import structlog.stdlib
+from processing.calculator.calc import process_calculation
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.cache import get_deletion_key, get_generation_key, get_redis_client
+from app.harness import HARNESS_STRUCTURED_SCHEMA
 from app.models.auth import User
-from app.models.chat import ChatMessage, ChatSession, GenerationResult, GenerationResultType, UserRole
+from app.models.chat import (
+    Attachment,
+    ChatMessage,
+    ChatSession,
+    GenerationResult,
+    GenerationResultType,
+    UserRole,
+)
 from app.providers.containers import provider
-from app.providers.models import Message, ResponseFormat
+from app.providers.models import (
+    HarnessStructuredOutput,
+    Message,
+    Position,
+    ResponseFormat,
+)
+from app.storage import get_s3_attachment_key, storage
 from app.tasks.conf.broker import broker, tsq_db
 
 log = structlog.stdlib.get_logger(__name__)
@@ -18,6 +36,26 @@ log = structlog.stdlib.get_logger(__name__)
 async def _add_error_result(db: AsyncSession, session: uuid.UUID, error_msg: str):
     db.add(GenerationResult(chat_session_id=session, type=GenerationResultType.ERROR, content=error_msg))
     await db.commit()
+
+
+async def _generate_kp(session_id: uuid.UUID, positions: list[Position]) -> Attachment:
+    data = await asyncio.to_thread(_generate_kp_job, positions)
+    s3_key = get_s3_attachment_key(session_id, "kp.xlsx")
+    async with storage.internal_client() as s3:
+        await s3.put_object(
+            Bucket="uploads",
+            Key=s3_key,
+            Body=data,
+            ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    return Attachment(name="kp.xlsx", session_id=session_id, s3_key=s3_key, ready=True)
+
+
+def _generate_kp_job(positions: list[Position]) -> bytes:
+    # very ugly thanks Andrew but it's ok
+    template_sheet = (Path(__file__).parent.parent.parent / "res/calc.xlsx").read_bytes()
+    return process_calculation({"positions": [p.model_dump() for p in positions]}, template_sheet)
 
 
 @broker.task(queue_name="default", schedule=[{"interval": timedelta(hours=1)}])
@@ -64,18 +102,26 @@ async def generate_chat_message(session: uuid.UUID):
         try:
             fut = provider.generate(
                 messages,
-                ResponseFormat(type=ResponseFormat.TYPE_TEXT),
+                ResponseFormat(
+                    type=ResponseFormat.TYPE_JSON_SCHEMA,
+                    schema=HARNESS_STRUCTURED_SCHEMA,
+                    strict=True,
+                ),
                 x_client_id=user.uuid,
                 x_session_id=session,
             )
             if provider.scope == "PERS":
                 # PERS scope only allows 1 parallel request to LLM
-                async with get_redis_client() as redis_client:
-                    async with redis_client.lock("generation:lock", timeout=120, blocking_timeout=30):
-                        response = await fut
+                async with (
+                    get_redis_client() as redis_client,
+                    redis_client.lock("generation:lock", timeout=120, blocking_timeout=30),
+                ):
+                    response = await fut
             else:
                 response = await fut
             log.debug("text_generation_response", response=response)
+            if response is None:
+                raise ValueError("null_response")
         except Exception as e:
             log.error("generate_chat_message_error", session=session, error=e)
             await _add_error_result(db, session, "Internal server error occurred")
@@ -103,15 +149,56 @@ async def generate_chat_message(session: uuid.UUID):
                     log.warning("execution_cancelled", session=session)
                     return
             text = response.messages[0].content[0].text
-            result = GenerationResult(chat_session_id=session, type=GenerationResultType.SUCCESS, content=text)
-            message = ChatMessage(
-                chat_session_id=session,
-                role=UserRole.ASSISTANT,
-                content=text,
+        await process_response.kiq(user.uuid, session, text)
+    except Exception as e:
+        log.error("generation_unknown_exception", exc=e)
+        async with tsq_db() as db:
+            await _add_error_result(db, session, "Internal server error occurred")
+        async with get_redis_client() as redis_client:
+            await redis_client.delete(key)
+
+
+@broker.task(queue_name="default")
+async def process_response(user_uuid: uuid.UUID, session_id: uuid.UUID, response: str):
+    redis_generation_key = get_generation_key(user_uuid)
+    try:
+        data = json.loads(response)
+        output = HarnessStructuredOutput.model_validate(data)
+
+        async with tsq_db() as db:
+            attachment = None
+            if output.gen_kp and len(output.positions) > 0:
+                attachment = await _generate_kp(session_id, output.positions)
+                db.add(attachment)
+            update_name = None
+            if output.chat_name:
+                session = await db.get(ChatSession, session_id)
+                if session is not None and session.name != "Новый чат":
+                    session.name = output.chat_name
+                    update_name = output.chat_name
+
+            result = GenerationResult(
+                chat_session_id=session_id,
+                type=GenerationResultType.SUCCESS,
+                content=output.message,
+                attachment=attachment,
+                update_name=update_name,
             )
+            message = ChatMessage(
+                chat_session_id=session_id,
+                role=UserRole.ASSISTANT,
+                content=response,
+                display_text=output.message,
+            )
+            if attachment:
+                message.attachments = [attachment]
             db.add(result)
             db.add(message)
             await db.commit()
+    except Exception as e:
+        log.error("processing_unknown_exception", exc=e)
+        async with tsq_db() as db:
+            await _add_error_result(db, session_id, "Internal server error occurred")
     finally:
-        async with get_redis_client() as redis_client:
-            await redis_client.delete(key)
+        async with get_redis_client() as redis:
+            await redis.delete(redis_generation_key)

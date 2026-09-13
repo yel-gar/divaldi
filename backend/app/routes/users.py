@@ -8,7 +8,14 @@ from sqlalchemy import delete
 
 from app.auth import hash_password, verify_password
 from app.cache import get_avatar_url_key, get_avatar_waiting_key
-from app.deps import CurrentUser, DbSession, RedisSession, S3InternalClient, S3PublicClient, user_rate_limiter
+from app.deps import (
+    CurrentUser,
+    DbSession,
+    RedisSession,
+    S3InternalClient,
+    S3PublicClient,
+    user_rate_limiter,
+)
 from app.models.auth import Session
 from app.schemas import MessageResponse
 from app.schemas.files import S3AvatarUrlSchema, S3UploadParams, S3UploadRequest
@@ -32,7 +39,11 @@ async def users_me(user: CurrentUser):
     return user
 
 
-@router.post("/me/set-password", response_model=MessageResponse, summary="Set password of current user")
+@router.post(
+    "/me/set-password",
+    response_model=MessageResponse,
+    summary="Set password of current user",
+)
 async def users_set_password(
     user: CurrentUser,
     db: DbSession,
@@ -49,7 +60,10 @@ async def users_set_password(
 
 @router.get("/me/avatar", response_model=S3AvatarUrlSchema)
 async def users_get_avatar(
-    user: CurrentUser, s3_public: S3PublicClient, s3_internal: S3InternalClient, redis: RedisSession
+    user: CurrentUser,
+    s3_public: S3PublicClient,
+    s3_internal: S3InternalClient,
+    redis: RedisSession,
 ):
     redis_cache_key = get_avatar_url_key(user.uuid)
     val: str | None = await redis.get(redis_cache_key)  # type: ignore
@@ -85,9 +99,15 @@ async def users_get_avatar(
 )
 async def users_set_avatar(user: CurrentUser, s3: S3PublicClient, redis: RedisSession, data: S3UploadRequest):
     if data.content_type not in ALLOWED_CONTENT_TYPES:
-        raise HTTPException(status_code=400, detail=f"Bad content type. Allowed types: {ALLOWED_CONTENT_TYPES}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Bad content type. Allowed types: {ALLOWED_CONTENT_TYPES}",
+        )
     if data.file_size > MAX_AVATAR_FILE_SIZE:
-        raise HTTPException(status_code=400, detail=f"File too large. Max size: {MAX_AVATAR_FILE_SIZE} bytes")
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Max size: {MAX_AVATAR_FILE_SIZE} bytes",
+        )
 
     redis_key = get_avatar_waiting_key(user.uuid)
     await redis.delete(redis_key)
@@ -114,7 +134,10 @@ async def users_set_avatar(user: CurrentUser, s3: S3PublicClient, redis: RedisSe
 )
 async def users_set_avatar_complete(user: CurrentUser, s3: S3InternalClient, redis: RedisSession):
     if not await redis.exists(get_avatar_waiting_key(user.uuid)):
-        raise HTTPException(status_code=404, detail="You were not uploading anything or your upload expired")
+        raise HTTPException(
+            status_code=404,
+            detail="You were not uploading anything or your upload expired",
+        )
     try:
         await s3.head_object(Bucket="avatars", Key=get_s3_avatar_unprocessed_key(user.uuid))
     except Exception as e:

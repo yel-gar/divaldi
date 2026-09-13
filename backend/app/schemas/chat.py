@@ -26,12 +26,15 @@ class ChatMessageSchema(BaseModel):
 class UserChatSchema(BaseModel):
     session_id: uuid.UUID
     last_message: ChatMessageSchema
+    name: str
 
 
 class ResultSchemaContent(BaseModel):
     type: GenerationResultType
     content: str
     timestamp: datetime
+    attachment_id: int | None = None
+    update_name: str | None = Field(None, description="If chat updated the name, this will be the new chat name")
 
     model_config = {"from_attributes": True}
 

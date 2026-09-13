@@ -45,6 +45,24 @@ class Message(BaseModel):
         return cls(content=[Content(text=obj.content, files=files)], role=obj.role)  # type: ignore
 
 
+class Position(BaseModel):
+    name: str
+    material: str
+    area_m2: float
+    laser_m: float
+    bends: int
+    welding_m: float
+    turning_hours: float
+    painting_m2: float
+
+
+class HarnessStructuredOutput(BaseModel):
+    chat_name: str | None = None
+    message: str
+    gen_kp: bool
+    positions: list[Position] = Field(default_factory=list)
+
+
 class ResponseFormat(BaseModel):
     TYPE_TEXT: ClassVar[Literal["text"]] = "text"
     TYPE_JSON_SCHEMA: ClassVar[Literal["json_schema"]] = "json_schema"

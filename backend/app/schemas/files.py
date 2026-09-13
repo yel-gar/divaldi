@@ -45,3 +45,8 @@ class S3AttachmentStatusResponse(BaseModel):
 
 class S3AvatarUrlSchema(BaseModel):
     avatar_url: str | None
+
+
+class S3AttachmentSchema(BaseModel):
+    attachment_url: str
+    filename: str

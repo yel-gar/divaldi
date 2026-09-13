@@ -1,8 +1,8 @@
 """initial
 
-Revision ID: 94cb4487e2b1
+Revision ID: 58cdf8dfcbba
 Revises:
-Create Date: 2026-09-13 12:16:14.292862
+Create Date: 2026-09-13 15:41:35.699944
 
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "94cb4487e2b1"
+revision: str = "58cdf8dfcbba"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -25,13 +25,23 @@ def upgrade() -> None:
     op.create_table(
         "users",
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("uuid", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column(
+            "uuid",
+            sa.UUID(),
+            server_default=sa.text("gen_random_uuid()"),
+            nullable=False,
+        ),
         sa.Column("username", sa.String(length=32), nullable=False),
         sa.Column("password_hash", sa.String(length=255), nullable=False),
         sa.Column("first_name", sa.String(length=60), nullable=True),
         sa.Column("last_name", sa.String(length=60), nullable=True),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("is_superuser", sa.Boolean(), server_default=sa.text("false"), nullable=False),
+        sa.Column(
+            "is_superuser",
+            sa.Boolean(),
+            server_default=sa.text("false"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("username"),
         sa.UniqueConstraint("uuid"),
@@ -57,14 +67,29 @@ def upgrade() -> None:
         "chat_messages",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("chat_session_id", sa.UUID(), nullable=False),
-        sa.Column("role", sa.Enum("USER", "ASSISTANT", "SYSTEM", name="userrole"), nullable=False),
+        sa.Column(
+            "role",
+            sa.Enum("USER", "ASSISTANT", "SYSTEM", name="userrole"),
+            nullable=False,
+        ),
         sa.Column("content", sa.Text(), nullable=False),
-        sa.Column("timestamp", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("display_text", sa.Text(), nullable=True),
+        sa.Column(
+            "timestamp",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.Column("files_str", sa.Text(), nullable=True),
         sa.ForeignKeyConstraint(["chat_session_id"], ["chat_sessions.session_id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_chat_messages_chat_session_id"), "chat_messages", ["chat_session_id"], unique=False)
+    op.create_index(
+        op.f("ix_chat_messages_chat_session_id"),
+        "chat_messages",
+        ["chat_session_id"],
+        unique=False,
+    )
     op.create_index(
         "ix_chat_messages_session_id_timestamp_id",
         "chat_messages",
@@ -79,7 +104,12 @@ def upgrade() -> None:
         sa.Column("session_id", sa.UUID(), nullable=False),
         sa.Column("chat_message_id", sa.Integer(), nullable=True),
         sa.Column("s3_key", sa.String(), nullable=False),
-        sa.Column("timestamp", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "timestamp",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.Column("ready", sa.Boolean(), server_default=sa.text("false"), nullable=False),
         sa.ForeignKeyConstraint(["chat_message_id"], ["chat_messages.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["session_id"], ["chat_sessions.session_id"], ondelete="CASCADE"),
@@ -90,15 +120,31 @@ def upgrade() -> None:
     op.create_table(
         "generation_results",
         sa.Column("chat_session_id", sa.UUID(), nullable=False),
-        sa.Column("type", sa.Enum("ERROR", "SUCCESS", name="generationresulttype"), nullable=False),
+        sa.Column(
+            "type",
+            sa.Enum("ERROR", "SUCCESS", name="generationresulttype"),
+            nullable=False,
+        ),
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column("attachment_id", sa.Integer(), nullable=True),
-        sa.Column("timestamp", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("update_name", sa.String(length=128), nullable=True),
+        sa.Column(
+            "timestamp",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["attachment_id"], ["attachments.id"], ondelete="SET NULL"),
         sa.ForeignKeyConstraint(["chat_session_id"], ["chat_sessions.session_id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("chat_session_id"),
+        sa.UniqueConstraint("attachment_id"),
     )
-    op.create_index(op.f("ix_generation_results_timestamp"), "generation_results", ["timestamp"], unique=False)
+    op.create_index(
+        op.f("ix_generation_results_timestamp"),
+        "generation_results",
+        ["timestamp"],
+        unique=False,
+    )
     op.create_table(
         "processing_result_uploadables",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -122,7 +168,12 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["attachment_id"], ["attachments.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_processing_results_attachment_id"), "processing_results", ["attachment_id"], unique=True)
+    op.create_index(
+        op.f("ix_processing_results_attachment_id"),
+        "processing_results",
+        ["attachment_id"],
+        unique=True,
+    )
     # ### end Alembic commands ###
 
 
@@ -131,7 +182,10 @@ def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
     op.drop_index(op.f("ix_processing_results_attachment_id"), table_name="processing_results")
     op.drop_table("processing_results")
-    op.drop_index(op.f("ix_processing_result_uploadables_attachment_id"), table_name="processing_result_uploadables")
+    op.drop_index(
+        op.f("ix_processing_result_uploadables_attachment_id"),
+        table_name="processing_result_uploadables",
+    )
     op.drop_table("processing_result_uploadables")
     op.drop_index(op.f("ix_generation_results_timestamp"), table_name="generation_results")
     op.drop_table("generation_results")
@@ -146,14 +200,12 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_chat_sessions_user_id"), table_name="chat_sessions")
     op.drop_table("chat_sessions")
     op.drop_table("users")
-
     sa.Enum(
         "USER",
         "ASSISTANT",
         "SYSTEM",
         name="userrole",
     ).drop(op.get_bind())
-
     sa.Enum(
         "ERROR",
         "SUCCESS",

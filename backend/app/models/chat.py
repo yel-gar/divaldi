@@ -5,7 +5,17 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import UUID, DateTime, Enum, ForeignKey, Index, String, Text, false, func
+from sqlalchemy import (
+    UUID,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    false,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -33,10 +43,13 @@ class ChatMessage(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     chat_session_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("chat_sessions.session_id", ondelete="CASCADE"), nullable=False, index=True
+        ForeignKey("chat_sessions.session_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), nullable=False)
     content: Mapped[str] = mapped_column(Text(None), nullable=False)
+    display_text: Mapped[str | None] = mapped_column(Text(None), nullable=True, default=None)
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
     )
@@ -56,6 +69,11 @@ class ChatMessage(Base):
             "id",
         ),
     )
+
+    def get_chat_text(self) -> str:
+        if self.role == UserRole.SYSTEM:
+            raise ValueError("Cannot display system messages")
+        return self.display_text or self.content
 
 
 class ChatSession(Base):
@@ -85,7 +103,10 @@ class GenerationResult(Base):
     )
     type: Mapped[GenerationResultType] = mapped_column(Enum(GenerationResultType), nullable=False)
     content: Mapped[str] = mapped_column(Text(None), nullable=False)
-    attachment_id: Mapped[int | None] = mapped_column(ForeignKey("attachments.id", ondelete="SET NULL"), nullable=True)
+    attachment_id: Mapped[int | None] = mapped_column(
+        ForeignKey("attachments.id", ondelete="SET NULL"), nullable=True, unique=True
+    )
+    update_name: Mapped[str | None] = mapped_column(String(length=MAX_CHAT_NAME_LENGTH), nullable=True, default=None)
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
     )
@@ -102,7 +123,9 @@ class Attachment(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(length=MAX_FILENAME_LENGTH), nullable=False)
     session_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("chat_sessions.session_id", ondelete="CASCADE"), nullable=False, index=True
+        ForeignKey("chat_sessions.session_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     chat_message_id: Mapped[int | None] = mapped_column(
         ForeignKey("chat_messages.id", ondelete="CASCADE"), nullable=True
@@ -115,10 +138,15 @@ class Attachment(Base):
 
     message: Mapped[ChatMessage | None] = relationship("ChatMessage", back_populates="attachments", uselist=False)
     processing_result: Mapped[ProcessingResult | None] = relationship(
-        "ProcessingResult", back_populates="attachment", cascade="all, delete-orphan", uselist=False
+        "ProcessingResult",
+        back_populates="attachment",
+        cascade="all, delete-orphan",
+        uselist=False,
     )
     processing_result_uploadables: Mapped[list[ProcessingResultUploadable]] = relationship(
-        "ProcessingResultUploadable", back_populates="attachment", cascade="all, delete-orphan"
+        "ProcessingResultUploadable",
+        back_populates="attachment",
+        cascade="all, delete-orphan",
     )
     session: Mapped[ChatSession] = relationship("ChatSession", back_populates="attachments")
     generation_result: Mapped[GenerationResult | None] = relationship(
@@ -131,7 +159,10 @@ class ProcessingResult(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     attachment_id: Mapped[int] = mapped_column(
-        ForeignKey("attachments.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
+        ForeignKey("attachments.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
     )
     output: Mapped[str] = mapped_column(Text(), nullable=False)
 

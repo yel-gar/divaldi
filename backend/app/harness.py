@@ -81,3 +81,72 @@ FILE_ADDED_DESCRIPTION = """
 {filename}
 {description}
 """
+
+HARNESS_STRUCTURED_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "chat_name": {"type": "string", "description": "Назови текущий чат."},
+        "message": {
+            "type": "string",
+            "description": "Текстовый ответ пользователю. Содержит краткое пояснение "
+            "результата или сообщение об ошибке, если данных недостаточно.",
+        },
+        "gen_kp": {
+            "type": "boolean",
+            "description": "Нужно ли формировать коммерческое предложение (КП). true, если "
+            "данных достаточно для расчёта; false в противном случае.",
+        },
+        "positions": {
+            "type": "array",
+            "description": "Список позиций (деталей) для расчёта. Если данных недостаточно, верните пустой массив.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Название позиции или детали.",
+                    },
+                    "material": {
+                        "type": "string",
+                        "description": "Материал изготовления детали (например, сталь, алюминий).",
+                    },
+                    "area_m2": {
+                        "type": "number",
+                        "description": "Площадь листа/заготовки в м2 (габариты L*W).",
+                    },
+                    "laser_m": {
+                        "type": "number",
+                        "description": "Общая длина реза (периметр + внутренние контуры) в метрах.",
+                    },
+                    "bends": {
+                        "type": "integer",
+                        "description": "Количество гибов (шт).",
+                    },
+                    "welding_m": {
+                        "type": "number",
+                        "description": "Длина сварных швов в метрах.",
+                    },
+                    "turning_hours": {
+                        "type": "number",
+                        "description": "Время токарной обработки в часах. 0, если точение не требуется.",
+                    },
+                    "painting_m2": {
+                        "type": "number",
+                        "description": "Площадь покраски в м2. Обычно area_m2 * 2, если красится вся деталь.",
+                    },
+                },
+                "required": [
+                    "name",
+                    "material",
+                    "area_m2",
+                    "laser_m",
+                    "bends",
+                    "welding_m",
+                    "turning_hours",
+                    "painting_m2",
+                ],
+            },
+        },
+    },
+    "required": ["message", "gen_kp", "positions", "chat_name"],
+}

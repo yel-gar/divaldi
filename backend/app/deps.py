@@ -94,7 +94,10 @@ VerifiedMessageSession = Annotated[uuid.UUID, Depends(verify_chat_session)]
 
 
 async def verify_attachment_id(
-    session_id: VerifiedMessageSession, attachment_id: int, db: DbSession, redis: RedisSession
+    session_id: VerifiedMessageSession,
+    attachment_id: int,
+    db: DbSession,
+    redis: RedisSession,
 ) -> int:
     if await redis.exists(get_attachment_ownership_key(session_id, attachment_id)):
         return attachment_id
@@ -118,7 +121,11 @@ def user_rate_limiter(requests: int, per: timedelta | int, key: str):
             await redis_client.expire(rkey, per)
         if count > requests:
             ttl = await redis_client.ttl(rkey)
-            raise HTTPException(status_code=429, detail="Too many requests", headers={"Retry-After": str(ttl)})
+            raise HTTPException(
+                status_code=429,
+                detail="Too many requests",
+                headers={"Retry-After": str(ttl)},
+            )
 
     return rate_limit
 
