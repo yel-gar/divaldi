@@ -9,6 +9,11 @@ export interface ChatMessageApi {
   timestamp: string;
 }
 
+export interface UserChat {
+  session_id: string;
+  last_message: ChatMessageApi;
+}
+
 export interface ChatResultContent {
   type: 'error' | 'success';
   content: string;
