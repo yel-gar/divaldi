@@ -112,7 +112,10 @@ async def get_chats(db: DbSession, user: CurrentUser):
     data = await db.scalars(
         select(LatestMessage)
         .order_by(LatestMessage.timestamp.desc())  # most recently active sessions first
-        .options(selectinload(LatestMessage.attachments, LatestMessage.session))
+        .options(
+            selectinload(LatestMessage.attachments),
+            selectinload(LatestMessage.session),
+        )
     )
     return [
         UserChatSchema(
