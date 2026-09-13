@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import timedelta
 
@@ -82,8 +83,17 @@ router = APIRouter(
     "/",
     summary="Get all chats user has ever created",
     response_model=list[UserChatSchema],
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        429: {"description": "Rate limit exceeded (max 100 per minute across all chat endpoints)"},
+    },
 )
 async def get_chats(db: DbSession, user: CurrentUser):
+    """Return one entry per chat session the user has ever created, each with its last non-system message.
+
+    Sessions are ordered by most recently active first. Sessions with no messages
+    other than the initial system message are omitted.
+    """
     latest_per_session = (
         select(ChatMessage)
         .join(ChatMessage.session)
@@ -130,8 +140,22 @@ async def get_chats(db: DbSession, user: CurrentUser):
     summary="Create new chat, get session to send messages to",
     response_model=ChatCreatedSchema,
     status_code=202,
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        409: {"description": "A generation job is already running for this user"},
+        429: {
+            "description": "Rate limit exceeded: too many creation requests in flight, "
+            "more than 20 chats created in 10 minutes, more than 5 requests in "
+            "1 minute, or the global limit of 100 requests/minute"
+        },
+    },
 )
 async def create_chat(user: CurrentUser, db: DbSession):
+    """Create a new chat session and return its id.
+
+    The session starts with a system prompt only; use `POST /chats/{session_id}`
+    to send the first user message.
+    """
     session_uuid = uuid.uuid4()
     new_session = ChatSession(session_id=session_uuid, user_id=user.id)
     system_message = ChatMessage(
@@ -149,8 +173,18 @@ async def create_chat(user: CurrentUser, db: DbSession):
     "/{session_id}",
     summary="Get messages in chat",
     response_model=list[ChatMessageSchema],
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "Chat session not found or does not belong to the user"},
+        429: {"description": "Rate limit exceeded (max 100 per minute across all chat endpoints)"},
+    },
 )
 async def get_chat(session_id: VerifiedMessageSession, db: DbSession):
+    """Return all user and assistant messages in the chat, in chronological order.
+
+    The initial system message is not included. Each message includes only
+    attachments that have finished processing.
+    """
     data = await db.scalars(
         select(ChatMessage)
         .where(
@@ -181,8 +215,28 @@ async def get_chat(session_id: VerifiedMessageSession, db: DbSession):
     summary="Send text message to chat",
     status_code=202,
     response_model=MessageResponse,
+    responses={
+        400: {"description": "Not all uploaded attachments have finished processing yet"},
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "Chat session not found or does not belong to the user"},
+        409: {"description": "A generation job is already running for this user"},
+        429: {
+            "description": "Rate limit exceeded: too many creation requests in "
+            "flight, more than 5 requests in 1 minute, or the global limit of "
+            "100 requests/minute"
+        },
+    },
 )
 async def send_message(session_id: VerifiedMessageSession, db: DbSession, data: SendMessageSchema):
+    """Send a user message and trigger assistant generation.
+
+    Any attachments uploaded to this session since the last message (via the
+    `/uploads` flow) are attached to this message; all of them must have
+    finished processing (poll `/uploads/{attachment_id}/status`) before calling this.
+
+    Returns 202 immediately; poll `GET /chats/{session_id}/result` for the
+    assistant's reply.
+    """
     if await db.scalar(
         select(select(Attachment).where(Attachment.session_id == session_id, Attachment.ready.is_(False)).exists())
     ):
@@ -240,9 +294,25 @@ async def send_message(session_id: VerifiedMessageSession, db: DbSession, data: 
         Depends(chat_lock),
         Depends(user_rate_limiter(5, timedelta(minutes=1), "chats:post")),
     ],
+    summary="Retry the last failed generation",
     response_model=MessageResponse,
+    responses={
+        400: {"description": "The last generation result was not an error, so there's nothing to retry"},
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "Chat session not found or does not belong to the user"},
+        409: {"description": "A generation job is already running for this user"},
+        429: {
+            "description": "Rate limit exceeded: too many creation requests in "
+            "flight, more than 5 requests in 1 minute, or the global limit of "
+            "100 requests/minute"
+        },
+    },
 )
 async def retry_send(session_id: VerifiedMessageSession, db: DbSession):
+    """Re-trigger assistant generation after the previous attempt ended in an error.
+
+    Returns 202 immediately; poll `GET /chats/{session_id}/result` for the outcome.
+    """
     last_result = await db.scalar(select(GenerationResult).where(GenerationResult.chat_session_id == session_id))
     if last_result is None or last_result.type != GenerationResultType.ERROR:
         raise HTTPException(status_code=400, detail="There's nothing to retry")
@@ -254,8 +324,18 @@ async def retry_send(session_id: VerifiedMessageSession, db: DbSession):
     "/{session_id}",
     summary="Delete chat",
     response_model=ChatDeletedResponse,
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "Chat session not found or does not belong to the user"},
+        429: {"description": "Rate limit exceeded (max 100 per minute across all chat endpoints)"},
+    },
 )
 async def delete_chat(session_id: VerifiedMessageSession, redis_client: RedisSession, db: DbSession):
+    """Delete a chat session and all its messages and attachments.
+
+    If a generation is currently running for this session, its result will be
+    discarded instead of saved once it completes.
+    """
     await redis_client.set(
         get_deletion_key(session_id), "1", ex=300, nx=True
     )  # let worker know not to save results if it's running currently
@@ -270,6 +350,11 @@ async def delete_chat(session_id: VerifiedMessageSession, redis_client: RedisSes
     "/{session_id}/result",
     summary="Get last result if any user message was sent",
     response_model=ResultSchema,
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "Chat session not found or does not belong to the user"},
+        429: {"description": "Rate limit exceeded (max 100 per minute across all chat endpoints)"},
+    },
 )
 async def get_result(
     session_id: VerifiedMessageSession,
@@ -277,6 +362,11 @@ async def get_result(
     db: DbSession,
     redis_client: RedisSession,
 ):
+    """Poll this after sending a message to check generation status and fetch the result.
+
+    Meant to be polled repeatedly until `running` is false. While `running` is
+    true, `result` (if present) refers to a previous turn and should be ignored.
+    """
     if await redis_client.exists(get_generation_key(user.uuid)):
         return ResultSchema(running=True, result=None)
     result = await db.scalar(select(GenerationResult).where(GenerationResult.chat_session_id == session_id))
@@ -292,6 +382,12 @@ async def get_result(
     "/{session_id}/uploads",
     summary="Get link to upload file to chat, make sure to confirm the upload afterwards",
     response_model=S3ChatUploadParams,
+    responses={
+        400: {"description": "Content type not allowed, or file size exceeds the 30 MB limit"},
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "Chat session not found or does not belong to the user"},
+        429: {"description": "Rate limit exceeded (max 100 per minute across all chat endpoints)"},
+    },
 )
 async def upload_file(
     session_id: VerifiedMessageSession,
@@ -300,6 +396,14 @@ async def upload_file(
     redis: RedisSession,
     data: S3ChatUploadRequest,
 ):
+    """Register an attachment and get a presigned URL to upload it directly to storage.
+
+    Allowed content types: PDF, DXF, PNG, JPEG. Max file size 30 MB.
+
+    After uploading to the returned URL, call
+    `POST /chats/{session_id}/uploads/{attachment_id}/uploaded` to confirm and
+    start processing. The upload URL expires after 5 minutes.
+    """
     if data.content_type not in ALLOWED_CHAT_CONTENT_TYPES:
         raise HTTPException(status_code=400, detail="Content type not allowed")
     if data.file_size > CHAT_MAX_UPLOAD_SIZE:
@@ -329,6 +433,12 @@ async def upload_file(
     "/{session_id}/attachments/{attachment_id}",
     summary="Get link to download file from chat",
     response_model=S3AttachmentSchema,
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "Attachment not found, or does not belong to the user"},
+        404: {"description": "Attachment has expired from storage"},
+        429: {"description": "Rate limit exceeded (max 100 per minute across all chat endpoints)"},
+    },
 )
 async def get_attachment(
     attachment_id: VerifiedAttachmentId,
@@ -337,10 +447,16 @@ async def get_attachment(
     redis: RedisSession,
     db: DbSession,
 ):
+    """Get a presigned URL to download an attachment.
+
+    URLs are cached for an hour and may be reused until they expire; call this
+    endpoint again to get a fresh one.
+    """
     cache_key = get_attachment_url_key(attachment_id)
-    url = await redis.get(cache_key)
-    if url is not None:
-        return S3AttachmentSchema(attachment_url=url)
+    data = await redis.get(cache_key)
+    if data is not None:
+        data = json.loads(data)
+        return S3AttachmentSchema(attachment_url=data["url"], filename=data["filename"])
 
     attachment = await db.get(Attachment, attachment_id)
     if attachment is None:
@@ -359,7 +475,7 @@ async def get_attachment(
         },
         ExpiresIn=3600,
     )
-    await redis.set(cache_key, url, nx=False, ex=3600)
+    await redis.set(cache_key, json.dumps({"url": url, "filename": attachment.name}), nx=False, ex=3600)
     return S3AttachmentSchema(attachment_url=url, filename=attachment.name)
 
 
@@ -367,6 +483,19 @@ async def get_attachment(
     "/{session_id}/uploads/{attachment_id}/uploaded",
     summary="Send request here after uploading attachment to provided URL",
     response_model=MessageResponse,
+    responses={
+        400: {
+            "description": "File was already uploaded/confirmed, or the file "
+            "hasn't actually been uploaded to storage yet"
+        },
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "Chat session not found or does not belong to the user"},
+        404: {"description": "Attachment not found for this session"},
+        429: {
+            "description": "Duplicate confirmation request already in flight for "
+            "this attachment, or the global limit of 100 requests/minute was exceeded"
+        },
+    },
 )
 async def attachment_uploaded(
     session_id: VerifiedMessageSession,
@@ -375,6 +504,12 @@ async def attachment_uploaded(
     s3_internal: S3InternalClient,
     redis: RedisSession,
 ):
+    """Confirm that a file was uploaded to the presigned URL and start processing it.
+
+    Call this after successfully uploading to the URL from
+    `POST /chats/{session_id}/uploads`. Poll
+    `POST /chats/{session_id}/uploads/{attachment_id}/status` for processing progress.
+    """
     lock = redis.lock(f"attachment:upload:lock:{attachment_id}", timeout=10)
     if not await lock.acquire(blocking=False):
         raise HTTPException(status_code=429, detail="Stop spamming")
@@ -406,8 +541,15 @@ async def attachment_uploaded(
     "/{session_id}/uploads/{attachment_id}/status",
     summary="Get current status of the attachment",
     response_model=S3AttachmentStatusResponse,
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "Attachment not found, or does not belong to the user"},
+        404: {"description": "Status has expired from cache"},
+        429: {"description": "Rate limit exceeded (max 100 per minute across all chat endpoints)"},
+    },
 )
 async def attachment_status(attachment_id: VerifiedAttachmentId, redis: RedisSession):
+    """Get the current processing status of an attachment: uploading, processing, completed, or error."""
     status = await redis.get(get_attachment_status_key(attachment_id))
     if status is None:
         raise HTTPException(status_code=404, detail="Attachment not found")
