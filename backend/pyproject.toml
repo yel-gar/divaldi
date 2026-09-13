@@ -23,8 +23,8 @@ dependencies = [
     "aioboto3 (>=15.5.0,<16.0.0)",
     "types-aiobotocore[s3] (>=3.9.1,<4.0.0)",
     "pillow (>=12.3.0,<13.0.0)",
+    "processing @ ../processing",
 ]
-
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -81,7 +81,9 @@ ignore = [
     "N818",
     "B905",
     "RUF012",
-    "B008"
+    "B008",
+    "RUF001",
+    "RUF200"
 ]
 
 [tool.ruff.lint.per-file-ignores]

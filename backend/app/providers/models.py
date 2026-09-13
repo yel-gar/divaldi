@@ -18,9 +18,19 @@ class AuthResponse(BaseModel):
         return v
 
 
+class FileSchema(BaseModel):
+    id: str
+
+
 class Content(BaseModel):
     text: str
     inline_data: dict[str, str] | None = None
+    files: list[FileSchema] = Field(default_factory=list)
+
+    @field_validator("files", mode="before")
+    @classmethod
+    def none_to_empty_list(cls, v):
+        return v if v is not None else []
 
 
 class Message(BaseModel):
@@ -29,7 +39,10 @@ class Message(BaseModel):
 
     @classmethod
     def from_chat_message(cls, obj: ChatMessage) -> Self:
-        return cls(content=[Content(text=obj.content)], role=obj.role)  # type: ignore
+        files = None
+        if obj.files_str:
+            files = [FileSchema(id=f.strip()) for f in obj.files_str.split(",")]
+        return cls(content=[Content(text=obj.content, files=files)], role=obj.role)  # type: ignore
 
 
 class ResponseFormat(BaseModel):

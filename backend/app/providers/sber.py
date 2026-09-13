@@ -83,3 +83,29 @@ class SberProvider(AIClient):
         json_data = r.json()
         log.debug("completion_response", data=json_data)
         return GenerationResponse.model_validate(json_data)
+
+    async def upload(
+        self, filename: str, data: bytes, x_client_id: uuid.UUID, x_session_id: uuid.UUID, content_type: str
+    ) -> str | None:
+        x_request_id = str(uuid.uuid4())
+        log = self._log.bind(
+            x_request_id=x_request_id, x_client_id=x_client_id, x_session_id=x_session_id, filename=filename
+        )
+        headers = {
+            "X-Client-Id": str(x_client_id),
+            "X-Session-Id": str(x_session_id),
+            "X-Request-Id": x_request_id,
+        }
+
+        r = await self._post(
+            "https://api.giga.chat/v1/files",
+            headers=headers,
+            data={"purpose": "general"},
+            files={"file": (filename, data, content_type)},
+        )
+        if r.status_code != 200:
+            log.error("upload_failure", reponse=r.json(), status_code=r.status_code)
+
+        json_data = r.json()
+        log.debug("upload_response", data=json_data)
+        return json_data["id"]

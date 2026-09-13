@@ -22,10 +22,10 @@ if ($LASTEXITCODE -ne 0) {
     throw "alembic revision --autogenerate failed with exit code $LASTEXITCODE"
 }
 
-Write-Host "Applying migrations"
-poetry -C $ScriptDir run alembic upgrade head
-if ($LASTEXITCODE -ne 0) {
-    throw "alembic upgrade head failed with exit code $LASTEXITCODE"
-}
+# Write-Host "Applying migrations"
+# poetry -C $ScriptDir run alembic upgrade head
+# if ($LASTEXITCODE -ne 0) {
+#     throw "alembic upgrade head failed with exit code $LASTEXITCODE"
+# }
 
 Write-Host "Done."

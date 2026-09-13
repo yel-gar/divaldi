@@ -57,8 +57,8 @@ cd "$BACKEND_DIR"
 echo "Generating migration: $MESSAGE"
 poetry run alembic revision --autogenerate -m "$MESSAGE"
 
-echo "Applying migrations"
-poetry run alembic upgrade head
+#echo "Applying migrations"
+#poetry run alembic upgrade head
 
 echo "Done."
 # cleanup() runs automatically here via the EXIT trap — no need to call it manually

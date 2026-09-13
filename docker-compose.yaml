@@ -22,7 +22,9 @@ x-backend-env: &backend-env
   SBER_API_SCOPE: ${SBER_API_SCOPE:?}
 
 x-backend-service: &backend-service
-  build: ./backend
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
   restart: unless-stopped
   environment:
     <<: *backend-env
@@ -62,7 +64,9 @@ services:
     mem_limit: 1G
 
   migrate:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     environment:
       <<: *backend-env
     command: "poetry run alembic upgrade head"
@@ -189,7 +193,7 @@ services:
       <<: *minio-env
     volumes:
       - ./conf/minio-init.sh:/init.sh:ro
-      - ./conf/minio-rules.json:/minio-rules.json:ro
+      - ./conf/minio-rules:/rules:ro
     entrypoint: ["/bin/sh", "/init.sh"]
 
 volumes:

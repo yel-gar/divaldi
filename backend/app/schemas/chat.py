@@ -6,10 +6,18 @@ from pydantic import BaseModel, Field
 from app.models.chat import GenerationResultType, UserRole
 
 
+class ChatAttachment(BaseModel):
+    id: int
+    filename: str = Field(alias="name")
+
+    model_config = {"from_attributes": True}
+
+
 class ChatMessageSchema(BaseModel):
     id: int
     role: UserRole
     content: str
+    attachments: list[ChatAttachment]
     timestamp: datetime
 
     model_config = {"from_attributes": True}

@@ -81,6 +81,9 @@ def test_alembic_downgrade_to_base_succeeds(migration_postgres_url):
         f"alembic downgrade base failed:\nSTDOUT:\n{downgrade_result.stdout}\n" f"STDERR:\n{downgrade_result.stderr}"
     )
 
+    back_upgrade = _run_alembic("upgrade", "head", database_url=migration_postgres_url)
+    assert back_upgrade.returncode == 0, back_upgrade.stderr
+
 
 def test_no_pending_model_changes(migration_postgres_url):
     """
