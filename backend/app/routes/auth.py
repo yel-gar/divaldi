@@ -17,7 +17,11 @@ SESSION_VALID_TIME = timedelta(days=7)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/login", summary="Login user, sets `session_token` cookie", response_model=MessageResponse)
+@router.post(
+    "/login",
+    summary="Login user, sets `session_token` cookie",
+    response_model=MessageResponse,
+)
 async def login(data: UserLogin, response: Response, db: DbSession):
     res = await db.execute(select(User).where(User.username == data.username))
     user = res.scalar_one_or_none()

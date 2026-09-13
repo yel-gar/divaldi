@@ -42,7 +42,12 @@ class SberProvider(AIClient):
             data={"scope": scope},
         )
         if response.status_code != 200:
-            self._log.error("auth_failed", rq_uid=rq_uid, status_code=response.status_code, resp=response.json())
+            self._log.error(
+                "auth_failed",
+                rq_uid=rq_uid,
+                status_code=response.status_code,
+                resp=response.json(),
+            )
             raise AuthorizationError()
 
         data = AuthResponse.model_validate(response.json())
@@ -59,7 +64,11 @@ class SberProvider(AIClient):
         x_session_id: uuid.UUID,
     ) -> GenerationResponse | None:
         x_request_id = str(uuid.uuid4())
-        log = self._log.bind(x_request_id=x_request_id, x_client_id=x_client_id, x_session_id=x_session_id)
+        log = self._log.bind(
+            x_request_id=x_request_id,
+            x_client_id=x_client_id,
+            x_session_id=x_session_id,
+        )
         headers = {
             "X-Client-Id": str(x_client_id),
             "X-Session-Id": str(x_session_id),
@@ -72,14 +81,53 @@ class SberProvider(AIClient):
         )
 
         r = await self._post(
-            "/chat/completions", json=data.model_dump(exclude_unset=True, by_alias=True), headers=headers
+            "/chat/completions",
+            json=data.model_dump(exclude_unset=True, by_alias=True),
+            headers=headers,
         )
         if r.status_code != 200:
             log.error(
-                "completion_failure", data=data.model_dump(by_alias=True), response=r.json(), status_code=r.status_code
+                "completion_failure",
+                data=data.model_dump(by_alias=True),
+                response=r.json(),
+                status_code=r.status_code,
             )
             return None
 
         json_data = r.json()
         log.debug("completion_response", data=json_data)
         return GenerationResponse.model_validate(json_data)
+
+    async def upload(
+        self,
+        filename: str,
+        data: bytes,
+        x_client_id: uuid.UUID,
+        x_session_id: uuid.UUID,
+        content_type: str,
+    ) -> str | None:
+        x_request_id = str(uuid.uuid4())
+        log = self._log.bind(
+            x_request_id=x_request_id,
+            x_client_id=x_client_id,
+            x_session_id=x_session_id,
+            filename=filename,
+        )
+        headers = {
+            "X-Client-Id": str(x_client_id),
+            "X-Session-Id": str(x_session_id),
+            "X-Request-Id": x_request_id,
+        }
+
+        r = await self._post(
+            "https://api.giga.chat/v1/files",
+            headers=headers,
+            data={"purpose": "general"},
+            files={"file": (filename, data, content_type)},
+        )
+        if r.status_code != 200:
+            log.error("upload_failure", reponse=r.json(), status_code=r.status_code)
+
+        json_data = r.json()
+        log.debug("upload_response", data=json_data)
+        return json_data["id"]

@@ -11,6 +11,10 @@ from app.tasks.conf.broker import tsq_db
 async def main():
     username = input("Enter username: ")
     password = getpass("Enter password: ", echo_char="*")
+    if not 8 <= len(password) <= 128:
+        print("Password must be between 8 and 128 characters")
+        return
+
     password_confirm = getpass("Confirm password: ", echo_char="*")
     if password != password_confirm:
         print("Passwords do not match")
@@ -20,7 +24,13 @@ async def main():
         if user:
             print("User already exists")
             return
-        db.add(User(username=username, password_hash=hash_password(password), is_superuser=True))
+        db.add(
+            User(
+                username=username,
+                password_hash=hash_password(password),
+                is_superuser=True,
+            )
+        )
         await db.commit()
         print("User created successfully")
 
