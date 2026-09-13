@@ -11,6 +11,7 @@ x-postgres-env: &postgres-env
 x-backend-env: &backend-env
   <<: [*postgres-env, *minio-env]
   DEBUG: ${DEBUG:?}
+  TEST_INSTANCE_MODE: ${TEST_INSTANCE_MODE:-false}
   BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
   MINIO_URL: ${MINIO_URL:-http://localhost:9000}
