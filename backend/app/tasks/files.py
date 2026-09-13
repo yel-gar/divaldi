@@ -82,7 +82,10 @@ async def _s3_get_object(bucket: str, s3_key: str):
 async def cleanup_orphan_attachments():
     log.info("orphan_attachments_cleanup_start")
     async with tsq_db() as db:
-        clause = (Attachment.ready == False, Attachment.timestamp < datetime.now(tz=UTC) - timedelta(hours=1))
+        clause = (
+            Attachment.ready.is_(False),
+            Attachment.timestamp < datetime.now(tz=UTC) - timedelta(hours=1),
+        )
         orphans = await db.scalars(select(Attachment).where(*clause))
         log.info("orphan_attachments_cleanup_count", count=len(orphans.all()))
         tasks = [_s3_try_delete(a.s3_key) for a in orphans]

@@ -114,7 +114,7 @@ async def get_chat(session_id: VerifiedMessageSession, db: DbSession):
         select(ChatMessage)
         .where(ChatMessage.chat_session_id == session_id)
         .order_by(ChatMessage.id)
-        .options(selectinload(ChatMessage.attachments.and_(Attachment.ready == True)))
+        .options(selectinload(ChatMessage.attachments.and_(Attachment.ready == True)))  # noqa: E712
     )
 
 
@@ -127,15 +127,16 @@ async def get_chat(session_id: VerifiedMessageSession, db: DbSession):
 )
 async def send_message(session_id: VerifiedMessageSession, db: DbSession, data: SendMessageSchema):
     if await db.scalar(
-        select(select(Attachment).where(Attachment.session_id == session_id, Attachment.ready == False).exists())
+        select(select(Attachment).where(Attachment.session_id == session_id, Attachment.ready.is_(False)).exists())
     ):
         raise HTTPException(status_code=400, detail="Not all attachments are ready")
     attachment_ids = select(Attachment.id).where(
-        Attachment.session_id == session_id, Attachment.chat_message_id == None
+        Attachment.session_id == session_id, Attachment.chat_message_id.is_(None)
     )
     uploadables = await db.scalars(
         select(ProcessingResultUploadable).where(
-            ProcessingResultUploadable.attachment_id.in_(attachment_ids), ProcessingResultUploadable.sber_id != None
+            ProcessingResultUploadable.attachment_id.in_(attachment_ids),
+            ProcessingResultUploadable.sber_id.isnot(None),
         )
     )
     files_str = None
@@ -167,7 +168,7 @@ async def send_message(session_id: VerifiedMessageSession, db: DbSession, data: 
     await db.refresh(new_message)
     await db.execute(
         update(Attachment)
-        .where(Attachment.session_id == session_id, Attachment.chat_message_id == None)
+        .where(Attachment.session_id == session_id, Attachment.chat_message_id.is_(None))
         .values(chat_message_id=new_message.id)
     )
     await db.commit()
