@@ -205,7 +205,6 @@ async def send_message(session_id: VerifiedMessageSession, db: DbSession, data: 
         content=data.content,
         files_str=files_str,
     )
-    db.add(new_message)
     await db.execute(
         delete(ProcessingResultUploadable).where(ProcessingResultUploadable.attachment_id.in_(attachment_ids))
     )
@@ -219,7 +218,9 @@ async def send_message(session_id: VerifiedMessageSession, db: DbSession, data: 
     for result in processing_results:
         system_message += FILE_ADDED_DESCRIPTION.format(filename=result.attachment.name, description=result.output)
     if system_message:
+        new_message.display_text = new_message.content
         new_message.content += system_message
+    db.add(new_message)
     await db.execute(delete(ProcessingResult).where(ProcessingResult.attachment_id.in_(attachment_ids)))
     await db.commit()
     await db.refresh(new_message)
