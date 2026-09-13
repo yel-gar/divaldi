@@ -27,9 +27,9 @@
           (reply)="onRetryRequest()"
         />
       </li>
-      } @if (agentStatus(); as status) {
+      } @if (agentStatus()) {
       <li>
-        <app-agent-status [status]="status" />
+        <app-agent-status />
       </li>
       }
     </ul>

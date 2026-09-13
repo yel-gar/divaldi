@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { LucideBot } from '@lucide/angular';
 
 @Component({
@@ -9,9 +9,7 @@ import { LucideBot } from '@lucide/angular';
   styleUrl: './agent-status.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    '[class.agent-status--thinking]': 'status() === "thinking"'
+    class: 'agent-status--thinking'
   }
 })
-export class AgentStatusComponent {
-  readonly status = input.required<'thinking' | 'typing'>();
-}
+export class AgentStatusComponent {}

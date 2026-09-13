@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, computed, input, output, signal } f
 import {
   LucideBot,
   LucideCheck,
-  LucideCheckCheck,
   LucideClock,
   LucideCopy,
   LucideDynamicIcon,
@@ -20,7 +19,6 @@ import { ChatMessage, ChatMessageAttachment } from './chat-message.model';
   imports: [
     LucideBot,
     LucideCheck,
-    LucideCheckCheck,
     LucideClock,
     LucideCopy,
     LucideDynamicIcon,

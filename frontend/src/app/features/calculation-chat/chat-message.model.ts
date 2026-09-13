@@ -1,6 +1,6 @@
 export type ChatMessageDirection = 'incoming' | 'outgoing';
 
-export type ChatMessageStatus = 'sending' | 'sent' | 'read';
+export type ChatMessageStatus = 'sending' | 'sent';
 
 export interface ChatMessageAttachment {
   name: string;
