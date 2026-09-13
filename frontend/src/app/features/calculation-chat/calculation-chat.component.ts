@@ -1,7 +1,9 @@
 import {
   afterRenderEffect,
+  ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  effect,
   ElementRef,
   inject,
   input,
@@ -10,34 +12,30 @@ import {
 } from '@angular/core';
 import {
   LucideFileText,
-  LucideHistory,
   LucidePanelRightClose,
   LucidePanelRightOpen,
   LucidePaperclip,
-  LucideSendHorizontal
+  LucideSendHorizontal,
+  LucideTrash2
 } from '@lucide/angular';
+import { HttpErrorResponse } from '@angular/common/http';
+import { EMPTY, catchError, finalize } from 'rxjs';
 import { ProgressBarComponent } from '../../shared/components/progress-bar/progress-bar.component';
 import { DragNDropComponent } from '../../shared/components/drag-n-drop/drag-n-drop.component';
 import { ChatMessageComponent } from './chat-message.component';
-import { ChatMessage, ChatMessageAttachment } from './chat-message.model';
+import { ChatMessage, ChatMessageAttachment, ChatMessageStatus } from './chat-message.model';
 import { AgentStatusComponent } from './agent-status.component';
 import { FilePreviewComponent } from '../../shared/components/drag-n-drop/file-preview.component';
 import { NotificationService } from '../../core/services/notification.service';
+import { InitialChatStateService } from '../../core/services/initial-chat-state.service';
+import { ChatMessageApi } from '../../core/models/models';
+import { ChatService } from '../../core/services/chat.service';
+import { extractApiErrorMessage } from '../../shared/utils/api-error';
+import { Router } from '@angular/router';
 import { InputComponent } from '../../shared/components/input/input.component';
 
-const AGENT_REPLY =
-  'Готово! Предварительный расчёт для резервуара 10 м³ готов — итоговые параметры смотрите в панели «Результаты расчёта».';
-
-const TYPING_AFTER_MS = 3200;
-const REPLY_AFTER_MS = 1400;
-
-const MOCK_PNG_BASE64 =
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-
-function mockFile(name: string): File {
-  const bytes = Uint8Array.from(atob(MOCK_PNG_BASE64), (char) => char.charCodeAt(0));
-  return new File([bytes], name, { type: 'image/png' });
-}
+const POLL_INTERVAL_MS = 2000;
+const POLL_TIMEOUT_MS = 5 * 60 * 1000;
 
 @Component({
   selector: 'app-calculation-chat',
@@ -47,15 +45,16 @@ function mockFile(name: string): File {
     LucidePaperclip,
     LucideSendHorizontal,
     LucideFileText,
-    LucideHistory,
     ProgressBarComponent,
     DragNDropComponent,
+    LucideTrash2,
     ChatMessageComponent,
     AgentStatusComponent,
     FilePreviewComponent,
     InputComponent
   ],
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class.results-open]': 'isResultsOpen()',
     '(document:pointerdown)': 'onDocumentPointerdown($event)',
@@ -68,9 +67,10 @@ export class CalculationChatComponent {
   readonly id = input.required<string>();
   readonly isResultsOpen = signal<boolean>(false);
   readonly isAttachPopupOpen = signal<boolean>(false);
-  readonly agentStatus = signal<'thinking' | 'typing' | null>(null);
+  readonly agentStatus = signal<'thinking' | null>(null);
   readonly attachedFiles = signal<File[]>([]);
   readonly isUploading = signal(false);
+  readonly isSending = signal(false);
   readonly previewedFile = signal<File | null>(null);
 
   openAttachmentPreview(attachment: ChatMessageAttachment) {
@@ -83,13 +83,47 @@ export class CalculationChatComponent {
   private readonly chatMessages = viewChild<ElementRef<HTMLUListElement>>('chatMessages');
   private readonly dragNDrop = viewChild(DragNDropComponent);
 
-  private thinkingTimer: ReturnType<typeof setTimeout> | null = null;
-  private replyTimer: ReturnType<typeof setTimeout> | null = null;
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private pollTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
 
   private readonly notifications = inject(NotificationService);
+  private readonly initialChatState = inject(InitialChatStateService);
+  private readonly chatService = inject(ChatService);
+  private readonly router = inject(Router);
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.clearAgentTimers());
+
+    const initial = this.initialChatState.consume();
+    this.hasPendingInitialMessage = initial !== null;
+    if (initial) {
+      this.messages.set([
+        {
+          id: this.nextLocalMessageId--,
+          direction: 'outgoing',
+          text: initial.text,
+          time: this.formatTime(),
+          status: 'sent',
+          attachments: initial.files.length
+            ? initial.files.map((file) => ({ name: file.name, size: file.size, file }))
+            : undefined
+        }
+      ]);
+    }
+
+    effect(() => {
+      const sessionId = this.id();
+      if (!sessionId) {
+        return;
+      }
+      const isSessionSwitch = this.currentSessionId !== null;
+      this.currentSessionId = sessionId;
+      if (isSessionSwitch) {
+        this.stopReplyPolling();
+        this.messages.set([]);
+      }
+      this.loadHistory(sessionId);
+    });
 
     afterRenderEffect({
       write: () => {
@@ -103,18 +137,88 @@ export class CalculationChatComponent {
     });
   }
 
-  readonly messages = signal<ChatMessage[]>([
-    { id: 1, direction: 'incoming', text: 'Здравствуйте! Чем могу помочь?', time: '10:21' },
-    {
-      id: 2,
-      direction: 'outgoing',
-      text: 'Нужно рассчитать резервуар объёмом 10 м³...',
-      time: '10:22',
-      status: 'read',
-      attachments: [{ name: 'tank-spec.png', size: 245760, file: mockFile('tank-spec.png') }]
+  readonly messages = signal<ChatMessage[]>([]);
+  private nextLocalMessageId = -1;
+  private currentSessionId: string | null = null;
+  private hasPendingInitialMessage = false;
+
+  private loadHistory(sessionId: string): void {
+    this.chatService
+      .messages(sessionId)
+      .pipe(
+        catchError((err: HttpErrorResponse) => {
+          if (err.status === 403) {
+            this.notifications.error('Заявка не найдена');
+          } else {
+            this.notifications.error(
+              'Не удалось загрузить историю чата: ' +
+                (err.error?.detail ?? err.message ?? 'Ошибка сервера')
+            );
+          }
+
+          return EMPTY;
+        })
+      )
+      .subscribe((apiMessages) => {
+        this.mergeApiMessages(apiMessages);
+
+        const wasInitialSend = this.hasPendingInitialMessage;
+        this.hasPendingInitialMessage = false;
+
+        const last = this.messages()[this.messages().length - 1];
+        if (last && last.direction === 'outgoing') {
+          if (wasInitialSend) {
+            this.startReplyPolling();
+          } else {
+            this.resumePollingIfAgentRunning(sessionId);
+          }
+        }
+      });
+  }
+
+  private resumePollingIfAgentRunning(sessionId: string): void {
+    this.chatService
+      .result(sessionId)
+      .pipe(catchError(() => EMPTY))
+      .subscribe((chatResult) => {
+        if (chatResult.running && this.id() === sessionId) {
+          this.startReplyPolling();
+        }
+      });
+  }
+
+  private mergeApiMessages(apiMessages: ChatMessageApi[]): void {
+    if (apiMessages.length === 0) {
+      return;
     }
-  ]);
-  private nextMessageId = 3;
+
+    const mapped = apiMessages.map((message) => this.mapApiMessage(message));
+    const pending = [...this.messages().filter((message) => message.id < 0)];
+    const merged: ChatMessage[] = [];
+    for (const message of mapped) {
+      const pendingIndex = pending.findIndex((local) => local.direction === message.direction);
+      if (pendingIndex >= 0) {
+        merged.push({ ...message, attachments: pending[pendingIndex].attachments });
+        pending.splice(pendingIndex, 1);
+      } else {
+        merged.push(message);
+      }
+    }
+    this.messages.set([...merged, ...pending]);
+  }
+
+  private mapApiMessage(message: ChatMessageApi): ChatMessage {
+    return {
+      id: message.id,
+      direction: message.role === 'assistant' ? 'incoming' : 'outgoing',
+      text: message.content,
+      time: new Date(message.timestamp).toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      timestamp: message.timestamp
+    };
+  }
 
   readonly messageInputValue = signal('');
 
@@ -145,6 +249,9 @@ export class CalculationChatComponent {
       this.notifications.warning('Файлы ещё не все загрузились — дождитесь завершения');
       return;
     }
+    if (this.isSending() || this.agentStatus() !== null) {
+      return;
+    }
 
     const text = this.messageInputValue().trim();
     if (!text) {
@@ -156,60 +263,162 @@ export class CalculationChatComponent {
       size: file.size,
       file
     }));
+    const messageId = this.nextLocalMessageId--;
 
     this.messages.update((messages) => [
       ...messages,
       {
-        id: this.nextMessageId++,
+        id: messageId,
         direction: 'outgoing',
         text,
         time: this.formatTime(),
-        status: 'sent',
+        status: 'sending',
         attachments: attachments.length > 0 ? attachments : undefined
       }
     ]);
     this.messageInputValue.set('');
-
     this.attachedFiles.set([]);
     this.dragNDrop()?.reset();
 
-    this.simulateAgentReply();
+    this.isSending.set(true);
+    this.chatService
+      .send(this.id(), text)
+      .pipe(
+        finalize(() => this.isSending.set(false)),
+        catchError((err: HttpErrorResponse) => {
+          this.notifications.error(
+            'Не удалось отправить сообщение: ' +
+              (err.error?.detail ?? err.error?.message ?? err.message ?? 'Ошибка сервера')
+          );
+          this.messages.update((messages) => messages.filter((m) => m.id !== messageId));
+          this.messageInputValue.set(text);
+          return EMPTY;
+        })
+      )
+      .subscribe(() => {
+        this.setStatusForMessage(messageId, 'sent');
+        this.startReplyPolling();
+      });
+  }
+
+  private setStatusForMessage(messageId: number, status: ChatMessageStatus): void {
+    this.messages.update((messages) =>
+      messages.map((message) => (message.id === messageId ? { ...message, status } : message))
+    );
+  }
+
+  onRetryRequest(): void {
+    this.chatService
+      .retry(this.id())
+      .pipe(
+        catchError((err: HttpErrorResponse) => {
+          this.notifications.error(
+            'Не удалось отправить повторный запрос: ' + extractApiErrorMessage(err)
+          );
+          return EMPTY;
+        })
+      )
+      .subscribe(() => {
+        this.notifications.success('Повторный запрос отправлен');
+        this.startReplyPolling();
+      });
+  }
+
+  private startReplyPolling() {
+    this.stopReplyPolling();
+
+    this.agentStatus.set('thinking');
+    this.pollTimer = setInterval(() => this.checkForResult(), POLL_INTERVAL_MS);
+    this.pollTimeoutTimer = setTimeout(() => {
+      this.stopReplyPolling();
+      this.notifications.error('Агент не ответил — попробуйте позже');
+    }, POLL_TIMEOUT_MS);
+  }
+
+  deleteSession(): void {
+    this.chatService
+      .remove(this.id())
+      .pipe(
+        catchError((err: HttpErrorResponse) => {
+          const detail = extractApiErrorMessage(err);
+          this.notifications.error(
+            detail === 'Invalid session'
+              ? 'Сессия не найдена или уже удалена'
+              : 'Не удалось удалить сессию: ' + detail
+          );
+          return EMPTY;
+        })
+      )
+      .subscribe(() => {
+        this.notifications.success('Сессия удалена');
+        this.router.navigate(['/create']);
+      });
+  }
+
+  private checkForResult() {
+    this.chatService
+      .result(this.id())
+      .pipe(catchError(() => EMPTY))
+      .subscribe((chatResult) => {
+        if (chatResult.running || chatResult.result === null) {
+          return;
+        }
+
+        this.stopReplyPolling();
+        if (chatResult.result.type === 'error') {
+          this.notifications.error('Агент не смог обработать запрос — попробуйте позже');
+          return;
+        }
+
+        const reply = chatResult.result;
+        this.messages.update((messages) => {
+          if (
+            messages.some(
+              (message) => message.direction === 'incoming' && message.timestamp === reply.timestamp
+            )
+          ) {
+            return messages;
+          }
+          return [
+            ...messages,
+            {
+              id: this.nextLocalMessageId--,
+              direction: 'incoming',
+              text: reply.content,
+              timestamp: reply.timestamp,
+              time: new Date(reply.timestamp).toLocaleTimeString('ru-RU', {
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            }
+          ];
+        });
+        this.notifications.info('Агент ответил на ваше сообщение');
+      });
+  }
+
+  private stopReplyPolling() {
+    if (this.pollTimer !== null) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
+    if (this.pollTimeoutTimer !== null) {
+      clearTimeout(this.pollTimeoutTimer);
+      this.pollTimeoutTimer = null;
+    }
+    this.agentStatus.set(null);
   }
 
   private formatTime() {
     return new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   }
 
-  private simulateAgentReply() {
-    if (this.agentStatus() !== null) {
-      return;
-    }
-
-    this.agentStatus.set('thinking');
-    this.thinkingTimer = setTimeout(() => {
-      this.agentStatus.set('typing');
-      this.replyTimer = setTimeout(() => {
-        this.messages.update((messages) => [
-          ...messages,
-          {
-            id: this.nextMessageId++,
-            direction: 'incoming',
-            text: AGENT_REPLY,
-            time: this.formatTime()
-          }
-        ]);
-        this.notifications.info('Агент ответил на ваше сообщение');
-        this.agentStatus.set(null);
-      }, REPLY_AFTER_MS);
-    }, TYPING_AFTER_MS);
-  }
-
   private clearAgentTimers() {
-    if (this.thinkingTimer !== null) {
-      clearTimeout(this.thinkingTimer);
+    if (this.pollTimer !== null) {
+      clearInterval(this.pollTimer);
     }
-    if (this.replyTimer !== null) {
-      clearTimeout(this.replyTimer);
+    if (this.pollTimeoutTimer !== null) {
+      clearTimeout(this.pollTimeoutTimer);
     }
   }
 

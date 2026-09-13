@@ -1,50 +1,45 @@
 import { Component, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators
+} from '@angular/forms';
 import { Router } from '@angular/router';
 import { catchError, EMPTY, finalize } from 'rxjs';
-import { SessionService } from '../../core/services/session.service';
+import { ChatService } from '../../core/services/chat.service';
+import { InitialChatStateService } from '../../core/services/initial-chat-state.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { DragNDropComponent } from '../../shared/components/drag-n-drop/drag-n-drop.component';
-import { Select, SelectOption } from '../../shared/components/select/select.component';
 import { Textarea } from '../../shared/components/textarea/textarea.component';
 import { LucideArrowRight } from '@lucide/angular';
+
+function trimmedRequired(control: AbstractControl): ValidationErrors | null {
+  return String(control.value ?? '').trim().length > 0 ? null : { required: true };
+}
 
 @Component({
   selector: 'app-order-create',
   standalone: true,
-  imports: [DragNDropComponent, Select, Textarea, ReactiveFormsModule, LucideArrowRight],
+  imports: [DragNDropComponent, Textarea, ReactiveFormsModule, LucideArrowRight],
   templateUrl: './order-create.html',
   styleUrl: './order-create.scss'
 })
 export class OrderCreateComponent {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
-  private readonly sessionService = inject(SessionService);
+  private readonly chatService = inject(ChatService);
+  private readonly initialChatState = inject(InitialChatStateService);
   private readonly notifications = inject(NotificationService);
 
   readonly isSubmitting = signal<boolean>(false);
   readonly selectedFiles = signal<File[]>([]);
   readonly MAX_SYMBOLS = 1000;
 
-  readonly projectTypeOptions: SelectOption[] = [
-    { value: 'internal', label: 'Внутренний проект' },
-    { value: 'client', label: 'Клиентский проект' },
-    { value: 'research', label: 'Исследование и аналитика' },
-    { value: 'support', label: 'Поддержка и развитие' },
-    { value: 'other', label: 'Другое' }
-  ];
-
-  readonly priorityOptions: SelectOption[] = [
-    { value: 'low', label: 'Низкий' },
-    { value: 'medium', label: 'Средний' },
-    { value: 'high', label: 'Высокий' }
-  ];
-
   readonly orderForm = this.fb.nonNullable.group({
-    description: ['', [Validators.required, Validators.maxLength(this.MAX_SYMBOLS)]],
-    projectType: ['', Validators.required],
-    priority: ['']
+    description: ['', [trimmedRequired, Validators.maxLength(this.MAX_SYMBOLS)]]
   });
 
   onFilesChange(files: File[]) {
@@ -54,6 +49,7 @@ export class OrderCreateComponent {
   onSubmit() {
     if (this.orderForm.invalid) {
       this.orderForm.markAllAsTouched();
+      this.notifications.error('Заполните все поля заявки');
       return;
     }
     if (this.isSubmitting()) {
@@ -61,28 +57,27 @@ export class OrderCreateComponent {
     }
 
     this.isSubmitting.set(true);
-    const { description, projectType, priority } = this.orderForm.getRawValue();
+    const { description } = this.orderForm.getRawValue();
 
-    this.sessionService
-      .createSession({
-        description,
-        projectType,
-        priority,
-        files: this.selectedFiles()
-      })
+    this.chatService
+      .create(description.trim())
       .pipe(
         finalize(() => this.isSubmitting.set(false)),
         catchError((err: HttpErrorResponse) => {
-          const msg = err.error?.message || err.message || 'Ошибка сервера';
+          const msg = err.error?.detail || err.error?.message || err.message || 'Ошибка сервера';
           this.notifications.error('Не удалось создать чат: ' + msg);
           return EMPTY;
         })
       )
       .subscribe({
-        next: (order) => {
+        next: ({ session_id }) => {
           this.notifications.success('Новый чат создан');
+          this.initialChatState.set({
+            text: description.trim(),
+            files: this.selectedFiles()
+          });
           this.orderForm.reset();
-          this.router.navigate(['/chats', order.id]);
+          this.router.navigate(['/chats', session_id]);
         }
       });
   }

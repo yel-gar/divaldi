@@ -20,11 +20,16 @@
     <ul #chatMessages class="chat-messages" role="log" aria-label="История сообщений">
       @for (message of messages(); track message.id) {
       <li>
-        <app-chat-message [message]="message" (preview)="openAttachmentPreview($event)" />
+        <app-chat-message
+          [message]="message"
+          [replyDisabled]="agentStatus() !== null"
+          (preview)="openAttachmentPreview($event)"
+          (reply)="onRetryRequest()"
+        />
       </li>
-      } @if (agentStatus(); as status) {
+      } @if (agentStatus()) {
       <li>
-        <app-agent-status [status]="status" />
+        <app-agent-status />
       </li>
       }
     </ul>
@@ -76,7 +81,7 @@
           type="submit"
           aria-label="Отправить"
           class="button button--main chat-input-panel__send-message"
-          [disabled]="isUploading()"
+          [disabled]="isUploading() || isSending() || agentStatus() !== null"
         >
           <svg size="32" lucideSendHorizontal aria-hidden="true"></svg>
         </button>
@@ -142,9 +147,13 @@
       Создать КП
     </button>
 
-    <button type="button" class="button button--outline h3">
-      <svg lucideHistory aria-hidden="true"></svg>
-      Показать историю
+    <button
+      type="button"
+      class="button button--outline button--danger h3"
+      (click)="deleteSession()"
+    >
+      <svg lucideTrash2 aria-hidden="true"></svg>
+      Удалить сессию
     </button>
   </footer>
 </aside>

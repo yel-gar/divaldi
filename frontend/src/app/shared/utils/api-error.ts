@@ -1,6 +1,9 @@
 import { HttpErrorResponse } from '@angular/common/http';
 
 export function extractApiErrorMessage(error: HttpErrorResponse): string {
+  if (error.status === 0) {
+    return 'Не удалось связаться с сервером';
+  }
   const detail = error.error?.detail;
   if (typeof detail === 'string' && detail) {
     return detail;

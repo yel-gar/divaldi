@@ -8,7 +8,7 @@
   <span class="message__author">Агент</span>
   }
   <div class="message__bubble">
-    <p class="message__text">{{ message().text }}</p>
+    <div class="message__text" [innerHTML]="renderedText()"></div>
     @if (hasAttachments()) {
     <ul class="message__attachments">
       @for (attachment of message().attachments; track $index) {
@@ -49,12 +49,34 @@
         aria-hidden="true"
       ></svg>
       <span class="visually-hidden">Отправлено</span>
-      } @case ('read') {
-      <svg size="16" lucideCheckCheck class="message__status" aria-hidden="true"></svg>
-      <span class="visually-hidden">Прочитано</span>
       } @default {
       <span class="visually-hidden">Статус неизвестен</span>
       } }
     </div>
+  </div>
+  <div class="message__backdrop">
+    <button
+      type="button"
+      class="message__action"
+      aria-label="Копировать текст"
+      (click)="copyText()"
+    >
+      @if (copied()) {
+      <svg size="14" lucideCheck aria-hidden="true"></svg>
+      } @else {
+      <svg size="14" lucideCopy aria-hidden="true"></svg>
+      }
+    </button>
+    @if (isIncoming()) {
+    <button
+      type="button"
+      class="message__action"
+      aria-label="Повторить запрос"
+      [disabled]="replyDisabled()"
+      (click)="reply.emit()"
+    >
+      <svg size="14" lucideRefreshCw aria-hidden="true"></svg>
+    </button>
+    }
   </div>
 </div>

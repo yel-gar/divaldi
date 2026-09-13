@@ -1,35 +1,28 @@
-export enum CalculationStatus {
-  Waiting = 'waiting',
-  Extracting = 'extracting',
-  Calculating = 'calculating',
-  Done = 'done',
-  Error = 'error'
+export interface ChatCreated {
+  session_id: string;
 }
 
-export interface Order {
-  id: string;
-  status: CalculationStatus;
-  createdAt: string;
-}
-
-export interface CreateOrderPayload {
-  description: string;
-  projectType: string;
-  priority: string;
-  files: File[];
-}
-
-export interface Message {
-  id: string;
-  role: 'user' | 'agent';
+export interface ChatMessageApi {
+  id: number;
+  role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: string;
 }
 
-export interface Parameter {
-  name: string;
-  value: string;
-  source: string;
+export interface UserChat {
+  session_id: string;
+  last_message: ChatMessageApi;
+}
+
+export interface ChatResultContent {
+  type: 'error' | 'success';
+  content: string;
+  timestamp: string;
+}
+
+export interface ChatResult {
+  running: boolean;
+  result: ChatResultContent | null;
 }
 
 export interface User {

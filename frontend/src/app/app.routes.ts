@@ -22,9 +22,9 @@ export const routes: Routes = [
     data: { navItems: USER_NAV_ITEMS, role: 'user' },
     children: [
       { path: '', redirectTo: '/create', pathMatch: 'full' },
-      { path: 'chats', component: HistoryPage },
       { path: 'create', component: OrderCreateComponent },
       { path: 'settings', component: SettingsPage },
+      { path: 'chats', component: HistoryPage },
       { path: 'chats/:id', component: CalculationChatComponent },
       { path: 'profile', component: ProfilePage },
       { path: '**', redirectTo: '/create' }
