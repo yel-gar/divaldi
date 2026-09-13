@@ -1,5 +1,13 @@
 @use '../../../fonts';
 
+.sidebar {
+  &:not(:has(.cta)) {
+    & .navigation {
+      margin-top: 40px;
+    }
+  }
+}
+
 .sidebar__header {
   display: flex;
   align-items: center;
