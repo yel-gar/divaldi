@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from typing import Annotated
 
@@ -72,6 +73,8 @@ async def admin_get_user(user_id: int, db: DbSession):
 
 @router.post("/users/{user_id}/set-password", response_model=MessageResponse)
 async def admin_user_set_password(user_id: int, db: DbSession, data: AdminSetPasswordSchema):
+    if os.getenv("TEST_INSTANCE_MODE", "false") in {"true", "yes", "1"}:
+        raise HTTPException(status_code=400, detail="Password changing on test instance is not allowed")
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -93,6 +96,8 @@ async def admin_edit_user(user_id: int, db: DbSession, data: AdminEditUserSchema
         raise HTTPException(status_code=404, detail="User not found")
 
     for attr, val in data.model_dump(exclude_unset=True).items():
+        if attr in {"username", "is_superuser"} and os.getenv("TEST_INSTANCE_MODE", "false") in {"true", "yes", "1"}:
+            raise HTTPException(status_code=400, detail="Username/superuser changing on test instance is not allowed")
         setattr(user, attr, val)
 
     try:
@@ -112,6 +117,8 @@ async def admin_edit_user(user_id: int, db: DbSession, data: AdminEditUserSchema
     description="You cannot delete superusers, demote them first",
 )
 async def admin_delete_user(user_id: int, db: DbSession):
+    if os.getenv("TEST_INSTANCE_MODE", "false") in {"true", "yes", "1"}:
+        raise HTTPException(status_code=400, detail="Deleting users on test instance is not allowed")
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
