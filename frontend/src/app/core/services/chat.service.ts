@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { ChatCreated, ChatMessageApi, ChatResult } from '../models/models';
+import { ChatCreated, ChatMessageApi, ChatResult, UserChat } from '../models/models';
 
 @Injectable({
   providedIn: 'root'
@@ -13,6 +13,10 @@ export class ChatService {
 
   create(content: string): Observable<ChatCreated> {
     return this.http.post<ChatCreated>(`${this.baseUrl}/`, { content });
+  }
+
+  list(): Observable<UserChat[]> {
+    return this.http.get<UserChat[]>(`${this.baseUrl}/`);
   }
 
   messages(sessionId: string): Observable<ChatMessageApi[]> {
