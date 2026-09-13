@@ -35,6 +35,7 @@ class AdminEditUserSchema(BaseModel):
     def reject_none(cls, value):
         if value is None:
             raise ValueError("Field cannot be None")
+        return value
 
 
 class AdminSetPasswordSchema(BaseModel):
