@@ -1,8 +1,12 @@
 import { extractApiErrorMessage } from './api-error';
 
 describe('extractApiErrorMessage', () => {
-  const error = (body: unknown): never =>
-    ({ error: body, message: 'Http failure response' }) as never;
+  const error = (body: unknown, status = 500): never =>
+    ({ error: body, status, message: 'Http failure response' }) as never;
+
+  it('returns a network error message when the server is unreachable', () => {
+    expect(extractApiErrorMessage(error({}, 0))).toBe('Не удалось связаться с сервером');
+  });
 
   it('returns a string detail as-is', () => {
     expect(extractApiErrorMessage(error({ detail: 'Incorrect username or password' }))).toBe(
