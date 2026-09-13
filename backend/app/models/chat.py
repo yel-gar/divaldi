@@ -5,12 +5,13 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import UUID, VARCHAR, DateTime, Enum, ForeignKey, Index, Text, false, func
+from sqlalchemy import UUID, DateTime, Enum, ForeignKey, Index, String, Text, false, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
 MAX_FILENAME_LENGTH = 128
+MAX_CHAT_NAME_LENGTH = 128
 
 if typing.TYPE_CHECKING:
     from app.models.auth import User
@@ -36,7 +37,9 @@ class ChatMessage(Base):
     )
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), nullable=False)
     content: Mapped[str] = mapped_column(Text(None), nullable=False)
-    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
+    )
     # list of file ids, if any present, separated by , and no spaces
     files_str: Mapped[str] = mapped_column(Text(None), nullable=True, default=None)
 
@@ -58,8 +61,9 @@ class ChatMessage(Base):
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
 
+    name: Mapped[str] = mapped_column(String(length=MAX_CHAT_NAME_LENGTH), nullable=False, default="Новый чат")
     session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     user: Mapped[User] = relationship("User", back_populates="chat_sessions")
     messages: Mapped[list[ChatMessage]] = relationship(
@@ -81,16 +85,22 @@ class GenerationResult(Base):
     )
     type: Mapped[GenerationResultType] = mapped_column(Enum(GenerationResultType), nullable=False)
     content: Mapped[str] = mapped_column(Text(None), nullable=False)
-    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    attachment_id: Mapped[int | None] = mapped_column(ForeignKey("attachments.id", ondelete="SET NULL"), nullable=True)
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
+    )
 
     session: Mapped[ChatSession] = relationship("ChatSession", back_populates="generation_result")
+    attachment: Mapped[Attachment | None] = relationship(
+        "Attachment", back_populates="generation_result", uselist=False
+    )
 
 
 class Attachment(Base):
     __tablename__ = "attachments"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(VARCHAR(length=MAX_FILENAME_LENGTH), nullable=False)
+    name: Mapped[str] = mapped_column(String(length=MAX_FILENAME_LENGTH), nullable=False)
     session_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("chat_sessions.session_id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -98,7 +108,9 @@ class Attachment(Base):
         ForeignKey("chat_messages.id", ondelete="CASCADE"), nullable=True
     )
     s3_key: Mapped[str] = mapped_column(nullable=False)
-    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
+    )
     ready: Mapped[bool] = mapped_column(nullable=False, default=False, server_default=false())
 
     message: Mapped[ChatMessage | None] = relationship("ChatMessage", back_populates="attachments", uselist=False)
@@ -109,6 +121,9 @@ class Attachment(Base):
         "ProcessingResultUploadable", back_populates="attachment", cascade="all, delete-orphan"
     )
     session: Mapped[ChatSession] = relationship("ChatSession", back_populates="attachments")
+    generation_result: Mapped[GenerationResult | None] = relationship(
+        "GenerationResult", back_populates="attachment", cascade="all", uselist=False
+    )
 
 
 class ProcessingResult(Base):
@@ -116,7 +131,7 @@ class ProcessingResult(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     attachment_id: Mapped[int] = mapped_column(
-        ForeignKey("attachments.id", ondelete="CASCADE"), nullable=False, unique=True
+        ForeignKey("attachments.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
     )
     output: Mapped[str] = mapped_column(Text(), nullable=False)
 
@@ -127,7 +142,9 @@ class ProcessingResultUploadable(Base):
     __tablename__ = "processing_result_uploadables"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    attachment_id: Mapped[int] = mapped_column(ForeignKey("attachments.id", ondelete="CASCADE"), nullable=False)
+    attachment_id: Mapped[int] = mapped_column(
+        ForeignKey("attachments.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     s3_key: Mapped[str] = mapped_column(nullable=False)
     sber_id: Mapped[str | None] = mapped_column(Text(), nullable=True)
 
