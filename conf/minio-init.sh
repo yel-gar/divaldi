@@ -12,11 +12,14 @@ done
 echo "Creating buckets..."
 
 mc mb --ignore-existing minio/avatars
+mc mb --ignore-existing minio/uploads
 
 echo "Configuring buckets..."
 
 mc anonymous set none minio/avatars
+mc anonymous set none minio/uploads
 
-mc ilm rule import minio/avatars < /minio-rules.json
+mc ilm rule import minio/avatars < /rules/avatars.json
+mc ilm rule import minio/uploads < /rules/uploads.json
 
 echo "MinIO initialization complete."

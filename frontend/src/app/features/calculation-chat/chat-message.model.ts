@@ -1,6 +1,6 @@
 export type ChatMessageDirection = 'incoming' | 'outgoing';
 
-export type ChatMessageStatus = 'sending' | 'sent' | 'read';
+export type ChatMessageStatus = 'sending' | 'sent';
 
 export interface ChatMessageAttachment {
   name: string;
@@ -13,6 +13,7 @@ export interface ChatMessage {
   direction: ChatMessageDirection;
   text: string;
   time: string;
+  timestamp?: string;
   status?: ChatMessageStatus;
   attachments?: ChatMessageAttachment[];
 }

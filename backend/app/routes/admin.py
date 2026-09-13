@@ -10,13 +10,22 @@ from app.auth import hash_password
 from app.deps import DbSession, require_admin
 from app.models.auth import User
 from app.schemas import MessageResponse
-from app.schemas.admin import AdminCreateUserSchema, AdminEditUserSchema, AdminSetPasswordSchema, AdminUserFilters
+from app.schemas.admin import (
+    AdminCreateUserSchema,
+    AdminEditUserSchema,
+    AdminSetPasswordSchema,
+    AdminUserFilters,
+)
 from app.schemas.users import AdminUserSchema
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
 
-@router.get("/users", response_model=list[AdminUserSchema], summary="Get all users, filtered by specified fields")
+@router.get(
+    "/users",
+    response_model=list[AdminUserSchema],
+    summary="Get all users, filtered by specified fields",
+)
 async def admin_get_users(
     db: DbSession,
     filters: Annotated[AdminUserFilters, Depends()],
@@ -73,7 +82,11 @@ async def admin_user_set_password(user_id: int, db: DbSession, data: AdminSetPas
     return MessageResponse(message="Password changed successfully")
 
 
-@router.patch("/users/{user_id}", response_model=AdminUserSchema, summary="Edit user by ID. Returns updated user")
+@router.patch(
+    "/users/{user_id}",
+    response_model=AdminUserSchema,
+    summary="Edit user by ID. Returns updated user",
+)
 async def admin_edit_user(user_id: int, db: DbSession, data: AdminEditUserSchema):
     user = await db.get(User, user_id)
     if user is None:

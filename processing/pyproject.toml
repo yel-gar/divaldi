@@ -13,6 +13,7 @@ dependencies = [
     "openpyxl (>=3.1.5,<4.0.0)"
 ]
 
+[tool.poetry]
 packages = [{ include = "processing", from = "src" }]
 
 [build-system]

@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { catchError, map, of } from 'rxjs';
+import { NotificationService } from '../services/notification.service';
 import { ProfileService } from '../services/profile.service';
 
 export const authGuard: CanActivateFn = (_route, state) => {
@@ -31,13 +32,18 @@ export const adminGuard: CanActivateFn = () => {
 export const publicGuard: CanActivateFn = () => {
   const profile = inject(ProfileService);
   const router = inject(Router);
+  const notifications = inject(NotificationService);
 
   if (profile.user()) {
+    notifications.info('Вы уже авторизованы');
     return router.createUrlTree(['/create']);
   }
 
   return profile.fetchMe().pipe(
-    map(() => router.createUrlTree(['/create'])),
+    map(() => {
+      notifications.info('Вы уже авторизованы');
+      return router.createUrlTree(['/create']);
+    }),
     catchError(() => of(true))
   );
 };

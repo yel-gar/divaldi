@@ -3,6 +3,8 @@
 .sidebar__header {
   display: flex;
   align-items: center;
+
+  padding-right: 10px;
 }
 
 .sidebar__toggle {
@@ -11,8 +13,8 @@
   justify-content: center;
   flex-shrink: 0;
 
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
 
   margin-left: auto;
 
@@ -151,7 +153,6 @@
     height: 36px;
     padding: 0;
 
-    color: var(--color-gray);
     background: none;
     border: none;
     border-radius: 8px;
@@ -185,6 +186,8 @@
 :host(.sidebar--collapsed) {
   .sidebar__header {
     justify-content: center;
+
+    padding-right: 0;
   }
 
   .logo {
