@@ -8,7 +8,7 @@ import {
   Validators
 } from '@angular/forms';
 import { Router } from '@angular/router';
-import { catchError, EMPTY, finalize } from 'rxjs';
+import { catchError, EMPTY, finalize, map, switchMap } from 'rxjs';
 import { ChatService } from '../../core/services/chat.service';
 import { InitialChatStateService } from '../../core/services/initial-chat-state.service';
 import { NotificationService } from '../../core/services/notification.service';
@@ -60,17 +60,20 @@ export class OrderCreateComponent {
     const { description } = this.orderForm.getRawValue();
 
     this.chatService
-      .create(description.trim())
+      .create()
       .pipe(
+        switchMap(({ session_id }) =>
+          this.chatService.send(session_id, description.trim()).pipe(map(() => session_id))
+        ),
         finalize(() => this.isSubmitting.set(false)),
         catchError((err: HttpErrorResponse) => {
           const msg = err.error?.detail || err.error?.message || err.message || 'Ошибка сервера';
-          this.notifications.error('Не удалось создать чат: ' + msg);
+          this.notifications.error('Не удалось создать заявку: ' + msg);
           return EMPTY;
         })
       )
       .subscribe({
-        next: ({ session_id }) => {
+        next: (session_id) => {
           this.notifications.success('Новый чат создан');
           this.initialChatState.set({
             text: description.trim(),
