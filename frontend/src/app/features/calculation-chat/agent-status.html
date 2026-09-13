@@ -4,19 +4,11 @@
 <div class="agent-status__body">
   <span class="agent-status__author">Агент</span>
   <div class="agent-status__bubble">
-    @if (status() === 'thinking') {
-    <p class="agent-status__thinking">
-      <svg size="16" lucideSparkles aria-hidden="true"></svg>
-      <span class="visually-hidden">Агент думает…</span>
-      <span class="agent-status__text" aria-hidden="true">{{ phrase() }}</span>
-    </p>
-    } @else {
     <p class="agent-status__typing">
       <span class="agent-status__dot" aria-hidden="true"></span>
       <span class="agent-status__dot" aria-hidden="true"></span>
       <span class="agent-status__dot" aria-hidden="true"></span>
-      <span class="visually-hidden">Агент печатает…</span>
+      <span class="visually-hidden">Агент отвечает…</span>
     </p>
-    }
   </div>
 </div>
