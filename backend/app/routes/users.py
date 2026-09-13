@@ -1,3 +1,4 @@
+import os
 from datetime import timedelta
 from typing import Annotated
 
@@ -50,6 +51,8 @@ async def users_set_password(
     data: SetPasswordSchema,
     session_token: Annotated[str | None, Cookie()] = None,
 ):
+    if os.getenv("TEST_INSTANCE_MODE", "false") in {"true", "yes", "1"}:
+        raise HTTPException(status_code=400, detail="Password changing on test instance is not allowed")
     if not verify_password(user.password_hash, data.old_password):
         raise HTTPException(status_code=400, detail="Bad old password")
     user.password_hash = hash_password(data.new_password)

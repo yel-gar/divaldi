@@ -76,30 +76,35 @@ PS> Copy-Item docker-compose.override.yml.dev docker-compose.override.yml
 ## Environment Variables
 You should generally only touch variables marked as **Required**.
 
-| **Variable**             | **Description**                                                                                                                                          | **Required** | **Default**           |
-|--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|-----------------------|
-| DEBUG                    | Set debug mode for app, debug allows insecure cookies. Set to one of `0, no, false` to disable, otherwise it's enabled.                                  | ✅           | 1                     |
-| BACKEND_URL              | Deployed backend URL where clients will make requests to. Injected into the frontend build and used by the backend.                                      | ✅           | http://localhost:3000 |
-| FRONTEND_URL             | Deployed frontend URL used by the backend (e.g. for CORS / redirects).                                                                                   | ✅           | http://localhost:8080 |
-| FRONTEND_PORT            | Port on which frontend will run.                                                                                                                         | ❌           | 8080                  |
-| BACKEND_PORT             | Port on which backend will run.                                                                                                                          | ❌           | 3000                  |
-| POSTGRES_USER            | Database user.                                                                                                                                           | ❌           | divaldi               |
-| POSTGRES_DB              | Database name.                                                                                                                                           | ❌           | divaldi               |
-| POSTGRES_PASSWORD        | Database password. Set it to something secure, you can get a secret with `openssl rand -hex 48`.                                                         | ✅           |                       |
-| RABBITMQ_USER            | User for RabbitMQ admin panel                                                                                                                            | ❌           | admin                 |
-| RABBITMQ_PASS            | Password for RabbitMQ admin panel                                                                                                                        | ✅           |                       |
-| RABBITMQ_MANAGEMENT_PORT | Port on which RabbitMQ management interface will run                                                                                                     | ❌           | 15672                 |
-| TASKIQ_API_TOKEN         | Secret for TaskIQ dashboard                                                                                                                              | ✅           |                       |
-| TASKIQ_DASHBOARD_PORT    | Port on which TaskIQ management dashboard will run                                                                                                       | ❌           | 8000                  |
-| GIGACHAT_MODEL           | GigaChat model used. Consult [Sber website](https://developers.sber.ru/docs/ru/gigachat/models/main) for more info                                       | ❌           | GigaChat-3-Ultra      |
-| SBER_API_KEY             | API Key from [Sber developers](https://developers.sber.ru/docs/ru/gigachat/api/reference/rest/post-token).                                               | ✅           | mock                  |
-| SBER_API_SCOPE           | API scope from [Sber developers](https://developers.sber.ru/docs/ru/gigachat/api/reference/rest/post-token). One of the following: `PERS`, `B2B`, `CORP` | ✅           | PERS                  |
-| MINIO_ROOT_USER          | MinIO user.                                                                                                                                              | ❌           | minio                 |
-| MINIO_ROOT_PASSWORD      | MinIO password. ⚠️ **WARNING**: MinIO is open in production, so if this password is weak, you could face severe security issues.                         | ✅           |                       |
-| MINIO_PORT               | Production port where MinIO will run.                                                                                                                    | ❌           | 9000                  |
-| MINIO_DASHBOARD_PORT     | MinIO dashboard port.                                                                                                                                    | ❌           | 9001                  |
-| MINIO_URL                | Public base URL of MinIO.                                                                                                                                | ✅           | http://localhost:9000 |
-
+| **Variable**                  | **Description**                                                                                                                             | **Required** | **Default**             |
+|-------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|--------------|-------------------------|
+| **Application**               |                                                                                                                                             |              |                         |
+| `DEBUG`                       | Set debug mode for app. Debug allows insecure cookies. Set to one of `0, no, false` to disable; anything else enables it.                   | ✅           | `1`                     |
+| `BACKEND_URL`                 | Deployed backend URL where clients make requests. Injected into the frontend build and used by the backend.                                 | ✅           | `http://localhost:3000` |
+| `FRONTEND_URL`                | Deployed frontend URL used by the backend (e.g. for CORS / redirects).                                                                      | ✅           | `http://localhost:8080` |
+| `BACKEND_PORT`                | Port on which backend runs.                                                                                                                 | ❌           | `3000`                  |
+| `FRONTEND_PORT`               | Port on which frontend runs.                                                                                                                | ❌           | `8080`                  |
+| **Database (PostgreSQL)**     |                                                                                                                                             |              |                         |
+| `POSTGRES_PASSWORD`           | Database password. Set to something secure; generate with `openssl rand -hex 48`.                                                           | ✅           |                         |
+| `POSTGRES_USER`               | Database user.                                                                                                                              | ❌           | `divaldi`               |
+| `POSTGRES_DB`                 | Database name.                                                                                                                              | ❌           | `divaldi`               |
+| **Message broker (RabbitMQ)** |                                                                                                                                             |              |                         |
+| `RABBITMQ_PASS`               | Password for RabbitMQ admin panel.                                                                                                          | ✅           |                         |
+| `RABBITMQ_USER`               | User for RabbitMQ admin panel.                                                                                                              | ❌           | `admin`                 |
+| `RABBITMQ_MANAGEMENT_PORT`    | Port on which RabbitMQ management interface runs.                                                                                           | ❌           | `15672`                 |
+| **Task monitoring (TaskIQ)**  |                                                                                                                                             |              |                         |
+| `TASKIQ_API_TOKEN`            | Secret for TaskIQ dashboard.                                                                                                                | ✅           |                         |
+| `TASKIQ_DASHBOARD_PORT`       | Port on which TaskIQ dashboard runs.                                                                                                        | ❌           | `8000`                  |
+| **GigaChat (Sber)**           |                                                                                                                                             |              |                         |
+| `SBER_API_KEY`                | API key from [Sber developers](https://developers.sber.ru/docs/ru/gigachat/api/reference/rest/post-token).                                  | ✅           | `mock`                  |
+| `SBER_API_SCOPE`              | API scope from [Sber developers](https://developers.sber.ru/docs/ru/gigachat/api/reference/rest/post-token). One of: `PERS`, `B2B`, `CORP`. | ✅           | `PERS`                  |
+| `GIGACHAT_MODEL`              | GigaChat model used. See [Sber models docs](https://developers.sber.ru/docs/ru/gigachat/models/main).                                       | ❌           | `GigaChat-3-Ultra`      |
+| **Object storage (MinIO)**    |                                                                                                                                             |              |                         |
+| `MINIO_ROOT_PASSWORD`         | MinIO password. ⚠️ MinIO is exposed in production — a weak password here can cause severe security issues.                                  | ✅           |                         |
+| `MINIO_URL`                   | Public base URL of MinIO.                                                                                                                   | ✅           | `http://localhost:9000` |
+| `MINIO_ROOT_USER`             | MinIO user.                                                                                                                                 | ❌           | `minio`                 |
+| `MINIO_PORT`                  | Production port where MinIO runs.                                                                                                           | ❌           | `9000`                  |
+| `MINIO_DASHBOARD_PORT`        | MinIO dashboard port.                                                                                                                       | ❌           | `9001`                  |
 ## Redis designation
 `/0` - general
 `/1` - task results
