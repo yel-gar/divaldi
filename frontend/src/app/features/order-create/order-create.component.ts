@@ -1,6 +1,12 @@
 import { Component, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators
+} from '@angular/forms';
 import { Router } from '@angular/router';
 import { catchError, EMPTY, finalize } from 'rxjs';
 import { ChatService } from '../../core/services/chat.service';
@@ -9,6 +15,10 @@ import { NotificationService } from '../../core/services/notification.service';
 import { DragNDropComponent } from '../../shared/components/drag-n-drop/drag-n-drop.component';
 import { Textarea } from '../../shared/components/textarea/textarea.component';
 import { LucideArrowRight } from '@lucide/angular';
+
+function trimmedRequired(control: AbstractControl): ValidationErrors | null {
+  return String(control.value ?? '').trim().length > 0 ? null : { required: true };
+}
 
 @Component({
   selector: 'app-order-create',
@@ -29,7 +39,7 @@ export class OrderCreateComponent {
   readonly MAX_SYMBOLS = 1000;
 
   readonly orderForm = this.fb.nonNullable.group({
-    description: ['', [Validators.required, Validators.maxLength(this.MAX_SYMBOLS)]]
+    description: ['', [trimmedRequired, Validators.maxLength(this.MAX_SYMBOLS)]]
   });
 
   onFilesChange(files: File[]) {
