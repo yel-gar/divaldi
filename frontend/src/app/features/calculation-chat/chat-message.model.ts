@@ -13,6 +13,7 @@ export interface ChatMessage {
   direction: ChatMessageDirection;
   text: string;
   time: string;
+  timestamp?: string;
   status?: ChatMessageStatus;
   attachments?: ChatMessageAttachment[];
 }

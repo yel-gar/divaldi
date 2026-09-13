@@ -65,7 +65,7 @@ export class CalculationChatComponent {
   readonly id = input.required<string>();
   readonly isResultsOpen = signal<boolean>(false);
   readonly isAttachPopupOpen = signal<boolean>(false);
-  readonly agentStatus = signal<'thinking' | 'typing' | null>(null);
+  readonly agentStatus = signal<'thinking' | null>(null);
   readonly attachedFiles = signal<File[]>([]);
   readonly isUploading = signal(false);
   readonly isSending = signal(false);
@@ -106,14 +106,20 @@ export class CalculationChatComponent {
             : undefined
         }
       ]);
-      this.hasLocalAttachments = initial.files.length > 0;
     }
 
     effect(() => {
       const sessionId = this.id();
-      if (sessionId) {
-        this.loadHistory(sessionId);
+      if (!sessionId) {
+        return;
       }
+      const isSessionSwitch = this.currentSessionId !== null;
+      this.currentSessionId = sessionId;
+      if (isSessionSwitch) {
+        this.stopReplyPolling();
+        this.messages.set([]);
+      }
+      this.loadHistory(sessionId);
     });
 
     afterRenderEffect({
@@ -130,7 +136,7 @@ export class CalculationChatComponent {
 
   readonly messages = signal<ChatMessage[]>([]);
   private nextLocalMessageId = -1;
-  private hasLocalAttachments = false;
+  private currentSessionId: string | null = null;
 
   private loadHistory(sessionId: string): void {
     this.chatService
@@ -165,26 +171,18 @@ export class CalculationChatComponent {
     }
 
     const mapped = apiMessages.map((message) => this.mapApiMessage(message));
-    if (this.hasLocalAttachments && mapped[0]?.direction === 'outgoing') {
-      this.hasLocalAttachments = false;
-      mapped[0] = { ...mapped[0], attachments: this.messages()[0]?.attachments };
-    }
-
-    const pending = this.messages().filter((message) => message.id < 0);
-    const remaining = [...pending];
+    const pending = [...this.messages().filter((message) => message.id < 0)];
     const merged: ChatMessage[] = [];
     for (const message of mapped) {
-      const localIndex = remaining.findIndex(
-        (local) => local.direction === message.direction && local.text === message.text
-      );
-      if (localIndex >= 0) {
-        merged.push({ ...message, attachments: remaining[localIndex].attachments });
-        remaining.splice(localIndex, 1);
+      const pendingIndex = pending.findIndex((local) => local.direction === message.direction);
+      if (pendingIndex >= 0) {
+        merged.push({ ...message, attachments: pending[pendingIndex].attachments });
+        pending.splice(pendingIndex, 1);
       } else {
         merged.push(message);
       }
     }
-    this.messages.set([...merged, ...remaining]);
+    this.messages.set([...merged, ...pending]);
   }
 
   private mapApiMessage(message: ChatMessageApi): ChatMessage {
@@ -195,7 +193,8 @@ export class CalculationChatComponent {
       time: new Date(message.timestamp).toLocaleTimeString('ru-RU', {
         hour: '2-digit',
         minute: '2-digit'
-      })
+      }),
+      timestamp: message.timestamp
     };
   }
 
@@ -304,9 +303,7 @@ export class CalculationChatComponent {
   }
 
   private startReplyPolling() {
-    if (this.agentStatus() !== null) {
-      return;
-    }
+    this.stopReplyPolling();
 
     this.agentStatus.set('thinking');
     this.pollTimer = setInterval(() => this.checkForResult(), POLL_INTERVAL_MS);
@@ -355,7 +352,7 @@ export class CalculationChatComponent {
         this.messages.update((messages) => {
           if (
             messages.some(
-              (message) => message.text === reply.content && message.direction === 'incoming'
+              (message) => message.direction === 'incoming' && message.timestamp === reply.timestamp
             )
           ) {
             return messages;
@@ -366,6 +363,7 @@ export class CalculationChatComponent {
               id: this.nextLocalMessageId--,
               direction: 'incoming',
               text: reply.content,
+              timestamp: reply.timestamp,
               time: new Date(reply.timestamp).toLocaleTimeString('ru-RU', {
                 hour: '2-digit',
                 minute: '2-digit'
