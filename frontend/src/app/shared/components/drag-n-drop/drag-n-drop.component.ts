@@ -36,7 +36,7 @@ import { previewKindFor } from './file-preview.model';
 import { FilePreviewComponent } from './file-preview.component';
 import { ProgressBarComponent } from '../progress-bar/progress-bar.component';
 import { Spinner } from '../spinner/spinner.component';
-import { UploadSimulatorService } from '../../../core/services/upload-simulator.service';
+import { AttachmentUploadService } from '../../../core/services/attachment-upload.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import { fileTypeStyleFor } from './file-type-icons';
 import type { FileTypeStyle } from './file-type-icons';
@@ -85,13 +85,14 @@ export class DragNDropComponent implements OnDestroy {
 
   readonly showItemPercent = input(true);
   readonly inputId = input<string>();
+  readonly sessionId = input<string>();
 
   readonly filesChange = output<File[]>();
   readonly uploadingChange = output<boolean>();
 
   readonly previewKindFor = previewKindFor;
 
-  private readonly simulator = inject(UploadSimulatorService);
+  private readonly uploader = inject(AttachmentUploadService);
   private readonly notifications = inject(NotificationService);
 
   private readonly activeUploads = new Map<string, Subscription>();
@@ -322,8 +323,13 @@ export class DragNDropComponent implements OnDestroy {
 
   private startItem(item: UploadItem): void {
     this.patchItem(item.id, { status: 'uploading' });
-    const subscription = this.simulator
-      .upload(item, {
+    const sessionId = this.sessionId();
+    if (!sessionId) {
+      this.finishItem(item.id);
+      return;
+    }
+    const subscription = this.uploader
+      .upload(item, sessionId, {
         onProgress: (uploaded) => this.patchItem(item.id, { uploaded })
       })
       .subscribe({
@@ -363,6 +369,9 @@ export class DragNDropComponent implements OnDestroy {
   }
 
   private notifyUploadCompleted(): void {
+    if (!this.sessionId()) {
+      return;
+    }
     const items = this.items();
     const failedCount = items.filter((item) => item.status === 'error').length;
     if (failedCount > 0) {

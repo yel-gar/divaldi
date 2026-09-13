@@ -96,6 +96,64 @@ describe('ChatService', () => {
     expect(result?.running).toBe(true);
   });
 
+  it('performs the attachment upload pipeline requests', () => {
+    const uploads: unknown[] = [];
+
+    service
+      .requestUpload(SESSION_ID, {
+        content_type: 'application/pdf',
+        file_size: 1024,
+        filename: 'деталь.pdf'
+      })
+      .subscribe((params) => uploads.push(params));
+    service.confirmUploaded(SESSION_ID, 7).subscribe((response) => uploads.push(response));
+    service.attachmentStatus(SESSION_ID, 7).subscribe((response) => uploads.push(response));
+    service.getAttachmentUrl(SESSION_ID, 7).subscribe((url) => uploads.push(url));
+
+    const requestReq = http.expectOne(
+      (r) => r.url === `${environment.apiUrl}/chats/${SESSION_ID}/uploads` && r.method === 'POST'
+    );
+    expect(requestReq.request.body).toEqual({
+      content_type: 'application/pdf',
+      file_size: 1024,
+      filename: 'деталь.pdf'
+    });
+    requestReq.flush({
+      attachment_id: 7,
+      params: { url: 'https://minio/upload', fields: { key: 'attachments/1' } }
+    });
+
+    const uploadedReq = http.expectOne(
+      (r) =>
+        r.url === `${environment.apiUrl}/chats/${SESSION_ID}/uploads/7/uploaded` &&
+        r.method === 'POST'
+    );
+    uploadedReq.flush({ message: 'File uploaded, processing started' });
+
+    const statusReq = http.expectOne(
+      (r) =>
+        r.url === `${environment.apiUrl}/chats/${SESSION_ID}/uploads/7/status` &&
+        r.method === 'POST'
+    );
+    statusReq.flush({ status: 'completed' });
+
+    const urlReq = http.expectOne(
+      (r) =>
+        r.url === `${environment.apiUrl}/chats/${SESSION_ID}/attachments/7` && r.method === 'GET'
+    );
+    urlReq.flush({ attachment_url: 'https://minio/download', filename: 'kp.xlsx' });
+
+    expect(uploads).toEqual([
+      {
+        attachment_id: 7,
+        params: { url: 'https://minio/upload', fields: { key: 'attachments/1' } }
+      },
+      { message: 'File uploaded, processing started' },
+      { status: 'completed' },
+      { attachment_url: 'https://minio/download', filename: 'kp.xlsx' }
+    ]);
+  });
+
   it('removes the chat session', () => {
     let result: { deleted: boolean } | undefined;
 

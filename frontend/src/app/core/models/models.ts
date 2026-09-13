@@ -2,10 +2,28 @@ export interface ChatCreated {
   session_id: string;
 }
 
+export interface ChatAttachmentApi {
+  id: number;
+  name: string;
+}
+
+export interface ChatUploadParams {
+  attachment_id: number;
+  params: { url: string; fields: Record<string, string> };
+}
+
+export type ChatAttachmentStatus = 'uploading' | 'processing' | 'completed' | 'error';
+
+export interface ChatAttachmentUrl {
+  attachment_url: string;
+  filename: string;
+}
+
 export interface ChatMessageApi {
   id: number;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  attachments: ChatAttachmentApi[];
   timestamp: string;
 }
 
@@ -19,6 +37,8 @@ export interface ChatResultContent {
   type: 'error' | 'success';
   content: string;
   timestamp: string;
+  attachment_id: number | null;
+  update_name: string | null;
 }
 
 export interface ChatResult {
@@ -72,19 +92,8 @@ export interface UploadSpeedSample {
 
 export const MAX_CONCURRENT_UPLOADS = 3;
 
-export const MAX_FILE_SIZE = 20 * 1024 * 1024;
+export const MAX_FILE_SIZE = 30 * 1024 * 1024;
 
-export const ACCEPTED_EXTENSIONS = [
-  '.pdf',
-  '.dwg',
-  '.dxf',
-  '.xls',
-  '.xlsx',
-  '.doc',
-  '.docx',
-  '.png',
-  '.jpeg',
-  '.jpg'
-] as const;
+export const ACCEPTED_EXTENSIONS = ['.pdf', '.dxf', '.png', '.jpeg', '.jpg'] as const;
 
 export const VISIBLE_FILES_LIMIT = 5;

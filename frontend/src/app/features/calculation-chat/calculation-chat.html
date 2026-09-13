@@ -8,6 +8,7 @@
       [attr.aria-expanded]="isResultsOpen()"
       [attr.aria-controls]="id()"
       (click)="handleResultsOpen()"
+      disabled
     >
       @if (isResultsOpen()) {
       <svg lucidePanelRightClose aria-hidden="true"></svg>
@@ -24,6 +25,7 @@
           [message]="message"
           [replyDisabled]="agentStatus() !== null"
           (preview)="openAttachmentPreview($event)"
+          (download)="downloadAttachment($event)"
           (reply)="onRetryRequest()"
         />
       </li>
@@ -58,6 +60,7 @@
               aria-label="Прикрепить файлы"
             >
               <app-drag-n-drop
+                [sessionId]="id()"
                 [showItemPercent]="false"
                 (filesChange)="onFilesChange($event)"
                 (uploadingChange)="isUploading.set($event)"

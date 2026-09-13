@@ -2,16 +2,35 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { Observable } from 'rxjs';
+import { vi } from 'vitest';
 
 import { DragNDropComponent } from './drag-n-drop.component';
-import {
-  UPLOAD_SIMULATOR_TIMING,
-  UploadSimulatorService,
-  UploadSimulatorOptions
-} from '../../../core/services/upload-simulator.service';
+import { AttachmentUploadService } from '../../../core/services/attachment-upload.service';
 import { UploadItem } from '../../../core/models/models';
 
 const MB = 1024 * 1024;
+
+class FakeUploader {
+  upload(
+    item: UploadItem,
+    _sessionId: string,
+    options: { onProgress?: (uploaded: number) => void } = {}
+  ): Observable<number> {
+    let uploaded = 0;
+    return new Observable<number>((observer) => {
+      const timer = setInterval(() => {
+        uploaded = Math.min(uploaded + MB, item.size);
+        options.onProgress?.(uploaded);
+        if (uploaded >= item.size) {
+          clearInterval(timer);
+          observer.next(uploaded);
+          observer.complete();
+        }
+      }, 5);
+      return () => clearInterval(timer);
+    });
+  }
+}
 
 function makeFile(name: string, size: number): File {
   return new File(['x'.repeat(size)], name, { type: 'application/octet-stream' });
@@ -27,69 +46,12 @@ function dragEvent(type: string, files: File[] = []): DragEvent {
   return event;
 }
 
-let itemSeq = 0;
-
-function makeItem(overrides: Partial<UploadItem> = {}): UploadItem {
-  return {
-    id: 'id-' + ++itemSeq,
-    name: 'file.pdf',
-    size: MB,
-    extension: '.pdf',
-    file: makeFile('file.pdf', MB),
-    status: 'queued',
-    uploaded: 0,
-    ...overrides
-  };
-}
-
 @Component({
   selector: 'app-dnd-test-host',
   imports: [DragNDropComponent],
-  template: `<app-drag-n-drop />`
+  template: `<app-drag-n-drop [sessionId]="'test-session'" />`
 })
 class TestHost {}
-
-describe('UploadSimulatorService', () => {
-  let simulator: UploadSimulatorService;
-
-  beforeEach(() => {
-    TestBed.configureTestingModule({
-      providers: [{ provide: UPLOAD_SIMULATOR_TIMING, useValue: FAST_TIMING }]
-    });
-    simulator = TestBed.inject(UploadSimulatorService);
-  });
-
-  it('emits growing uploaded byte counts and completes at the item size', async () => {
-    const item = makeItem({ size: MB });
-    const emissions: number[] = [];
-    await new Promise<number>((resolve) => {
-      simulator.upload(item, { onProgress: (uploaded) => emissions.push(uploaded) }).subscribe({
-        complete: () => resolve(item.size),
-        error: () => resolve(-1)
-      });
-    });
-
-    expect(emissions.length).toBeGreaterThan(0);
-    expect(emissions[emissions.length - 1]).toBe(item.size);
-    expect(item.uploaded).toBe(0);
-  });
-
-  it('stops emitting after unsubscribe', async () => {
-    const item = makeItem({ size: 10 * MB });
-    const emissions: number[] = [];
-    const sub = simulator
-      .upload(item, { onProgress: (uploaded) => emissions.push(uploaded) })
-      .subscribe();
-    sub.unsubscribe();
-
-    const countAtUnsub = emissions.length;
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    expect(emissions.length).toBe(countAtUnsub);
-  });
-});
-
-const FAST_TIMING = { minChunkMs: 5, maxChunkMs: 10 };
 
 describe('DragNDropComponent', () => {
   let fixture: ComponentFixture<TestHost>;
@@ -106,7 +68,7 @@ describe('DragNDropComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [TestHost],
-      providers: [{ provide: UPLOAD_SIMULATOR_TIMING, useValue: FAST_TIMING }]
+      providers: [{ provide: AttachmentUploadService, useClass: FakeUploader }]
     }).compileComponents();
 
     fixture = TestBed.createComponent(TestHost);
@@ -187,7 +149,7 @@ describe('DragNDropComponent', () => {
   });
 
   it('rejects files with unsupported extensions and wrong size silently', () => {
-    const files = [makeFile('virus.exe', MB), makeFile('huge.pdf', 30 * MB)];
+    const files = [makeFile('virus.exe', MB), makeFile('huge.pdf', 31 * MB)];
     dropFiles(files);
 
     expect(component.items().length).toBe(0);
@@ -204,10 +166,10 @@ describe('DragNDropComponent', () => {
 
   it('skips files already added in previous drops', () => {
     dropFiles([makeFile('plan.pdf', MB)]);
-    dropFiles([makeFile('plan.pdf', MB), makeFile('new.dwg', MB)]);
+    dropFiles([makeFile('plan.pdf', MB), makeFile('new.png', MB)]);
 
     const names = component.items().map((item) => item.name);
-    expect(names).toEqual(['plan.pdf', 'new.dwg']);
+    expect(names).toEqual(['plan.pdf', 'new.png']);
     expect(component.state()).toBe('uploading');
   });
 
@@ -260,7 +222,7 @@ describe('DragNDropComponent accessibility', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [TestHost],
-      providers: [{ provide: UPLOAD_SIMULATOR_TIMING, useValue: FAST_TIMING }]
+      providers: [{ provide: AttachmentUploadService, useClass: FakeUploader }]
     }).compileComponents();
 
     fixture = TestBed.createComponent(TestHost);
@@ -268,7 +230,7 @@ describe('DragNDropComponent accessibility', () => {
       .componentInstance as DragNDropComponent;
 
     uploadSpy = vi
-      .spyOn(TestBed.inject(UploadSimulatorService), 'upload')
+      .spyOn(TestBed.inject(AttachmentUploadService), 'upload')
       .mockImplementation(() => new Observable<number>(() => () => undefined));
 
     fixture.detectChanges();
@@ -280,7 +242,7 @@ describe('DragNDropComponent accessibility', () => {
 
   it('exposes the uploader region with progressbar semantics', async () => {
     uploadSpy.mockImplementation(
-      (item: UploadItem, options: UploadSimulatorOptions = {}) =>
+      (item: UploadItem, _sessionId: string, options: { onProgress?: (n: number) => void } = {}) =>
         new Observable<number>(() => {
           options.onProgress?.(item.size / 4);
           return () => undefined;
@@ -336,18 +298,18 @@ describe('DragNDropComponent accessibility', () => {
   });
 });
 
-describe('DragNDropComponent with controlled simulator', () => {
+describe('DragNDropComponent with controlled uploader', () => {
   let fixture: ComponentFixture<TestHost>;
   let component: DragNDropComponent;
   let uploadSpy: ReturnType<typeof vi.spyOn>;
-  let lastOptions: UploadSimulatorOptions | null;
+  let lastOptions: { onProgress?: (uploaded: number) => void } | null;
 
   const getDropzone = () => fixture.debugElement.query(By.css('.dropzone__area'));
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [TestHost],
-      providers: [{ provide: UPLOAD_SIMULATOR_TIMING, useValue: FAST_TIMING }]
+      providers: [{ provide: AttachmentUploadService, useClass: FakeUploader }]
     }).compileComponents();
 
     fixture = TestBed.createComponent(TestHost);
@@ -356,23 +318,29 @@ describe('DragNDropComponent with controlled simulator', () => {
 
     lastOptions = null;
     uploadSpy = vi
-      .spyOn(TestBed.inject(UploadSimulatorService), 'upload')
-      .mockImplementation((item: UploadItem, options: UploadSimulatorOptions = {}) => {
-        lastOptions = options;
-        let uploaded = 0;
-        return new Observable<number>((observer) => {
-          const timer = setInterval(() => {
-            uploaded = Math.min(uploaded + MB, item.size);
-            options.onProgress?.(uploaded);
-            if (uploaded >= item.size) {
-              clearInterval(timer);
-              observer.next(uploaded);
-              observer.complete();
-            }
-          }, 5);
-          return () => clearInterval(timer);
-        });
-      });
+      .spyOn(TestBed.inject(AttachmentUploadService), 'upload')
+      .mockImplementation(
+        (
+          item: UploadItem,
+          _sessionId: string,
+          options: { onProgress?: (n: number) => void } = {}
+        ) => {
+          lastOptions = options;
+          let uploaded = 0;
+          return new Observable<number>((observer) => {
+            const timer = setInterval(() => {
+              uploaded = Math.min(uploaded + MB, item.size);
+              options.onProgress?.(uploaded);
+              if (uploaded >= item.size) {
+                clearInterval(timer);
+                observer.next(uploaded);
+                observer.complete();
+              }
+            }, 5);
+            return () => clearInterval(timer);
+          });
+        }
+      );
 
     fixture.detectChanges();
   });
@@ -408,7 +376,7 @@ describe('DragNDropComponent with controlled simulator', () => {
 
   it('shows «X из Y» under the name while a file is uploading', async () => {
     uploadSpy.mockImplementation(
-      (item: UploadItem, options: UploadSimulatorOptions = {}) =>
+      (item: UploadItem, _sessionId: string, options: { onProgress?: (n: number) => void } = {}) =>
         new Observable<number>(() => {
           const timer = setTimeout(() => {
             options.onProgress?.(item.size / 2);
@@ -461,21 +429,27 @@ describe('DragNDropComponent with controlled simulator', () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(component.items()[0].status).toBe('error');
 
-    uploadSpy.mockImplementation((item: UploadItem, options: UploadSimulatorOptions = {}) => {
-      let uploaded = 0;
-      return new Observable<number>((observer) => {
-        const timer = setInterval(() => {
-          uploaded = Math.min(uploaded + MB, item.size);
-          options.onProgress?.(uploaded);
-          if (uploaded >= item.size) {
-            clearInterval(timer);
-            observer.next(uploaded);
-            observer.complete();
-          }
-        }, 5);
-        return () => clearInterval(timer);
-      });
-    });
+    uploadSpy.mockImplementation(
+      (
+        item: UploadItem,
+        _sessionId: string,
+        options: { onProgress?: (n: number) => void } = {}
+      ) => {
+        let uploaded = 0;
+        return new Observable<number>((observer) => {
+          const timer = setInterval(() => {
+            uploaded = Math.min(uploaded + MB, item.size);
+            options.onProgress?.(uploaded);
+            if (uploaded >= item.size) {
+              clearInterval(timer);
+              observer.next(uploaded);
+              observer.complete();
+            }
+          }, 5);
+          return () => clearInterval(timer);
+        });
+      }
+    );
 
     fixture.debugElement
       .query(By.css('.upload-item__action[aria-label="Повторить"]'))

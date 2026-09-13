@@ -5,13 +5,8 @@ import { By } from '@angular/platform-browser';
 import { previewKindFor, mimeTypeFor } from './file-preview.model';
 import { FilePreviewComponent } from './file-preview.component';
 import { DragNDropComponent } from './drag-n-drop.component';
-import {
-  UPLOAD_SIMULATOR_TIMING,
-  UploadSimulatorService
-} from '../../../core/services/upload-simulator.service';
+import { AttachmentUploadService } from '../../../core/services/attachment-upload.service';
 import { Observable } from 'rxjs';
-
-const FAST_TIMING = { minChunkMs: 5, maxChunkMs: 10 };
 
 function makeFile(name: string, contents: BlobPart = 'x', type = 'application/octet-stream'): File {
   return new File([contents], name, { type });
@@ -193,7 +188,7 @@ describe('FilePreviewComponent', () => {
 @Component({
   selector: 'app-dnd-preview-test-host',
   imports: [DragNDropComponent],
-  template: `<app-drag-n-drop />`
+  template: `<app-drag-n-drop [sessionId]="'test-session'" />`
 })
 class PreviewTestHost {}
 
@@ -222,7 +217,12 @@ describe('DragNDropComponent preview integration', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [PreviewTestHost],
-      providers: [{ provide: UPLOAD_SIMULATOR_TIMING, useValue: FAST_TIMING }]
+      providers: [
+        {
+          provide: AttachmentUploadService,
+          useValue: { upload: () => new Observable<number>(() => () => undefined) }
+        }
+      ]
     }).compileComponents();
 
     fixture = TestBed.createComponent(PreviewTestHost);
@@ -230,7 +230,7 @@ describe('DragNDropComponent preview integration', () => {
       .componentInstance as DragNDropComponent;
 
     completers = new Map();
-    uploadSpy = vi.spyOn(TestBed.inject(UploadSimulatorService), 'upload').mockImplementation(
+    uploadSpy = vi.spyOn(TestBed.inject(AttachmentUploadService), 'upload').mockImplementation(
       (item) =>
         new Observable<number>((observer) => {
           completers.set(item.id, () => {
@@ -271,15 +271,15 @@ describe('DragNDropComponent preview integration', () => {
   });
 
   it('hides the eye button for formats without preview support', () => {
-    dropFiles([makeFile('деталь.dwg'), makeFile('doc.pdf')]);
+    dropFiles([makeFile('деталь.dxf'), makeFile('doc.pdf')]);
     finishAllUploads();
 
     const rows = fixture.debugElement.queryAll(By.css('.upload-item'));
-    const dwgRow = rows.find((row) => row.nativeElement.textContent.includes('деталь.dwg'));
+    const dxfRow = rows.find((row) => row.nativeElement.textContent.includes('деталь.dxf'));
     const pdfRow = rows.find((row) => row.nativeElement.textContent.includes('doc.pdf'));
 
-    expect(dwgRow?.query(By.css('button[aria-label="Предпросмотр"]'))).toBeNull();
-    expect(dwgRow?.query(By.css('button[aria-label="Удалить"]'))).not.toBeNull();
+    expect(dxfRow?.query(By.css('button[aria-label="Предпросмотр"]'))).toBeNull();
+    expect(dxfRow?.query(By.css('button[aria-label="Удалить"]'))).not.toBeNull();
     expect(pdfRow?.query(By.css('button[aria-label="Предпросмотр"]'))).not.toBeNull();
   });
 
