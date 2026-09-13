@@ -13,6 +13,7 @@ from app.cache import get_deletion_key, get_generation_key, get_redis_client
 from app.harness import HARNESS_STRUCTURED_SCHEMA
 from app.models.auth import User
 from app.models.chat import (
+    MAX_CHAT_NAME_LENGTH,
     Attachment,
     ChatMessage,
     ChatSession,
@@ -39,7 +40,10 @@ async def _add_error_result(db: AsyncSession, session: uuid.UUID, error_msg: str
 
 
 async def _generate_kp(session_id: uuid.UUID, positions: list[Position]) -> Attachment:
-    data = await asyncio.to_thread(_generate_kp_job, positions)
+    if len(positions) > 10:
+        log.warning("too_many_positions")
+        # TODO: support more positions
+    data = await asyncio.to_thread(_generate_kp_job, positions[:10])
     s3_key = get_s3_attachment_key(session_id, "kp.xlsx")
     async with storage.internal_client() as s3:
         await s3.put_object(
@@ -174,8 +178,11 @@ async def process_response(user_uuid: uuid.UUID, session_id: uuid.UUID, response
             if output.chat_name:
                 session = await db.get(ChatSession, session_id)
                 if session is not None and session.name != "Новый чат":
-                    session.name = output.chat_name
-                    update_name = output.chat_name
+                    chat_name = output.chat_name
+                    if len(chat_name) > MAX_CHAT_NAME_LENGTH:
+                        chat_name = chat_name[: MAX_CHAT_NAME_LENGTH - 3].rstrip() + "..."
+                    session.name = chat_name
+                    update_name = chat_name
 
             result = GenerationResult(
                 chat_session_id=session_id,
