@@ -12,6 +12,7 @@ export interface ChatMessageApi {
 export interface UserChat {
   session_id: string;
   last_message: ChatMessageApi;
+  name: string;
 }
 
 export interface ChatResultContent {

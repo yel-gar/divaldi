@@ -27,6 +27,9 @@
             </button>
           </th>
           <th scope="col">
+            <span>Последнее сообщение</span>
+          </th>
+          <th scope="col">
             <span class="visually-hidden">Открыть заявку</span>
           </th>
         </tr>
@@ -36,6 +39,9 @@
         <tr (click)="open(chat.session_id)">
           <td>{{ shortId(chat.session_id) }}</td>
           <td>{{ formatDate(chat.last_message.timestamp) }}</td>
+          <td>
+            <span class="history-message">{{ chat.last_message.content }}</span>
+          </td>
           <td>
             <a
               class="history-row-link"
