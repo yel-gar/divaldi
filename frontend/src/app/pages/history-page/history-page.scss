@@ -52,6 +52,10 @@
   & tbody tr {
     cursor: pointer;
 
+    & td {
+      transition: background 250ms;
+    }
+
     &:hover td {
       background: var(--color-hover-secondary);
     }
