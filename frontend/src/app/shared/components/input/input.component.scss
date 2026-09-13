@@ -107,6 +107,12 @@
     opacity: 0.5;
   }
 
+  &[type='date'] {
+    &::-webkit-calendar-picker-indicator {
+      opacity: 0;
+    }
+  }
+
   &:disabled {
     cursor: not-allowed;
   }
