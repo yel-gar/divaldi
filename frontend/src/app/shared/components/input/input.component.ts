@@ -33,7 +33,7 @@ import { noop } from 'rxjs';
 export class InputComponent implements ControlValueAccessor, OnInit {
   readonly inputId = input<string>();
   readonly placeholder = input('');
-  readonly type = input<'text' | 'password' | 'email' | 'number' | 'tel' | 'url'>('text');
+  readonly type = input<'text' | 'password' | 'email' | 'number' | 'tel' | 'url' | 'date'>('text');
   readonly maxLength = input<number>();
   readonly leftIcon = input<LucideIcon>();
   readonly rightIcon = input<LucideIcon>();

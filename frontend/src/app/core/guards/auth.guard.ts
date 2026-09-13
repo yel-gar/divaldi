@@ -22,11 +22,17 @@ export const adminGuard: CanActivateFn = () => {
   const profile = inject(ProfileService);
   const router = inject(Router);
 
-  const user = profile.user();
-  if (!user) {
-    return router.createUrlTree(['/login']);
+  const checkAdmin = () =>
+    profile.user()?.is_superuser ? true : router.createUrlTree(['/create']);
+
+  if (profile.user()) {
+    return checkAdmin();
   }
-  return user.is_superuser ? true : router.createUrlTree(['/create']);
+
+  return profile.fetchMe().pipe(
+    map(checkAdmin),
+    catchError(() => of(router.createUrlTree(['/login'])))
+  );
 };
 
 export const publicGuard: CanActivateFn = () => {

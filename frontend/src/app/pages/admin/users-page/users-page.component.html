@@ -1,0 +1,172 @@
+<section class="section">
+  <div class="users-container">
+    <header class="section__header users__header">
+      <div>
+        <h1 class="h2">Пользователи</h1>
+        <p class="h4">Управление учетными записями и правами доступа</p>
+      </div>
+      <button
+        type="button"
+        class="users-add button button--main button--centered h3"
+        (click)="resetForm()"
+      >
+        <svg size="18" lucidePlus aria-hidden="true"></svg>
+        <span>Новый пользователь</span>
+      </button>
+    </header>
+
+    <div class="users-grid">
+      <article class="users-card">
+        <app-input
+          inputId="user-search"
+          placeholder="Поиск пользователя..."
+          [leftIcon]="searchIcon"
+          [value]="search()"
+          (valueChange)="search.set($event)"
+        />
+
+        @if (loading()) {
+          <div class="users-card__state">
+            <app-spinner [size]="28" />
+          </div>
+        } @else if (filteredUsers().length === 0) {
+          <p class="users-card__state users-card__state--empty">
+            {{ search() ? 'Пользователи не найдены' : 'Пока нет пользователей' }}
+          </p>
+        } @else {
+          <table class="users-table">
+            <thead>
+              <tr>
+                <th scope="col">Пользователь</th>
+                <th scope="col">Имя</th>
+                <th scope="col">Статус</th>
+                <th scope="col">Действия</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (user of filteredUsers(); track user.id) {
+                <tr>
+                  <td>
+                    <div class="users-table__user">
+                      <span class="users-table__avatar">{{ initials(user) }}</span>
+                      <span class="users-table__username">{{ user.username }}</span>
+                    </div>
+                  </td>
+                  <td>{{ fullName(user) }}</td>
+                  <td>
+                    <span
+                      class="badge"
+                      [class.badge--success]="userStatus(user) === 'active'"
+                      [class.badge--warning]="userStatus(user) === 'expiring'"
+                      [class.badge--muted]="userStatus(user) === 'expired'"
+                      >{{ statusLabel(userStatus(user)) }}</span
+                    >
+                  </td>
+                  <td>
+                    <div class="users-table__actions">
+                      <button
+                        type="button"
+                        class="users-table__action"
+                        (click)="selectUser(user)"
+                        aria-label="Редактировать"
+                      >
+                        <svg size="16" lucidePencil aria-hidden="true"></svg>
+                      </button>
+                      <button
+                        type="button"
+                        class="users-table__action users-table__action--danger"
+                        (click)="deleteUser(user)"
+                        aria-label="Удалить"
+                      >
+                        <svg size="16" lucideTrash2 aria-hidden="true"></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </article>
+
+      <article class="users-card">
+        <h2 class="users-card__title">
+          {{ isEditMode() ? 'Редактирование пользователя' : 'Новый пользователь' }}
+        </h2>
+        <form class="users-form" [formGroup]="userForm" (ngSubmit)="submit()">
+          <div class="users-form__field">
+            <label class="users-form__label" for="first-name"
+              >Имя <span class="required">*</span></label
+            >
+            <app-input
+              formControlName="first_name"
+              inputId="first-name"
+              placeholder="Иван"
+              [maxLength]="60"
+            />
+          </div>
+          <div class="users-form__field">
+            <label class="users-form__label" for="last-name"
+              >Фамилия <span class="required">*</span></label
+            >
+            <app-input
+              formControlName="last_name"
+              inputId="last-name"
+              placeholder="Иванов"
+              [maxLength]="60"
+            />
+          </div>
+          <div class="users-form__field">
+            <label class="users-form__label" for="username"
+              >Имя пользователя (username) <span class="required">*</span></label
+            >
+            <app-input
+              formControlName="username"
+              inputId="username"
+              placeholder="ivanov"
+              [maxLength]="32"
+            />
+          </div>
+          <div class="users-form__field">
+            <label class="users-form__label" for="password"
+              >{{ isEditMode() ? 'Новый пароль' : 'Пароль' }}
+              @if (!isEditMode()) {
+                <span class="required">*</span>
+              }
+            </label>
+            <app-input
+              formControlName="password"
+              inputId="password"
+              [type]="showPassword() ? 'text' : 'password'"
+              placeholder="Минимум 8 символов"
+              autocomplete="new-password"
+              [maxLength]="128"
+              [rightIcon]="showPassword() ? eyeOffIcon : eyeIcon"
+              [rightIconInteractive]="true"
+              (rightIconClick)="togglePassword()"
+            />
+          </div>
+          <div class="users-form__field">
+            <label class="users-form__label" for="expires-at"
+              >Дата истечения действия аккаунта</label
+            >
+            <app-input
+              formControlName="expires_at"
+              inputId="expires-at"
+              type="date"
+              [rightIcon]="calendarIcon"
+            />
+          </div>
+          <div class="users-form__actions">
+            <button type="button" class="button button--outline h3" (click)="resetForm()">
+              Отмена
+            </button>
+            <button type="submit" class="button button--main h3" [disabled]="isSubmitting()">
+              Сохранить
+            </button>
+          </div>
+        </form>
+      </article>
+    </div>
+  </div>
+</section>

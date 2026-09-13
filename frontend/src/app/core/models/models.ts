@@ -34,6 +34,23 @@ export interface User {
   is_superuser: boolean;
 }
 
+export interface AdminUser {
+  id: number;
+  username: string;
+  first_name: string | null;
+  last_name: string | null;
+  is_superuser: boolean;
+  expires_at: string | null;
+}
+
+export interface AdminUserPayload {
+  username: string;
+  password?: string;
+  first_name: string | null;
+  last_name: string | null;
+  expires_at: string | null;
+}
+
 export type UploadState = 'idle' | 'uploading' | 'completed';
 
 export type UploadItemStatus = 'queued' | 'uploading' | 'done' | 'error';

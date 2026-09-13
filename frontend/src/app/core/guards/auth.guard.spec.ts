@@ -75,9 +75,31 @@ describe('Auth guards', () => {
     expect(profile.user()?.username).toBe('admin');
   });
 
-  it('adminGuard redirects to /login when the profile is not loaded', () => {
-    const result = runGuard(adminGuard);
-    expect(result.toString()).toBe('/login');
+  it('adminGuard fetches the profile and allows superusers', async () => {
+    const allowed = firstValueFrom(runGuard(adminGuard) as Observable<boolean>);
+
+    http.expectOne(ME_URL).flush(testUser);
+
+    expect(await allowed).toBe(true);
+    expect(profile.user()?.username).toBe('admin');
+  });
+
+  it('adminGuard fetches the profile and blocks non-superusers', async () => {
+    const result = firstValueFrom(runGuard(adminGuard) as Observable<UrlTree>);
+
+    http.expectOne(ME_URL).flush({ ...testUser, is_superuser: false });
+
+    expect((await result).toString()).toBe('/create');
+  });
+
+  it('adminGuard redirects to /login when the profile fetch fails', async () => {
+    const tree$ = firstValueFrom(runGuard(adminGuard) as Observable<UrlTree>);
+
+    const req = http.expectOne(ME_URL);
+    req.flush({ detail: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
+
+    expect((await tree$).toString()).toBe('/login');
+    expect(profile.user()).toBeNull();
   });
 
   it('adminGuard blocks non-superusers', () => {

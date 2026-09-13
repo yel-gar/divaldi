@@ -1,0 +1,216 @@
+.users-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.users-add {
+  gap: 7px;
+
+  & > svg {
+    position: relative;
+    top: 1px;
+  }
+}
+
+.users__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+
+  & h1,
+  & p {
+    margin: 0;
+  }
+
+  & .button {
+    flex-shrink: 0;
+  }
+}
+
+.users-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 24px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.users-card {
+  padding: 24px;
+
+  background: var(--color-white);
+  border: 1px solid var(--color-outline);
+  border-radius: 12px;
+
+  &__title {
+    margin: 0 0 16px;
+  }
+
+  &__state {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    padding: 32px 0;
+    margin: 16px 0 0;
+
+    &--empty {
+      color: var(--color-gray);
+    }
+  }
+}
+
+.users-table {
+  width: 100%;
+  margin-top: 16px;
+
+  border-collapse: collapse;
+  text-align: left;
+
+  & th {
+    padding: 10px 8px;
+
+    border-bottom: 1px solid var(--color-outline);
+
+    color: var(--color-gray);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.4px;
+  }
+
+  & td {
+    padding: 12px 8px;
+
+    border-bottom: 1px solid var(--color-outline);
+  }
+
+  & tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  &__user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__avatar {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+
+    width: 32px;
+    height: 32px;
+
+    background: var(--color-hover-secondary);
+    border-radius: 50%;
+
+    color: var(--color-main);
+    font-size: 12px;
+  }
+
+  &__username {
+    color: var(--color-gray);
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  &__action {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+
+    width: 32px;
+    height: 32px;
+    padding: 0;
+
+    background: none;
+    border: none;
+    border-radius: 8px;
+
+    color: var(--color-gray);
+    cursor: pointer;
+
+    transition:
+      color 0.15s ease,
+      background-color 0.15s ease;
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+
+    &:hover {
+      background: var(--color-hover-secondary);
+      color: var(--color-main);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-main);
+      outline-offset: 2px;
+    }
+
+    &--danger:hover {
+      color: var(--color-danger);
+    }
+  }
+}
+
+.badge {
+  display: inline-block;
+
+  padding: 4px 10px;
+
+  border-radius: 12px;
+
+  font-size: 12px;
+  font-weight: 500;
+
+  &--success {
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+
+    color: var(--color-success);
+  }
+
+  &--warning {
+    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+
+    color: var(--color-warning);
+  }
+
+  &--muted {
+    background: var(--color-secondary);
+
+    color: var(--color-gray);
+  }
+}
+
+.users-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  margin-top: 30px;
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+
+    margin-top: 8px;
+  }
+}

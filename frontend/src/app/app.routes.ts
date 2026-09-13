@@ -8,12 +8,23 @@ import { SettingsPage } from './pages/settings-page/settings-page.component';
 import { ProfilePage } from './pages/profile-page/profile-page';
 import { LoginPageComponent } from './pages/login-page/login-page.component';
 import { adminGuard, authGuard, publicGuard } from './core/guards/auth.guard';
+import { UsersPageComponent } from './pages/admin/users-page/users-page.component';
 
 export const routes: Routes = [
   {
     path: 'login',
     component: LoginPageComponent,
     canActivate: [publicGuard]
+  },
+  {
+    path: 'admin',
+    component: Layout,
+    canActivate: [authGuard, adminGuard],
+    data: { navItems: ADMIN_NAV_ITEMS, role: 'admin' },
+    children: [
+      { path: '', redirectTo: '/admin/users', pathMatch: 'full' },
+      { path: 'users', component: UsersPageComponent }
+    ]
   },
   {
     path: '',
@@ -26,14 +37,7 @@ export const routes: Routes = [
       { path: 'settings', component: SettingsPage },
       { path: 'chats', component: HistoryPage },
       { path: 'chats/:id', component: CalculationChatComponent },
-      { path: 'profile', component: ProfilePage },
-      { path: '**', redirectTo: '/create' }
+      { path: 'profile', component: ProfilePage }
     ]
-  },
-  {
-    path: 'admin',
-    component: Layout,
-    canActivate: [authGuard, adminGuard],
-    data: { navItems: ADMIN_NAV_ITEMS, role: 'admin' }
   }
 ];

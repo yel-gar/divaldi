@@ -8,6 +8,14 @@
 
   display: flex;
 
+  &--black-text {
+    color: var(--color-black);
+  }
+
+  &--white-text {
+    color: var(--color-white);
+  }
+
   &--centered {
     align-items: center;
     justify-content: center;
