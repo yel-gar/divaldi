@@ -1,5 +1,6 @@
 import {
   afterRenderEffect,
+  ChangeDetectionStrategy,
   Component,
   DestroyRef,
   effect,
@@ -53,6 +54,7 @@ const POLL_TIMEOUT_MS = 5 * 60 * 1000;
     InputComponent
   ],
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class.results-open]': 'isResultsOpen()',
     '(document:pointerdown)': 'onDocumentPointerdown($event)',
@@ -93,6 +95,7 @@ export class CalculationChatComponent {
     inject(DestroyRef).onDestroy(() => this.clearAgentTimers());
 
     const initial = this.initialChatState.consume();
+    this.hasPendingInitialMessage = initial !== null;
     if (initial) {
       this.messages.set([
         {
@@ -137,6 +140,7 @@ export class CalculationChatComponent {
   readonly messages = signal<ChatMessage[]>([]);
   private nextLocalMessageId = -1;
   private currentSessionId: string | null = null;
+  private hasPendingInitialMessage = false;
 
   private loadHistory(sessionId: string): void {
     this.chatService
@@ -158,8 +162,26 @@ export class CalculationChatComponent {
       .subscribe((apiMessages) => {
         this.mergeApiMessages(apiMessages);
 
+        const wasInitialSend = this.hasPendingInitialMessage;
+        this.hasPendingInitialMessage = false;
+
         const last = this.messages()[this.messages().length - 1];
         if (last && last.direction === 'outgoing') {
+          if (wasInitialSend) {
+            this.startReplyPolling();
+          } else {
+            this.resumePollingIfAgentRunning(sessionId);
+          }
+        }
+      });
+  }
+
+  private resumePollingIfAgentRunning(sessionId: string): void {
+    this.chatService
+      .result(sessionId)
+      .pipe(catchError(() => EMPTY))
+      .subscribe((chatResult) => {
+        if (chatResult.running && this.id() === sessionId) {
           this.startReplyPolling();
         }
       });
