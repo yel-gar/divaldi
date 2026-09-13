@@ -377,7 +377,7 @@ async def attachment_uploaded(
 ):
     lock = redis.lock(f"attachment:upload:lock:{attachment_id}", timeout=10)
     if not await lock.acquire(blocking=False):
-        raise HTTPException(status_code=422, detail="Stop spamming")
+        raise HTTPException(status_code=429, detail="Stop spamming")
     try:
         if await redis.get(get_attachment_status_key(attachment_id)) not in {
             "uploading",
