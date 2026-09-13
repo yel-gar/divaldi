@@ -37,10 +37,10 @@ x-backend-service: &backend-service
       condition: service_healthy
     migrate:
       condition: service_completed_successfully
-#    minio:
-#      condition: service_healthy
-#    minio-init:
-#      condition: service_completed_successfully
+    minio:
+      condition: service_healthy
+    minio-init:
+      condition: service_completed_successfully
 
 services:
   frontend:
