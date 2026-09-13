@@ -11,8 +11,8 @@ export class ChatService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiUrl}/chats`;
 
-  create(content: string): Observable<ChatCreated> {
-    return this.http.post<ChatCreated>(`${this.baseUrl}/`, { content });
+  create(): Observable<ChatCreated> {
+    return this.http.post<ChatCreated>(`${this.baseUrl}/`, {});
   }
 
   list(): Observable<UserChat[]> {

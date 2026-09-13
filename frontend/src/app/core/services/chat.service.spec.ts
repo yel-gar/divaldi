@@ -27,13 +27,13 @@ describe('ChatService', () => {
   it('creates a chat and returns the session id', () => {
     let result: { session_id: string } | undefined;
 
-    service.create('Нужен расчёт фланца DN100').subscribe((created) => {
+    service.create().subscribe((created) => {
       result = created;
     });
 
     const req = http.expectOne(`${environment.apiUrl}/chats/`);
     expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({ content: 'Нужен расчёт фланца DN100' });
+    expect(req.request.body).toEqual({});
     req.flush({ session_id: SESSION_ID }, { status: 202, statusText: 'Accepted' });
 
     expect(result?.session_id).toBe(SESSION_ID);
