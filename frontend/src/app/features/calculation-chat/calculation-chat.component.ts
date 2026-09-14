@@ -136,14 +136,14 @@ export class CalculationChatComponent {
       )
       .subscribe(async ({ attachment_url, filename }) => {
         try {
-          const response = await fetch(attachment_url);
+          const response = await fetch(attachment_url, { cache: 'no-store' });
           if (!response.ok) {
             this.notifications.error('Ссылка на файл недоступна — попробуйте ещё раз');
             return;
           }
           onLoaded(new File([await response.blob()], filename));
         } catch {
-          this.notifications.error('Не удалось открыть файл');
+          this.notifications.error('Не удалось получить файл');
         }
       });
   }
