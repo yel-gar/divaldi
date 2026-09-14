@@ -345,6 +345,9 @@ export class CalculationChatComponent {
 
     const text = this.messageInputValue().trim();
     if (!text) {
+      if (this.attachedFiles().length > 0) {
+        this.notifications.error('Добавьте текст к сообщению');
+      }
       return;
     }
 
