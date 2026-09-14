@@ -18,11 +18,11 @@
   </header>
   <div class="chat-container">
     <ul #chatMessages class="chat-messages" role="log" aria-label="История сообщений">
-      @for (message of messages(); track message.id) {
+      @for (message of messages(); track message.id; let last = $last) {
       <li>
         <app-chat-message
           [message]="message"
-          [replyDisabled]="true"
+          [failed]="lastMessageFailed() && last"
           (preview)="openAttachmentPreview($event)"
           (download)="downloadAttachment($event)"
           (reply)="onRetryRequest()"

@@ -77,6 +77,7 @@ export class CalculationChatComponent {
   readonly attachedFiles = signal<File[]>([]);
   readonly isUploading = signal(false);
   readonly isSending = signal(false);
+  readonly lastMessageFailed = signal(false);
   readonly previewedFile = signal<File | null>(null);
 
   readonly sessionFiles = computed(() => {
@@ -199,6 +200,7 @@ export class CalculationChatComponent {
       if (isSessionSwitch) {
         this.stopReplyPolling();
         this.messages.set([]);
+        this.lastMessageFailed.set(false);
       }
       this.loadHistory(sessionId);
     });
@@ -414,6 +416,7 @@ export class CalculationChatComponent {
   private startReplyPolling() {
     this.stopReplyPolling();
 
+    this.lastMessageFailed.set(false);
     this.agentStatus.set('thinking');
     this.pollTimer = setInterval(() => this.checkForResult(), POLL_INTERVAL_MS);
     this.pollTimeoutTimer = setTimeout(() => {
@@ -453,6 +456,7 @@ export class CalculationChatComponent {
 
         this.stopReplyPolling();
         if (chatResult.result.type === 'error') {
+          this.lastMessageFailed.set(true);
           this.notifications.error('Агент не смог обработать запрос — попробуйте позже');
           return;
         }
