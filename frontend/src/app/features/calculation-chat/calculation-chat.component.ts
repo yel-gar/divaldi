@@ -280,7 +280,8 @@ export class CalculationChatComponent {
       if (pendingIndex >= 0) {
         merged.push({
           ...message,
-          attachments: message.attachments ?? pending[pendingIndex].attachments
+          attachments: message.attachments ?? pending[pendingIndex].attachments,
+          status: message.status ?? pending[pendingIndex].status
         });
         pending.splice(pendingIndex, 1);
       } else {

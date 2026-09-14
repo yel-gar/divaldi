@@ -8,12 +8,17 @@ import {
   Validators
 } from '@angular/forms';
 import { Router } from '@angular/router';
-import { catchError, EMPTY, finalize, map, switchMap } from 'rxjs';
+import { catchError, EMPTY, finalize, forkJoin, map, of, switchMap } from 'rxjs';
 import { ChatService } from '../../core/services/chat.service';
+import { AttachmentUploadService } from '../../core/services/attachment-upload.service';
 import { InitialChatStateService } from '../../core/services/initial-chat-state.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { UploadItem } from '../../core/models/models';
 import { DragNDropComponent } from '../../shared/components/drag-n-drop/drag-n-drop.component';
 import { Textarea } from '../../shared/components/textarea/textarea.component';
+import { getFileExtension } from '../../shared/utils/upload-format';
+import { createId } from '../../shared/utils/create-id';
+import { extractApiErrorMessage } from '../../shared/utils/api-error';
 import { LucideArrowRight } from '@lucide/angular';
 
 function trimmedRequired(control: AbstractControl): ValidationErrors | null {
@@ -31,6 +36,7 @@ export class OrderCreateComponent {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly chatService = inject(ChatService);
+  private readonly attachmentUpload = inject(AttachmentUploadService);
   private readonly initialChatState = inject(InitialChatStateService);
   private readonly notifications = inject(NotificationService);
 
@@ -58,16 +64,26 @@ export class OrderCreateComponent {
 
     this.isSubmitting.set(true);
     const { description } = this.orderForm.getRawValue();
+    const files = this.selectedFiles();
 
     this.chatService
       .create()
       .pipe(
         switchMap(({ session_id }) =>
+          (files.length
+            ? forkJoin(files.map((file) => this.uploadFile(session_id, file)))
+            : of([])
+          ).pipe(map(() => session_id))
+        ),
+        switchMap((session_id) =>
           this.chatService.send(session_id, description.trim()).pipe(map(() => session_id))
         ),
         finalize(() => this.isSubmitting.set(false)),
-        catchError((err: HttpErrorResponse) => {
-          const msg = err.error?.detail || err.error?.message || err.message || 'Ошибка сервера';
+        catchError((err: HttpErrorResponse | Error) => {
+          const msg =
+            err instanceof HttpErrorResponse
+              ? extractApiErrorMessage(err)
+              : (err.message ?? 'Ошибка сервера');
           this.notifications.error('Не удалось создать заявку: ' + msg);
           return EMPTY;
         })
@@ -77,11 +93,24 @@ export class OrderCreateComponent {
           this.notifications.success('Новый чат создан');
           this.initialChatState.set({
             text: description.trim(),
-            files: this.selectedFiles()
+            files
           });
           this.orderForm.reset();
           this.router.navigate(['/chats', session_id]);
         }
       });
+  }
+
+  private uploadFile(sessionId: string, file: File) {
+    const item: UploadItem = {
+      id: createId(),
+      name: file.name,
+      size: file.size,
+      extension: getFileExtension(file.name),
+      file,
+      status: 'queued',
+      uploaded: 0
+    };
+    return this.attachmentUpload.upload(item, sessionId);
   }
 }
