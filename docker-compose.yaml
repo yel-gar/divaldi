@@ -56,13 +56,11 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
-    mem_limit: 1G
 
   backend:
     <<: *backend-service
     ports:
       - ${BACKEND_PORT:-3000}:3000
-    mem_limit: 1G
 
   migrate:
     build:
@@ -79,25 +77,18 @@ services:
   scheduler:
     <<: *backend-service
     command: "poetry run taskiq scheduler app.tasks.conf.scheduler:scheduler -fsd -tp 'app/tasks/*.py'"
-    mem_limit: 512M
 
   worker_default:
     <<: *backend-service
     command: "poetry run taskiq worker -w 2 app.tasks.conf.workers:default_worker -fsd -tp 'app/tasks/*.py'"
     deploy:
       replicas: 2
-      resources:
-        limits:
-          memory: 1G
 
   worker_network:
     <<: *backend-service
     command: "poetry run taskiq worker -w 2 app.tasks.conf.workers:network_worker -fsd -tp 'app/tasks/*.py'"
     deploy:
       replicas: 2
-      resources:
-        limits:
-          memory: 1G
 
   taskiq_dashboard:
     image: ghcr.io/danfimov/taskiq-dashboard:v0.4.4
@@ -134,7 +125,6 @@ services:
       retries: 5
       start_period: 5s
     shm_size: '512mb'
-    mem_limit: 2G
 
   redis:
     image: redis:8-alpine
@@ -149,7 +139,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 5s
-    mem_limit: 2G
 
   rabbitmq:
     image: rabbitmq:4-management-alpine
@@ -168,7 +157,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    mem_limit: 2G
 
   minio:
     image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772

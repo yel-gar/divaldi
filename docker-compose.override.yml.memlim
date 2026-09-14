@@ -1,0 +1,38 @@
+services:
+  frontend:
+    mem_limit: 64M
+
+  backend:
+    mem_limit: 384M
+
+  scheduler:
+    mem_limit: 256M
+
+  worker_default:
+    mem_limit: 512M
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  worker_network:
+    mem_limit: 512M
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  db:
+    mem_limit: 512M
+
+  redis:
+    mem_limit: 128M
+
+  rabbitmq:
+    mem_limit: 384M
+
+  minio:
+    mem_limit: 256M
+
+  taskiq_dashboard:
+    mem_limit: 192M
