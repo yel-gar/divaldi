@@ -25,7 +25,7 @@ class SberProvider(AIClient):
         self._client = AsyncClient(
             base_url="https://api.giga.chat/v2",
             verify=ssl.create_default_context(cafile=Path("res/gigachat-ca.cer")),
-            timeout=Timeout(connect=5.0, read=120.0, write=30.0, pool=5.0),
+            timeout=Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0),
         )
 
     async def auth(self):
@@ -105,7 +105,7 @@ class SberProvider(AIClient):
         x_client_id: uuid.UUID,
         x_session_id: uuid.UUID,
         content_type: str,
-    ) -> str | None:
+    ) -> str:
         x_request_id = str(uuid.uuid4())
         log = self._log.bind(
             x_request_id=x_request_id,
@@ -127,6 +127,7 @@ class SberProvider(AIClient):
         )
         if r.status_code != 200:
             log.error("upload_failure", reponse=r.json(), status_code=r.status_code)
+            raise RuntimeError("upload_failure")
 
         json_data = r.json()
         log.debug("upload_response", data=json_data)

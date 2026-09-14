@@ -11,7 +11,8 @@ from app.util import get_debug, get_origins
 log = structlog.stdlib.get_logger()
 
 log.info("Starting server")
-if get_debug():
+debug = get_debug()
+if debug:
     log.warning("DEBUG mode is enabled")
 else:
     log.warning("PRODUCTION mode is enabled")
@@ -29,9 +30,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    openapi_url="/api/v1/openapi.json",
-    docs_url="/api/v1/docs",
-    redoc_url="/api/v1/redoc",
+    openapi_url="/api/v1/openapi.json" if debug else None,
+    docs_url="/api/v1/docs" if debug else None,
+    redoc_url="/api/v1/redoc" if debug else None,
     lifespan=lifespan,
 )
 app.add_middleware(

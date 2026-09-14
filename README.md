@@ -40,6 +40,8 @@ PS> .\createsuperuser.ps1
 
 7. You're all set 🤙
 
+(Optional) if you'd like to, you can configure and fine-tune memory limits by copying `docker-compose.override.yml.memlim` to `docker-compose.override.yml` and adjusting. By default there are no memory limits.
+
 ---
 
 ## Developers setup
