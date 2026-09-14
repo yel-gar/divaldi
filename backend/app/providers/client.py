@@ -41,7 +41,7 @@ class AIClient(ABC):
         x_client_id: uuid.UUID,
         x_session_id: uuid.UUID,
         content_type: str,
-    ) -> str | None: ...
+    ) -> str: ...
 
     @abstractmethod
     async def generate(

@@ -105,7 +105,7 @@ class SberProvider(AIClient):
         x_client_id: uuid.UUID,
         x_session_id: uuid.UUID,
         content_type: str,
-    ) -> str | None:
+    ) -> str:
         x_request_id = str(uuid.uuid4())
         log = self._log.bind(
             x_request_id=x_request_id,
@@ -127,6 +127,7 @@ class SberProvider(AIClient):
         )
         if r.status_code != 200:
             log.error("upload_failure", reponse=r.json(), status_code=r.status_code)
+            raise RuntimeError("upload_failure")
 
         json_data = r.json()
         log.debug("upload_response", data=json_data)
