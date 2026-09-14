@@ -85,19 +85,21 @@ describe('FilePreviewComponent', () => {
     const fixture = compile(makeFile('битый.docx', 'not a zip'));
     await waitForPhase(fixture, 'error');
 
-    const dialog = fixture.nativeElement.querySelector('dialog');
-    expect(dialog.hasAttribute('open')).toBe(true);
+    expect(fixture.nativeElement.querySelector('.file-preview')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.file-preview__warning')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('[role="alert"]')).not.toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Не удалось открыть предпросмотр');
   });
 
-  it('renders a spreadsheet into styled tables per sheet', async () => {
+  it('renders a spreadsheet with sheet tabs and a single table', async () => {
     const fixture = compile(makeFile('sheet.xlsx', 'any bytes'));
     await waitForPhase(fixture, 'ready');
 
     expect(fixture.componentInstance.phase()).toBe('ready');
-    expect(fixture.nativeElement.querySelector('.file-preview__sheet-name')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.file-preview__sheet-tabs')).not.toBeNull();
+    const activeTab = fixture.nativeElement.querySelector('.file-preview__sheet-tab--active');
+    expect(activeTab).not.toBeNull();
+    expect(activeTab.getAttribute('aria-selected')).toBe('true');
     expect(fixture.nativeElement.querySelector('.file-preview__sheet-table table')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.file-preview__warning')).toBeNull();
   });
@@ -158,7 +160,8 @@ describe('FilePreviewComponent', () => {
     const fixture = compile(makeFile('doc.pdf'));
     await waitForPhase(fixture, 'ready');
 
-    const dialog = fixture.nativeElement.querySelector('dialog');
+    const dialog = fixture.nativeElement.querySelector('dialog.file-preview');
+    expect(dialog).not.toBeNull();
     expect(dialog.getAttribute('aria-labelledby')).toBe('file-preview-title');
     const titleEl = fixture.nativeElement.querySelector('#file-preview-title');
     expect(titleEl?.textContent?.trim()).toBe('doc.pdf');
@@ -176,8 +179,6 @@ describe('FilePreviewComponent', () => {
       fixture.detectChanges();
       await fixture.whenStable();
 
-      const dialog = fixture.nativeElement.querySelector('dialog');
-      expect(dialog.hasAttribute('open')).toBe(false);
       expect(closedEmitted).toBe(true);
     } finally {
       fixture.destroy();
@@ -261,7 +262,7 @@ describe('DragNDropComponent preview integration', () => {
     const previewHost = fixture.debugElement.query(By.css('app-file-preview'));
     expect(previewHost).not.toBeNull();
     expect(component.previewItem()?.file).toBe(pdf);
-    expect(previewHost.nativeElement.querySelector('dialog')).not.toBeNull();
+    expect(previewHost.nativeElement.querySelector('.file-preview')).not.toBeNull();
 
     previewHost.componentInstance.close();
     fixture.detectChanges();

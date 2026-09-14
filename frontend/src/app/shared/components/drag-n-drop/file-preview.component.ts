@@ -48,6 +48,8 @@ export class FilePreviewComponent implements AfterViewInit {
   private objectUrls: string[] = [];
   private renderedFile: File | null = null;
   private renderSeq = 0;
+  private isClosing = false;
+  private finishCloseListener: (() => void) | null = null;
 
   constructor() {
     effect(() => {
@@ -86,21 +88,8 @@ export class FilePreviewComponent implements AfterViewInit {
     this.finishCloseListener = this.runWithExitAnimation(dialog, () => this.teardownDialog(dialog));
   }
 
-  onBackdropClick(event: MouseEvent): void {
-    if (event.target === this.dialogRef().nativeElement) {
-      this.close();
-    }
-  }
-
-  private isClosing = false;
-
-  private finishCloseListener: (() => void) | null = null;
-
   private runWithExitAnimation(dialog: HTMLDialogElement, onDone: () => void): () => void {
     dialog.classList.add('file-preview--closing');
-
-    const panel = dialog.querySelector('.file-preview__panel');
-    const animated = panel instanceof HTMLElement ? panel : dialog;
 
     let finished = false;
     const finish = (): void => {
@@ -108,16 +97,16 @@ export class FilePreviewComponent implements AfterViewInit {
         return;
       }
       finished = true;
-      animated.removeEventListener('animationend', finish);
+      dialog.removeEventListener('animationend', finish);
       clearTimeout(fallbackTimer);
       onDone();
     };
 
     const fallbackTimer = setTimeout(finish, 400);
-    animated.addEventListener('animationend', finish);
+    dialog.addEventListener('animationend', finish);
 
     return () => {
-      animated.removeEventListener('animationend', finish);
+      dialog.removeEventListener('animationend', finish);
       clearTimeout(fallbackTimer);
     };
   }
@@ -212,34 +201,57 @@ export class FilePreviewComponent implements AfterViewInit {
     const buffer = await file.arrayBuffer();
     const XLSX = await import('xlsx');
     const workbook = XLSX.read(buffer);
-    const sections = document.createDocumentFragment();
-
-    for (const sheetName of workbook.SheetNames) {
-      const tableHtml = XLSX.utils.sheet_to_html(workbook.Sheets[sheetName]);
-      const table = this.importTableHtml(tableHtml);
-      if (!table) {
-        continue;
-      }
-      const section = document.createElement('section');
-      section.className = 'file-preview__sheet';
-
-      const heading = document.createElement('h3');
-      heading.className = 'file-preview__sheet-name h5';
-      heading.textContent = sheetName;
-
-      const tableHost = document.createElement('div');
-      tableHost.className = 'file-preview__sheet-table';
-      tableHost.appendChild(table);
-
-      section.appendChild(heading);
-      section.appendChild(tableHost);
-      sections.appendChild(section);
-    }
-
-    if (!sections.childElementCount) {
+    const sheetNames = workbook.SheetNames;
+    if (!sheetNames.length) {
       throw new Error('Spreadsheet has no renderable sheets');
     }
-    return sections;
+
+    const workbookEl = document.createElement('div');
+    workbookEl.className = 'file-preview__workbook';
+
+    const tabs = document.createElement('div');
+    tabs.className = 'file-preview__sheet-tabs';
+    tabs.setAttribute('role', 'tablist');
+    tabs.setAttribute('aria-label', 'Листы книги');
+
+    const sheetArea = document.createElement('div');
+    sheetArea.className = 'file-preview__sheet-area';
+
+    const tableHost = document.createElement('div');
+    tableHost.className = 'file-preview__sheet-table';
+    sheetArea.appendChild(tableHost);
+
+    let activeButton: HTMLButtonElement | null = null;
+
+    const selectSheet = (name: string, button: HTMLButtonElement): void => {
+      const table = this.importTableHtml(XLSX.utils.sheet_to_html(workbook.Sheets[name]));
+      tableHost.replaceChildren();
+      if (table) {
+        tableHost.appendChild(table);
+      }
+      activeButton?.classList.remove('file-preview__sheet-tab--active');
+      activeButton?.setAttribute('aria-selected', 'false');
+      button.classList.add('file-preview__sheet-tab--active');
+      button.setAttribute('aria-selected', 'true');
+      activeButton = button;
+    };
+
+    sheetNames.forEach((name, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'file-preview__sheet-tab';
+      button.setAttribute('role', 'tab');
+      button.textContent = name;
+      button.addEventListener('click', () => selectSheet(name, button));
+      tabs.appendChild(button);
+      if (index === 0) {
+        selectSheet(name, button);
+      }
+    });
+
+    workbookEl.appendChild(tabs);
+    workbookEl.appendChild(sheetArea);
+    return workbookEl;
   }
 
   private importTableHtml(tableHtml: string): Node | null {
