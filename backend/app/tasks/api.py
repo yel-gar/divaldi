@@ -34,10 +34,11 @@ from app.tasks.conf.broker import broker, tsq_db
 log = structlog.stdlib.get_logger(__name__)
 
 
-async def _add_error_result(db: AsyncSession, session: uuid.UUID, error_msg: str):
+async def _add_error_result(db: AsyncSession, session: uuid.UUID, error_msg: str, user_uuid: uuid.UUID):
     db.add(GenerationResult(chat_session_id=session, type=GenerationResultType.ERROR, content=error_msg))
     await db.commit()
-
+    async with get_redis_client() as redis:
+        await redis.delete(get_generation_key(user_uuid))
 
 async def _generate_kp(session_id: uuid.UUID, positions: list[Position]) -> Attachment:
     if len(positions) > 10:
@@ -82,7 +83,7 @@ async def generate_chat_message(session: uuid.UUID):
         user = await db.scalar(select(User).join(User.chat_sessions).where(ChatSession.session_id == session).limit(1))
         if user is None:
             log.error("no_user_for_session", session=session)
-            await _add_error_result(db, session, "Invalid message session")
+            await _add_error_result(db, session, "Invalid message session", uuid.uuid4())
             return
         key = get_generation_key(user.uuid)
         async with get_redis_client() as redis_client:
@@ -98,7 +99,7 @@ async def generate_chat_message(session: uuid.UUID):
             messages = [Message.from_chat_message(msg) for msg in messages_data]
             if not messages:
                 log.error("no_messages_for_session", session=session)
-                await _add_error_result(db, session, "Invalid message session: no messages to send")
+                await _add_error_result(db, session, "Invalid message session: no messages to send", user.uuid)
                 return
 
             log.debug("text_message_generation", last_message=messages[-1])
@@ -128,7 +129,7 @@ async def generate_chat_message(session: uuid.UUID):
                 raise ValueError("null_response")
         except Exception as e:
             log.error("generate_chat_message_error", session=session, error=e)
-            await _add_error_result(db, session, "Internal server error occurred")
+            await _add_error_result(db, session, "Internal server error occurred", user.uuid)
             return
 
         async with tsq_db() as db:
@@ -143,7 +144,7 @@ async def generate_chat_message(session: uuid.UUID):
                 return
             if not response.messages or not response.messages[0].content:
                 log.error("empty_response", session=session)
-                await _add_error_result(db, session, "Provider did not respond properly")
+                await _add_error_result(db, session, "Provider did not respond properly", user.uuid)
                 return
 
             # If the session got deleted during worker execution, don't add response there.
@@ -157,7 +158,7 @@ async def generate_chat_message(session: uuid.UUID):
     except Exception as e:
         log.error("generation_unknown_exception", exc=e)
         async with tsq_db() as db:
-            await _add_error_result(db, session, "Internal server error occurred")
+            await _add_error_result(db, session, "Internal server error occurred", user.uuid)
         async with get_redis_client() as redis_client:
             await redis_client.delete(key)
 
@@ -205,7 +206,7 @@ async def process_response(user_uuid: uuid.UUID, session_id: uuid.UUID, response
     except Exception as e:
         log.error("processing_unknown_exception", exc=e)
         async with tsq_db() as db:
-            await _add_error_result(db, session_id, "Internal server error occurred")
+            await _add_error_result(db, session_id, "Internal server error occurred", user_uuid)
     finally:
         async with get_redis_client() as redis:
             await redis.delete(redis_generation_key)

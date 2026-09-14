@@ -4,6 +4,7 @@ import {
   LucideCheck,
   LucideClock,
   LucideCopy,
+  LucideDownload,
   LucideDynamicIcon,
   LucideEye,
   LucideRefreshCw
@@ -21,6 +22,7 @@ import { ChatMessage, ChatMessageAttachment } from './chat-message.model';
     LucideCheck,
     LucideClock,
     LucideCopy,
+    LucideDownload,
     LucideDynamicIcon,
     LucideEye,
     LucideRefreshCw
@@ -41,6 +43,7 @@ export class ChatMessageComponent {
   });
 
   readonly preview = output<ChatMessageAttachment>();
+  readonly download = output<ChatMessageAttachment>();
   readonly reply = output<void>();
 
   readonly copied = signal(false);

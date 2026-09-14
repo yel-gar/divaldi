@@ -17,15 +17,26 @@
           <svg size="18" [lucideIcon]="iconFor(attachment.name)" aria-hidden="true"></svg>
         </span>
         <span class="message__attachment-name">{{ attachment.name }}</span>
+        @if (attachment.size) {
         <span class="message__attachment-size">{{ formatBytes(attachment.size) }}</span>
+        }
         <button
           type="button"
           class="button button--outline button--centered message__attachment-preview"
           aria-label="Предпросмотр"
-          [disabled]="!attachment.file"
+          [disabled]="!attachment.file && !attachment.attachmentId"
           (click)="preview.emit(attachment)"
         >
           <svg size="16" lucideEye aria-hidden="true"></svg>
+        </button>
+        <button
+          type="button"
+          class="button button--outline button--centered message__attachment-preview"
+          aria-label="Скачать"
+          [disabled]="!attachment.file && !attachment.attachmentId"
+          (click)="download.emit(attachment)"
+        >
+          <svg size="16" lucideDownload aria-hidden="true"></svg>
         </button>
       </li>
       }

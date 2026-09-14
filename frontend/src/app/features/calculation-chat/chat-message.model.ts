@@ -4,8 +4,9 @@ export type ChatMessageStatus = 'sending' | 'sent';
 
 export interface ChatMessageAttachment {
   name: string;
-  size: number;
+  size?: number;
   file?: File;
+  attachmentId?: number;
 }
 
 export interface ChatMessage {

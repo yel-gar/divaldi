@@ -3,9 +3,7 @@
   class="file-preview"
   tabindex="-1"
   aria-labelledby="file-preview-title"
-  (click)="onBackdropClick($event)"
   (cancel)="$event.preventDefault(); close()"
-  (keydown.escape)="close()"
 >
   <div class="file-preview__panel">
     <header class="file-preview__header">

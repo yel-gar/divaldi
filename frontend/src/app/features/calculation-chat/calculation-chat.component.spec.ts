@@ -15,24 +15,28 @@ const USER_MESSAGES = [
     id: 1,
     role: 'user',
     content: 'Проверка реального API: расчёт кронштейна из стали 3',
+    attachments: [],
     timestamp: '2026-09-12T12:18:35.689095Z'
   },
   {
     id: 6,
     role: 'user',
     content: 'Проверка отправки на реальный бэкенд',
+    attachments: [],
     timestamp: '2026-09-12T13:08:59.615770Z'
   },
   {
     id: 8,
     role: 'user',
     content: 'Привет! Посчитай стоимость изготовления фланца DN100',
+    attachments: [],
     timestamp: '2026-09-12T13:16:33.090762Z'
   },
   {
     id: 20,
     role: 'user',
     content: 'Проверка анимации статуса',
+    attachments: [],
     timestamp: '2026-09-12T14:00:52.321248Z'
   }
 ];
@@ -43,6 +47,7 @@ const ANSWERED_MESSAGES = [
     id: 21,
     role: 'assistant',
     content: 'Ответ агента',
+    attachments: [],
     timestamp: '2026-09-12T14:01:30.000000Z'
   }
 ];

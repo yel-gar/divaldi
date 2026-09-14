@@ -25,7 +25,7 @@ class SberProvider(AIClient):
         self._client = AsyncClient(
             base_url="https://api.giga.chat/v2",
             verify=ssl.create_default_context(cafile=Path("res/gigachat-ca.cer")),
-            timeout=Timeout(connect=5.0, read=120.0, write=30.0, pool=5.0),
+            timeout=Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0),
         )
 
     async def auth(self):

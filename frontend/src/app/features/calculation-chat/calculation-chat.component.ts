@@ -2,6 +2,7 @@ import {
   afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
+  computed,
   DestroyRef,
   effect,
   ElementRef,
@@ -11,16 +12,18 @@ import {
   viewChild
 } from '@angular/core';
 import {
-  LucideFileText,
+  LucideDownload,
+  LucideDynamicIcon,
+  LucideEye,
   LucidePanelRightClose,
   LucidePanelRightOpen,
   LucidePaperclip,
   LucideSendHorizontal,
   LucideTrash2
 } from '@lucide/angular';
+import type { LucideIconData } from '@lucide/angular';
 import { HttpErrorResponse } from '@angular/common/http';
 import { EMPTY, catchError, finalize } from 'rxjs';
-import { ProgressBarComponent } from '../../shared/components/progress-bar/progress-bar.component';
 import { DragNDropComponent } from '../../shared/components/drag-n-drop/drag-n-drop.component';
 import { ChatMessageComponent } from './chat-message.component';
 import { ChatMessage, ChatMessageAttachment, ChatMessageStatus } from './chat-message.model';
@@ -33,6 +36,8 @@ import { ChatService } from '../../core/services/chat.service';
 import { extractApiErrorMessage } from '../../shared/utils/api-error';
 import { Router } from '@angular/router';
 import { InputComponent } from '../../shared/components/input/input.component';
+import { fileTypeStyleFor } from '../../shared/components/drag-n-drop/file-type-icons';
+import { getFileExtension } from '../../shared/utils/upload-format';
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
@@ -44,8 +49,9 @@ const POLL_TIMEOUT_MS = 5 * 60 * 1000;
     LucidePanelRightOpen,
     LucidePaperclip,
     LucideSendHorizontal,
-    LucideFileText,
-    ProgressBarComponent,
+    LucideDownload,
+    LucideEye,
+    LucideDynamicIcon,
     DragNDropComponent,
     LucideTrash2,
     ChatMessageComponent,
@@ -73,10 +79,82 @@ export class CalculationChatComponent {
   readonly isSending = signal(false);
   readonly previewedFile = signal<File | null>(null);
 
+  readonly sessionFiles = computed(() => {
+    const seen = new Set<number>();
+    const files: ChatMessageAttachment[] = [];
+    for (const message of this.messages()) {
+      for (const attachment of message.attachments ?? []) {
+        if (attachment.attachmentId === undefined || seen.has(attachment.attachmentId)) {
+          continue;
+        }
+        seen.add(attachment.attachmentId);
+        files.push(attachment);
+      }
+    }
+    return files;
+  });
+
+  fileIconFor(name: string): LucideIconData {
+    return fileTypeStyleFor(getFileExtension(name)).icon;
+  }
+
+  fileColorFor(name: string): string {
+    return fileTypeStyleFor(getFileExtension(name)).color;
+  }
+
   openAttachmentPreview(attachment: ChatMessageAttachment) {
     if (attachment.file) {
       this.previewedFile.set(attachment.file);
+      return;
     }
+    this.fetchServerAttachment(attachment, (file) => this.previewedFile.set(file));
+  }
+
+  downloadAttachment(attachment: ChatMessageAttachment) {
+    if (attachment.file) {
+      this.saveFile(attachment.file, attachment.file.name);
+      return;
+    }
+    this.fetchServerAttachment(attachment, (file) => this.saveFile(file, file.name));
+  }
+
+  private fetchServerAttachment(
+    attachment: ChatMessageAttachment,
+    onLoaded: (file: File) => void
+  ): void {
+    const attachmentId = attachment.attachmentId;
+    if (!attachmentId) {
+      return;
+    }
+    this.chatService
+      .getAttachmentUrl(this.id(), attachmentId)
+      .pipe(
+        catchError((err: HttpErrorResponse) => {
+          this.notifications.error('Не удалось получить файл: ' + extractApiErrorMessage(err));
+          return EMPTY;
+        })
+      )
+      .subscribe(async ({ attachment_url, filename }) => {
+        try {
+          const response = await fetch(attachment_url, { cache: 'no-store' });
+          if (!response.ok) {
+            this.notifications.error('Ссылка на файл недоступна — попробуйте ещё раз');
+            return;
+          }
+          onLoaded(new File([await response.blob()], filename));
+        } catch {
+          this.notifications.error('Не удалось получить файл');
+        }
+      });
+  }
+
+  private saveFile(file: File, filename: string): void {
+    const url = URL.createObjectURL(file);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   private readonly attachAnchor = viewChild<ElementRef<HTMLElement>>('attachAnchor');
@@ -198,7 +276,10 @@ export class CalculationChatComponent {
     for (const message of mapped) {
       const pendingIndex = pending.findIndex((local) => local.direction === message.direction);
       if (pendingIndex >= 0) {
-        merged.push({ ...message, attachments: pending[pendingIndex].attachments });
+        merged.push({
+          ...message,
+          attachments: message.attachments ?? pending[pendingIndex].attachments
+        });
         pending.splice(pendingIndex, 1);
       } else {
         merged.push(message);
@@ -216,7 +297,13 @@ export class CalculationChatComponent {
         hour: '2-digit',
         minute: '2-digit'
       }),
-      timestamp: message.timestamp
+      timestamp: message.timestamp,
+      attachments: message.attachments.length
+        ? message.attachments.map((attachment) => ({
+            name: attachment.name,
+            attachmentId: attachment.id
+          }))
+        : undefined
     };
   }
 
@@ -389,11 +476,18 @@ export class CalculationChatComponent {
               time: new Date(reply.timestamp).toLocaleTimeString('ru-RU', {
                 hour: '2-digit',
                 minute: '2-digit'
-              })
+              }),
+              attachments: reply.attachment_id
+                ? [{ name: 'kp.xlsx', attachmentId: reply.attachment_id }]
+                : undefined
             }
           ];
         });
-        this.notifications.info('Агент ответил на ваше сообщение');
+        if (reply.attachment_id) {
+          this.notifications.success('Коммерческое предложение готово');
+        } else {
+          this.notifications.info('Агент ответил на ваше сообщение');
+        }
       });
   }
 
