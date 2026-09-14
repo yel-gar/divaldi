@@ -28,7 +28,7 @@
 
   <nav class="navigation" aria-label="Основная навигация">
     <ul class="navigation__list">
-      @for (nav of navItems(); track nav.route) {
+      @for (nav of visibleNavItems(); track nav.route) {
       <li>
         <a
           class="navigation__item h3"

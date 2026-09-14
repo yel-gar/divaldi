@@ -6,7 +6,8 @@ import {
   LucideLogOut,
   LucidePanelLeftClose,
   LucidePanelLeftOpen,
-  LucidePlus
+  LucidePlus,
+  LucideShieldCheck
 } from '@lucide/angular';
 import { AuthService } from '../../../core/services/auth.service';
 import { NotificationService } from '../../../core/services/notification.service';
@@ -30,15 +31,27 @@ import { ProfileService } from '../../../core/services/profile.service';
   }
 })
 export class Sidebar {
+  private static readonly ADMIN_PANEL_ITEM: NavItem = {
+    label: 'Перейти в админ-панель',
+    icon: LucideShieldCheck,
+    route: '/admin/users'
+  };
+
   readonly navItems = input<NavItem[]>([]);
   readonly role = input<Role>();
-
   private readonly auth = inject(AuthService);
   private readonly profile = inject(ProfileService);
   private readonly notifications = inject(NotificationService);
   private readonly router = inject(Router);
 
   readonly user = this.profile.user;
+  readonly visibleNavItems = computed<NavItem[]>(() => {
+    const items = this.navItems();
+    if (this.role() !== 'user' || !this.user()?.is_superuser) {
+      return items;
+    }
+    return [...items, Sidebar.ADMIN_PANEL_ITEM];
+  });
   readonly displayName = computed(() => {
     const user = this.user();
     if (!user) {
