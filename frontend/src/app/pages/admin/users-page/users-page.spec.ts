@@ -4,7 +4,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { vi } from 'vitest';
 
-import { UsersPageComponent } from './users-page.component';
+import { UsersPage } from './users-page.component';
 import { environment } from '../../../../environments/environment';
 
 const USERS = [
@@ -45,15 +45,15 @@ const CREATED_USER = {
   expires_at: null
 };
 
-describe('UsersPageComponent', () => {
-  let fixture: ComponentFixture<UsersPageComponent>;
-  let component: UsersPageComponent;
+describe('UsersPage', () => {
+  let fixture: ComponentFixture<UsersPage>;
+  let component: UsersPage;
   let http: HttpTestingController;
 
   const rows = () => fixture.debugElement.queryAll(By.css('tbody tr'));
 
   const createPage = (): void => {
-    fixture = TestBed.createComponent(UsersPageComponent);
+    fixture = TestBed.createComponent(UsersPage);
     component = fixture.componentInstance;
     fixture.detectChanges();
     http.expectOne(`${environment.apiUrl}/admin/users`).flush(USERS);
@@ -62,7 +62,7 @@ describe('UsersPageComponent', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [UsersPageComponent],
+      imports: [UsersPage],
       providers: [provideHttpClient(), provideHttpClientTesting()]
     });
     http = TestBed.inject(HttpTestingController);

@@ -271,9 +271,11 @@ export class DragNDropComponent implements OnDestroy {
     const seen = new Set(this.items().map((item) => item.file.name + ':' + item.file.size));
     const accepted: File[] = [];
     const rejected: File[] = [];
+    const duplicates: File[] = [];
     for (const file of files) {
       const key = file.name + ':' + file.size;
       if (seen.has(key)) {
+        duplicates.push(file);
         continue;
       }
       seen.add(key);
@@ -288,6 +290,7 @@ export class DragNDropComponent implements OnDestroy {
       }
     }
     this.notifyRejected(rejected);
+    this.notifyDuplicates(duplicates);
     if (accepted.length === 0) {
       return;
     }
@@ -396,6 +399,14 @@ export class DragNDropComponent implements OnDestroy {
       this.notifications.warning(
         `Не прикреплено файлов: ${rejected.length} — неподдерживаемый тип или размер`
       );
+    }
+  }
+
+  private notifyDuplicates(duplicates: File[]): void {
+    if (duplicates.length === 1) {
+      this.notifications.warning(`Файл «${duplicates[0].name}» уже добавлен`);
+    } else if (duplicates.length > 1) {
+      this.notifications.warning(`Пропущены дубликаты файлов: ${duplicates.length}`);
     }
   }
 

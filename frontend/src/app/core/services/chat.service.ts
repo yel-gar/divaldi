@@ -9,6 +9,7 @@ import {
   ChatMessageApi,
   ChatResult,
   ChatUploadParams,
+  MessageResponse,
   UserChat
 } from '../models/models';
 
@@ -35,16 +36,16 @@ export class ChatService {
     return this.http.get<ChatResult>(`${this.baseUrl}/${sessionId}/result`);
   }
 
-  send(sessionId: string, content: string): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(`${this.baseUrl}/${sessionId}`, { content });
+  send(sessionId: string, content: string): Observable<MessageResponse> {
+    return this.http.post<MessageResponse>(`${this.baseUrl}/${sessionId}`, { content });
   }
 
   remove(sessionId: string): Observable<{ deleted: boolean }> {
     return this.http.delete<{ deleted: boolean }>(`${this.baseUrl}/${sessionId}`);
   }
 
-  retry(sessionId: string): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(`${this.baseUrl}/${sessionId}/retry`, {});
+  retry(sessionId: string): Observable<MessageResponse> {
+    return this.http.post<MessageResponse>(`${this.baseUrl}/${sessionId}/retry`, {});
   }
 
   requestUpload(
@@ -54,8 +55,8 @@ export class ChatService {
     return this.http.post<ChatUploadParams>(`${this.baseUrl}/${sessionId}/uploads`, data);
   }
 
-  confirmUploaded(sessionId: string, attachmentId: number): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(
+  confirmUploaded(sessionId: string, attachmentId: number): Observable<MessageResponse> {
+    return this.http.post<MessageResponse>(
       `${this.baseUrl}/${sessionId}/uploads/${attachmentId}/uploaded`,
       {}
     );

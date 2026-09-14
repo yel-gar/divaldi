@@ -47,9 +47,15 @@ export class LoginPageComponent {
   readonly isSubmitting = signal(false);
   readonly showPassword = signal(false);
 
-  private readonly returnUrl = this.route.snapshot.queryParamMap.get('return')?.startsWith('/')
-    ? this.route.snapshot.queryParamMap.get('return')
-    : '/create';
+  private readonly returnUrl = this.resolveReturnUrl();
+
+  private resolveReturnUrl(): string {
+    const value = this.route.snapshot.queryParamMap.get('return');
+    if (!value || !value.startsWith('/') || value.startsWith('//')) {
+      return '/create';
+    }
+    return value;
+  }
 
   togglePassword(): void {
     this.showPassword.update((visible) => !visible);

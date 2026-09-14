@@ -1,7 +1,15 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal
+} from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { finalize, map, of, switchMap } from 'rxjs';
+import { finalize } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   LucideCalendar,
   LucideEye,
@@ -23,6 +31,13 @@ type UserStatus = 'active' | 'expiring' | 'expired';
 const EXPIRING_SOON_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+function localDateInputValue(iso: string): string {
+  const date = new Date(iso);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 @Component({
   selector: 'app-users-page',
   imports: [ReactiveFormsModule, InputComponent, Spinner, LucidePlus, LucidePencil, LucideTrash2],
@@ -30,16 +45,18 @@ const DAY_MS = 24 * 60 * 60 * 1000;
   styleUrl: './users-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class UsersPageComponent {
+export class UsersPage {
   private readonly adminUsersService = inject(AdminUsersService);
   private readonly notifications = inject(NotificationService);
   private readonly fb = inject(NonNullableFormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly loading = signal(true);
   readonly users = signal<AdminUser[]>([]);
   readonly search = signal('');
   readonly selectedUser = signal<AdminUser | null>(null);
   readonly isSubmitting = signal(false);
+  readonly deletingId = signal<number | null>(null);
   readonly showPassword = signal(false);
 
   readonly filteredUsers = computed(() => {
@@ -72,7 +89,10 @@ export class UsersPageComponent {
   constructor() {
     this.adminUsersService
       .list()
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(
+        finalize(() => this.loading.set(false)),
+        takeUntilDestroyed(this.destroyRef)
+      )
       .subscribe({
         next: (users) => this.users.set(users),
         error: (err: HttpErrorResponse) => {
@@ -91,7 +111,7 @@ export class UsersPageComponent {
       last_name: user.last_name ?? '',
       username: user.username,
       password: '',
-      expires_at: user.expires_at ? user.expires_at.slice(0, 10) : ''
+      expires_at: user.expires_at ? localDateInputValue(user.expires_at) : ''
     });
     this.updatePasswordValidators();
   }
@@ -169,7 +189,7 @@ export class UsersPageComponent {
     if (last_name.trim() !== (selected.last_name ?? '')) {
       payload.last_name = last_name.trim();
     }
-    const storedExpiry = selected.expires_at ? selected.expires_at.slice(0, 10) : '';
+    const storedExpiry = selected.expires_at ? localDateInputValue(selected.expires_at) : '';
     if (expires_at !== storedExpiry) {
       payload.expires_at = expires_at ? new Date(`${expires_at}T00:00:00`).toISOString() : null;
     }
@@ -182,19 +202,29 @@ export class UsersPageComponent {
     this.isSubmitting.set(true);
     this.adminUsersService
       .edit(selected.id, payload)
-      .pipe(
-        switchMap((updated) =>
-          password
-            ? this.adminUsersService.setPassword(selected.id, password).pipe(map(() => updated))
-            : of(updated)
-        ),
-        finalize(() => this.isSubmitting.set(false))
-      )
+      .pipe(finalize(() => this.isSubmitting.set(false)))
       .subscribe({
-        next: (user) => {
-          this.notifications.success('Пользователь обновлён');
-          this.users.update((list) => list.map((item) => (item.id === user.id ? user : item)));
-          this.resetForm();
+        next: (updated) => {
+          this.users.update((list) =>
+            list.map((item) => (item.id === updated.id ? updated : item))
+          );
+          if (!password) {
+            this.notifications.success('Пользователь обновлён');
+            this.resetForm();
+            return;
+          }
+          this.adminUsersService.setPassword(selected.id, password).subscribe({
+            next: () => {
+              this.notifications.success('Пользователь обновлён');
+              this.resetForm();
+            },
+            error: (err: HttpErrorResponse) => {
+              this.notifications.error(
+                'Профиль сохранён, но пароль изменить не удалось: ' + extractApiErrorMessage(err)
+              );
+              this.resetForm();
+            }
+          });
         },
         error: (err: HttpErrorResponse) => {
           this.notifications.error(
@@ -217,28 +247,37 @@ export class UsersPageComponent {
         },
         error: (err: HttpErrorResponse) => {
           this.notifications.error(
-            'Не удалось сохранить пользователя: ' + extractApiErrorMessage(err)
+            'Не удалось создать пользователя: ' + extractApiErrorMessage(err)
           );
         }
       });
   }
 
   deleteUser(user: AdminUser): void {
+    if (this.deletingId() !== null) {
+      return;
+    }
     if (!window.confirm(`Удалить пользователя ${user.username}?`)) {
       return;
     }
-    this.adminUsersService.remove(user.id).subscribe({
-      next: () => {
-        this.users.update((list) => list.filter((item) => item.id !== user.id));
-        if (this.selectedUser()?.id === user.id) {
-          this.resetForm();
+    this.deletingId.set(user.id);
+    this.adminUsersService
+      .remove(user.id)
+      .pipe(finalize(() => this.deletingId.set(null)))
+      .subscribe({
+        next: () => {
+          this.users.update((list) => list.filter((item) => item.id !== user.id));
+          if (this.selectedUser()?.id === user.id) {
+            this.resetForm();
+          }
+          this.notifications.success('Пользователь удалён');
+        },
+        error: (err: HttpErrorResponse) => {
+          this.notifications.error(
+            'Не удалось удалить пользователя: ' + extractApiErrorMessage(err)
+          );
         }
-        this.notifications.success('Пользователь удалён');
-      },
-      error: (err: HttpErrorResponse) => {
-        this.notifications.error('Не удалось удалить пользователя: ' + extractApiErrorMessage(err));
-      }
-    });
+      });
   }
 
   private updatePasswordValidators(): void {

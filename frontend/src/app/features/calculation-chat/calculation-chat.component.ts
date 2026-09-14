@@ -31,8 +31,9 @@ import { AgentStatusComponent } from './agent-status.component';
 import { FilePreviewComponent } from '../../shared/components/drag-n-drop/file-preview.component';
 import { NotificationService } from '../../core/services/notification.service';
 import { InitialChatStateService } from '../../core/services/initial-chat-state.service';
-import { ChatMessageApi } from '../../core/models/models';
+import { ChatMessageApi, KP_FILENAME } from '../../core/models/models';
 import { ChatService } from '../../core/services/chat.service';
+import { AttachmentDownloadService } from '../../core/services/attachment-download.service';
 import { extractApiErrorMessage } from '../../shared/utils/api-error';
 import { Router } from '@angular/router';
 import { InputComponent } from '../../shared/components/input/input.component';
@@ -113,10 +114,10 @@ export class CalculationChatComponent {
 
   downloadAttachment(attachment: ChatMessageAttachment) {
     if (attachment.file) {
-      this.saveFile(attachment.file, attachment.file.name);
+      this.attachmentDownload.save(attachment.file, attachment.file.name);
       return;
     }
-    this.fetchServerAttachment(attachment, (file) => this.saveFile(file, file.name));
+    this.fetchServerAttachment(attachment, (file) => this.attachmentDownload.save(file, file.name));
   }
 
   private fetchServerAttachment(
@@ -127,35 +128,18 @@ export class CalculationChatComponent {
     if (!attachmentId) {
       return;
     }
-    this.chatService
-      .getAttachmentUrl(this.id(), attachmentId)
-      .pipe(
-        catchError((err: HttpErrorResponse) => {
-          this.notifications.error('Не удалось получить файл: ' + extractApiErrorMessage(err));
-          return EMPTY;
-        })
-      )
-      .subscribe(async ({ attachment_url, filename }) => {
-        try {
-          const response = await fetch(attachment_url, { cache: 'no-store' });
-          if (!response.ok) {
-            this.notifications.error('Ссылка на файл недоступна — попробуйте ещё раз');
-            return;
-          }
-          onLoaded(new File([await response.blob()], filename));
-        } catch {
-          this.notifications.error('Не удалось получить файл');
-        }
-      });
-  }
-
-  private saveFile(file: File, filename: string): void {
-    const url = URL.createObjectURL(file);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    this.attachmentDownload.fetchFile(this.id(), attachmentId).subscribe({
+      next: onLoaded,
+      error: (err: unknown) => {
+        this.notifications.error(
+          err instanceof HttpErrorResponse
+            ? 'Не удалось получить файл: ' + extractApiErrorMessage(err)
+            : err instanceof Error
+              ? err.message
+              : 'Не удалось получить файл'
+        );
+      }
+    });
   }
 
   private readonly attachAnchor = viewChild<ElementRef<HTMLElement>>('attachAnchor');
@@ -168,6 +152,7 @@ export class CalculationChatComponent {
   private readonly notifications = inject(NotificationService);
   private readonly initialChatState = inject(InitialChatStateService);
   private readonly chatService = inject(ChatService);
+  private readonly attachmentDownload = inject(AttachmentDownloadService);
   private readonly router = inject(Router);
 
   constructor() {
@@ -231,8 +216,7 @@ export class CalculationChatComponent {
             this.notifications.error('Заявка не найдена');
           } else {
             this.notifications.error(
-              'Не удалось загрузить историю чата: ' +
-                (err.error?.detail ?? err.message ?? 'Ошибка сервера')
+              'Не удалось загрузить историю чата: ' + extractApiErrorMessage(err)
             );
           }
 
@@ -240,6 +224,9 @@ export class CalculationChatComponent {
         })
       )
       .subscribe((apiMessages) => {
+        if (this.id() !== sessionId) {
+          return;
+        }
         this.mergeApiMessages(apiMessages);
 
         const wasInitialSend = this.hasPendingInitialMessage;
@@ -276,17 +263,18 @@ export class CalculationChatComponent {
     const pending = [...this.messages().filter((message) => message.id < 0)];
     const merged: ChatMessage[] = [];
     for (const message of mapped) {
-      const pendingIndex = pending.findIndex((local) => local.direction === message.direction);
-      if (pendingIndex >= 0) {
-        merged.push({
-          ...message,
-          attachments: message.attachments ?? pending[pendingIndex].attachments,
-          status: message.status ?? pending[pendingIndex].status
-        });
-        pending.splice(pendingIndex, 1);
-      } else {
+      const candidates = pending.filter((local) => local.direction === message.direction);
+      if (candidates.length !== 1) {
         merged.push(message);
+        continue;
       }
+      const pendingIndex = pending.indexOf(candidates[0]);
+      merged.push({
+        ...message,
+        attachments: message.attachments ?? pending[pendingIndex].attachments,
+        status: message.status ?? pending[pendingIndex].status
+      });
+      pending.splice(pendingIndex, 1);
     }
     this.messages.set([...merged, ...pending]);
   }
@@ -370,8 +358,6 @@ export class CalculationChatComponent {
       }
     ]);
     this.messageInputValue.set('');
-    this.attachedFiles.set([]);
-    this.dragNDrop()?.reset();
 
     this.isSending.set(true);
     this.chatService
@@ -380,8 +366,7 @@ export class CalculationChatComponent {
         finalize(() => this.isSending.set(false)),
         catchError((err: HttpErrorResponse) => {
           this.notifications.error(
-            'Не удалось отправить сообщение: ' +
-              (err.error?.detail ?? err.error?.message ?? err.message ?? 'Ошибка сервера')
+            'Не удалось отправить сообщение: ' + extractApiErrorMessage(err)
           );
           this.messages.update((messages) => messages.filter((m) => m.id !== messageId));
           this.messageInputValue.set(text);
@@ -390,6 +375,8 @@ export class CalculationChatComponent {
       )
       .subscribe(() => {
         this.setStatusForMessage(messageId, 'sent');
+        this.attachedFiles.set([]);
+        this.dragNDrop()?.reset();
         this.startReplyPolling();
       });
   }
@@ -425,6 +412,7 @@ export class CalculationChatComponent {
     this.pollTimer = setInterval(() => this.checkForResult(), POLL_INTERVAL_MS);
     this.pollTimeoutTimer = setTimeout(() => {
       this.stopReplyPolling();
+      this.lastMessageFailed.set(true);
       this.notifications.error('Агент не ответил — попробуйте позже');
     }, POLL_TIMEOUT_MS);
   }
@@ -450,10 +438,14 @@ export class CalculationChatComponent {
   }
 
   private checkForResult() {
+    const sessionId = this.id();
     this.chatService
-      .result(this.id())
+      .result(sessionId)
       .pipe(catchError(() => EMPTY))
       .subscribe((chatResult) => {
+        if (this.id() !== sessionId) {
+          return;
+        }
         if (chatResult.running || chatResult.result === null) {
           return;
         }
@@ -486,7 +478,7 @@ export class CalculationChatComponent {
                 minute: '2-digit'
               }),
               attachments: reply.attachment_id
-                ? [{ name: 'kp.xlsx', attachmentId: reply.attachment_id }]
+                ? [{ name: KP_FILENAME, attachmentId: reply.attachment_id }]
                 : undefined
             }
           ];

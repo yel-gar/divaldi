@@ -11,7 +11,7 @@
     <div class="message__text" [innerHTML]="renderedText()"></div>
     @if (hasAttachments()) {
     <ul class="message__attachments">
-      @for (attachment of message().attachments; track $index) {
+      @for (attachment of message().attachments; track attachment.attachmentId ?? attachment.name) {
       <li class="message__attachment">
         <span class="message__attachment-icon" [style.color]="colorFor(attachment.name)">
           <svg size="18" [lucideIcon]="iconFor(attachment.name)" aria-hidden="true"></svg>
@@ -43,7 +43,9 @@
     </ul>
     }
     <div class="message__meta">
-      <time class="message__time h5" [attr.datetime]="message().time">{{ message().time }}</time>
+      <time class="message__time h5" [attr.datetime]="message().timestamp || null"
+        >{{ message().time }}</time
+      >
       @switch (message().status) { @case ('sending') {
       <svg
         size="16"

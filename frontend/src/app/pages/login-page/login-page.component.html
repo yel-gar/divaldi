@@ -28,6 +28,7 @@
         [leftIcon]="lockIcon"
         [rightIcon]="showPassword() ? eyeOffIcon : eyeIcon"
         [rightIconInteractive]="true"
+        [rightIconLabel]="showPassword() ? 'Скрыть пароль' : 'Показать пароль'"
         (rightIconClick)="togglePassword()"
         (keydown.enter)="submit()"
       />
