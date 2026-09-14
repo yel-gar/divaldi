@@ -40,6 +40,7 @@ async def _add_error_result(db: AsyncSession, session: uuid.UUID, error_msg: str
     async with get_redis_client() as redis:
         await redis.delete(get_generation_key(user_uuid))
 
+
 async def _generate_kp(session_id: uuid.UUID, positions: list[Position]) -> Attachment:
     if len(positions) > 10:
         log.warning("too_many_positions")
