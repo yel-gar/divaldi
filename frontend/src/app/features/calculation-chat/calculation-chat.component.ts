@@ -2,6 +2,7 @@ import {
   afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
+  computed,
   DestroyRef,
   effect,
   ElementRef,
@@ -11,16 +12,18 @@ import {
   viewChild
 } from '@angular/core';
 import {
-  LucideFileText,
+  LucideDownload,
+  LucideDynamicIcon,
+  LucideEye,
   LucidePanelRightClose,
   LucidePanelRightOpen,
   LucidePaperclip,
   LucideSendHorizontal,
   LucideTrash2
 } from '@lucide/angular';
+import type { LucideIconData } from '@lucide/angular';
 import { HttpErrorResponse } from '@angular/common/http';
 import { EMPTY, catchError, finalize } from 'rxjs';
-import { ProgressBarComponent } from '../../shared/components/progress-bar/progress-bar.component';
 import { DragNDropComponent } from '../../shared/components/drag-n-drop/drag-n-drop.component';
 import { ChatMessageComponent } from './chat-message.component';
 import { ChatMessage, ChatMessageAttachment, ChatMessageStatus } from './chat-message.model';
@@ -33,6 +36,8 @@ import { ChatService } from '../../core/services/chat.service';
 import { extractApiErrorMessage } from '../../shared/utils/api-error';
 import { Router } from '@angular/router';
 import { InputComponent } from '../../shared/components/input/input.component';
+import { fileTypeStyleFor } from '../../shared/components/drag-n-drop/file-type-icons';
+import { getFileExtension } from '../../shared/utils/upload-format';
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
@@ -44,8 +49,9 @@ const POLL_TIMEOUT_MS = 5 * 60 * 1000;
     LucidePanelRightOpen,
     LucidePaperclip,
     LucideSendHorizontal,
-    LucideFileText,
-    ProgressBarComponent,
+    LucideDownload,
+    LucideEye,
+    LucideDynamicIcon,
     DragNDropComponent,
     LucideTrash2,
     ChatMessageComponent,
@@ -72,6 +78,29 @@ export class CalculationChatComponent {
   readonly isUploading = signal(false);
   readonly isSending = signal(false);
   readonly previewedFile = signal<File | null>(null);
+
+  readonly sessionFiles = computed(() => {
+    const seen = new Set<number>();
+    const files: ChatMessageAttachment[] = [];
+    for (const message of this.messages()) {
+      for (const attachment of message.attachments ?? []) {
+        if (attachment.attachmentId === undefined || seen.has(attachment.attachmentId)) {
+          continue;
+        }
+        seen.add(attachment.attachmentId);
+        files.push(attachment);
+      }
+    }
+    return files;
+  });
+
+  fileIconFor(name: string): LucideIconData {
+    return fileTypeStyleFor(getFileExtension(name)).icon;
+  }
+
+  fileColorFor(name: string): string {
+    return fileTypeStyleFor(getFileExtension(name)).color;
+  }
 
   openAttachmentPreview(attachment: ChatMessageAttachment) {
     if (attachment.file) {

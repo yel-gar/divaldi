@@ -8,7 +8,6 @@
       [attr.aria-expanded]="isResultsOpen()"
       [attr.aria-controls]="id()"
       (click)="handleResultsOpen()"
-      disabled
     >
       @if (isResultsOpen()) {
       <svg lucidePanelRightClose aria-hidden="true"></svg>
@@ -23,7 +22,7 @@
       <li>
         <app-chat-message
           [message]="message"
-          [replyDisabled]="agentStatus() !== null"
+          [replyDisabled]="true"
           (preview)="openAttachmentPreview($event)"
           (download)="downloadAttachment($event)"
           (reply)="onRetryRequest()"
@@ -98,58 +97,40 @@
   </header>
 
   <section class="calculation-results__section">
-    <h3 class="calculation-results__subtitle">Итоговые параметры</h3>
-
-    <dl class="calculation-results__params">
-      <div class="calculation-results__param-row">
-        <dt>Объём</dt>
-        <dd>10 м³</dd>
-      </div>
-      <div class="calculation-results__param-row">
-        <dt>Рабочее давление</dt>
-        <dd>6 бар</dd>
-      </div>
-      <div class="calculation-results__param-row">
-        <dt>Материал</dt>
-        <dd>Сталь 09Г2С</dd>
-      </div>
-      <div class="calculation-results__param-row">
-        <dt>Температурный режим</dt>
-        <dd>от -20°C до +50°C</dd>
-      </div>
-      <div class="calculation-results__param-row">
-        <dt>Тип резервуара</dt>
-        <dd>Горизонтальный</dd>
-      </div>
-    </dl>
-  </section>
-
-  <section class="calculation-results__section">
-    <h3 class="calculation-results__subtitle">Статус</h3>
-    <p class="calculation-results__status-text">Идёт расчёт...</p>
-
-    <app-progress-bar
-      class="calculation-results__progress"
-      [value]="46"
-      [thickness]="8"
-      label="Прогресс расчёта"
-      [showPercent]="true"
-    />
-  </section>
-
-  <section class="calculation-results__section">
     <h3 class="calculation-results__subtitle">Файлы</h3>
-    <p class="calculation-results__files-placeholder h4">
-      После завершения расчёта файлы появятся здесь.
-    </p>
+    @if (sessionFiles().length > 0) {
+    <ul class="calculation-results__files">
+      @for (file of sessionFiles(); track file.attachmentId) {
+      <li class="calculation-results__file">
+        <span class="calculation-results__file-icon" [style.color]="fileColorFor(file.name)">
+          <svg size="18" [lucideIcon]="fileIconFor(file.name)" aria-hidden="true"></svg>
+        </span>
+        <span class="calculation-results__file-name">{{ file.name }}</span>
+        <button
+          type="button"
+          class="button button--outline button--centered"
+          aria-label="Предпросмотр"
+          (click)="openAttachmentPreview(file)"
+        >
+          <svg size="16" lucideEye aria-hidden="true"></svg>
+        </button>
+        <button
+          type="button"
+          class="button button--outline button--centered"
+          aria-label="Скачать"
+          (click)="downloadAttachment(file)"
+        >
+          <svg size="16" lucideDownload aria-hidden="true"></svg>
+        </button>
+      </li>
+      }
+    </ul>
+    } @else {
+    <p class="calculation-results__files-placeholder h4">Пока нет файлов</p>
+    }
   </section>
 
   <footer class="calculation-results__actions">
-    <button type="button" class="button button--main h3">
-      <svg lucideFileText aria-hidden="true"></svg>
-      Создать КП
-    </button>
-
     <button
       type="button"
       class="button button--outline button--danger h3"
