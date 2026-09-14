@@ -113,6 +113,15 @@
   }
 }
 
+.message__failed-retry {
+  margin-top: 6px;
+  margin-left: auto;
+
+  padding: 8px 14px;
+
+  font-size: 13px;
+}
+
 :host:hover .message__backdrop,
 :host:focus-within .message__backdrop {
   opacity: 1;

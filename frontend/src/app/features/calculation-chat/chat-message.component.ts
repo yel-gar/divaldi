@@ -38,7 +38,7 @@ import { ChatMessage, ChatMessageAttachment } from './chat-message.model';
 })
 export class ChatMessageComponent {
   readonly message = input.required<ChatMessage>();
-  readonly replyDisabled = input(false, {
+  readonly failed = input(false, {
     transform: (value: boolean | string) => value === true || value === ''
   });
 

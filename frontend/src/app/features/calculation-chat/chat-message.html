@@ -78,16 +78,15 @@
       <svg size="14" lucideCopy aria-hidden="true"></svg>
       }
     </button>
-    @if (isIncoming()) {
-    <button
-      type="button"
-      class="message__action"
-      aria-label="Повторить запрос"
-      [disabled]="replyDisabled()"
-      (click)="reply.emit()"
-    >
-      <svg size="14" lucideRefreshCw aria-hidden="true"></svg>
-    </button>
-    }
   </div>
+  @if (!isIncoming() && failed()) {
+  <button
+    type="button"
+    class="button button--outline button--danger message__failed-retry"
+    (click)="reply.emit()"
+  >
+    <svg size="14" lucideRefreshCw aria-hidden="true"></svg>
+    Повторить запрос
+  </button>
+  }
 </div>

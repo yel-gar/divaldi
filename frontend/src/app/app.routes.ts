@@ -9,6 +9,7 @@ import { ProfilePage } from './pages/profile-page/profile-page';
 import { LoginPageComponent } from './pages/login-page/login-page.component';
 import { adminGuard, authGuard, publicGuard } from './core/guards/auth.guard';
 import { UsersPageComponent } from './pages/admin/users-page/users-page.component';
+import { SectionPlaceholder } from './shared/components/section-placeholder/section-placeholder.component';
 
 export const routes: Routes = [
   {
@@ -23,7 +24,22 @@ export const routes: Routes = [
     data: { navItems: ADMIN_NAV_ITEMS, role: 'admin' },
     children: [
       { path: '', redirectTo: '/admin/users', pathMatch: 'full' },
-      { path: 'users', component: UsersPageComponent }
+      { path: 'users', component: UsersPageComponent },
+      {
+        path: 'actions',
+        component: SectionPlaceholder,
+        data: { title: 'Журнал действий', subtitle: 'История действий пользователей' }
+      },
+      {
+        path: 'settings',
+        component: SectionPlaceholder,
+        data: { title: 'Настройки', subtitle: 'Параметры работы системы' }
+      },
+      {
+        path: 'system',
+        component: SectionPlaceholder,
+        data: { title: 'О системе', subtitle: 'Информация о версии и компонентах' }
+      }
     ]
   },
   {

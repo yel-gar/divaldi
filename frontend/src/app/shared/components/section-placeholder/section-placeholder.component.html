@@ -1,0 +1,14 @@
+<section class="section">
+  <header class="section__header">
+    <h1 class="h2">{{ title() }}</h1>
+    @if (subtitle()) {
+      <p class="h4">{{ subtitle() }}</p>
+    }
+  </header>
+
+  <div class="section-placeholder">
+    <svg size="40" class="section-placeholder__icon" lucideHammer aria-hidden="true"></svg>
+    <p class="h3">Раздел в разработке</p>
+    <p class="section-placeholder__hint h5">Функциональность появится в следующих обновлениях</p>
+  </div>
+</section>
