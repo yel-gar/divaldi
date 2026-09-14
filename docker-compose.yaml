@@ -101,6 +101,7 @@ services:
 
   taskiq_dashboard:
     image: ghcr.io/danfimov/taskiq-dashboard:v0.4.4
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
