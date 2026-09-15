@@ -293,15 +293,13 @@ async def upload_pdf_image(filename: str, attachment_id: int, uploadable_id: int
                 )
                 raise ValueError("required_data_null")
             data, content_type = await _s3_get_object("uploads", uploadable.s3_key)
-            async with redis.lock("uploads:pdf:lock", timeout=30):
-                sber_id = await provider.upload(
-                    filename,
-                    data,
-                    x_client_id=user_uuid,
-                    x_session_id=session_id,
-                    content_type=content_type,
-                )
-                await asyncio.sleep(1)  # gigachat will literally throw 429 on two concurrent requests
+            sber_id = await provider.upload(
+                filename,
+                data,
+                x_client_id=user_uuid,
+                x_session_id=session_id,
+                content_type=content_type,
+            )
             uploadable.sber_id = sber_id
             await db.commit()
     except Exception as e:

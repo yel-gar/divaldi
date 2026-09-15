@@ -106,7 +106,7 @@ async def generate_chat_message(session: uuid.UUID):
             log.debug("text_message_generation", last_message=messages[-1])
 
         try:
-            fut = provider.generate(
+            response = await provider.generate(
                 messages,
                 ResponseFormat(
                     type=ResponseFormat.TYPE_JSON_SCHEMA,
@@ -116,15 +116,6 @@ async def generate_chat_message(session: uuid.UUID):
                 x_client_id=user.uuid,
                 x_session_id=session,
             )
-            if provider.scope == "PERS":
-                # PERS scope only allows 1 parallel request to LLM
-                async with (
-                    get_redis_client() as redis_client,
-                    redis_client.lock("generation:lock", timeout=120, blocking_timeout=30),
-                ):
-                    response = await fut
-            else:
-                response = await fut
             log.debug("text_generation_response", response=response)
             if response is None:
                 raise ValueError("null_response")
