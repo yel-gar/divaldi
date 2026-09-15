@@ -1,11 +1,13 @@
 import uuid
 from abc import ABC, abstractmethod
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 import structlog.stdlib
 from httpx import AsyncClient, Response
 
+from app.cache import get_redis_client
 from app.providers.models import GenerationResponse, Message, ResponseFormat
 
 Scope = Literal["PERS", "B2B", "CORP"]
@@ -57,7 +59,8 @@ class AIClient(ABC):
 
     async def _authed_request(self, method: Literal["GET", "POST"], endpoint: str, **kwargs) -> Response:
         await self.ensure_fresh_token()
-        r = await self._client.request(method=method, url=endpoint, **kwargs)
+        async with self._pers_api_lock():
+            r = await self._client.request(method=method, url=endpoint, **kwargs)
         if r.status_code == 401:
             self._log.error("auth_token_refresh_failed", status_code=r.status_code)
             raise AuthorizationError()
@@ -78,3 +81,12 @@ class AIClient(ABC):
 
     async def _post(self, endpoint: str, **kwargs) -> Response:
         return await self._authed_request(method="POST", endpoint=endpoint, **kwargs)
+
+    @asynccontextmanager
+    async def _pers_api_lock(self):
+        if self.scope != "PERS":
+            yield
+            return
+        async with get_redis_client() as redis, redis.lock("api:global:lock", timeout=120, blocking_timeout=60):
+            # if exception is propagated, lock is auto-removed
+            yield
