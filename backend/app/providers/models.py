@@ -3,6 +3,7 @@ from typing import ClassVar, Literal, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.harness import MATERIALS
 from app.models.chat import ChatMessage
 
 
@@ -54,6 +55,16 @@ class Position(BaseModel):
     welding_m: float
     turning_hours: float
     painting_m2: float
+
+    @field_validator("material", mode="before")
+    @classmethod
+    def material_id_to_material_str(cls, val):
+        if isinstance(val, (int, float)):
+            try:
+                return MATERIALS[int(val)]
+            except KeyError as e:
+                raise ValueError("Invalid material id") from e
+        return val
 
 
 class HarnessStructuredOutput(BaseModel):
