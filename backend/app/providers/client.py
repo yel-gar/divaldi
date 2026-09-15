@@ -58,8 +58,8 @@ class AIClient(ABC):
         await self._client.aclose()
 
     async def _authed_request(self, method: Literal["GET", "POST"], endpoint: str, **kwargs) -> Response:
-        await self.ensure_fresh_token()
         async with self._pers_api_lock():
+            await self.ensure_fresh_token()
             r = await self._client.request(method=method, url=endpoint, **kwargs)
         if r.status_code == 401:
             self._log.error("auth_token_refresh_failed", status_code=r.status_code)

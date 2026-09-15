@@ -33,15 +33,14 @@ class SberProvider(AIClient):
         scope = "GIGACHAT_API_" + self.scope.upper()
 
         self._log.info("auth", rq_uid=rq_uid, scope=scope)
-        async with self._pers_api_lock():
-            response = await self._client.post(
-                "https://ngw.devices.sberbank.ru:9443/api/v2/oauth",
-                headers={
-                    "RqUID": rq_uid,
-                    "Authorization": f"Basic {self.api_key}",
-                },
-                data={"scope": scope},
-            )
+        response = await self._client.post(
+            "https://ngw.devices.sberbank.ru:9443/api/v2/oauth",
+            headers={
+                "RqUID": rq_uid,
+                "Authorization": f"Basic {self.api_key}",
+            },
+            data={"scope": scope},
+        )
         if response.status_code != 200:
             self._log.error(
                 "auth_failed",
