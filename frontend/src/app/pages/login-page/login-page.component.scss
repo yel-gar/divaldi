@@ -5,10 +5,10 @@
 }
 
 .auth-wrapper {
-  width: min(420px, 100% - 32px);
+  width: min(550px, 100% - 32px);
 
   display: grid;
-  gap: 24px;
+  gap: 32px;
 
   & > h1 {
     text-align: center;
@@ -42,5 +42,5 @@
 
 form {
   display: grid;
-  gap: 20px;
+  gap: 28px;
 }

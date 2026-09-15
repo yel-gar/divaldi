@@ -131,3 +131,13 @@ a {
   display: grid;
   gap: 15px;
 }
+
+.card {
+  background: var(--color-white);
+
+  border: 1px solid var(--color-outline);
+  border-radius: 20px;
+
+  padding: 50px;
+  box-shadow: 0px 20px 60px color-mix(in srgb, var(--color-main) 25%, transparent);
+}
