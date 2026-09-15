@@ -37,6 +37,8 @@ export class InputComponent implements ControlValueAccessor, OnInit {
   readonly maxLength = input<number>();
   readonly leftIcon = input<LucideIcon>();
   readonly rightIcon = input<LucideIcon>();
+  readonly leftIconLabel = input('Действие');
+  readonly rightIconLabel = input('Действие');
   readonly leftIconInteractive = input(false, {
     transform: (v: boolean | string) => v === true || v === ''
   });

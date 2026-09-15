@@ -1,13 +1,19 @@
 <div class="input-wrapper">
   @if (leftIcon()) {
-    <span
-      class="input__icon input__icon--left"
-      [class.input__icon--interactive]="leftIconInteractive()"
-      (click)="onLeftIconClick($event)"
-      aria-hidden="true"
-    >
-      <svg [lucideIcon]="leftIcon() ?? null" size="20" aria-hidden="true"></svg>
-    </span>
+    @if (leftIconInteractive()) {
+      <button
+        type="button"
+        class="input__icon input__icon--left input__icon--interactive"
+        [attr.aria-label]="leftIconLabel()"
+        (click)="onLeftIconClick($event)"
+      >
+        <svg [lucideIcon]="leftIcon() ?? null" size="20" aria-hidden="true"></svg>
+      </button>
+    } @else {
+      <span class="input__icon input__icon--left" aria-hidden="true">
+        <svg [lucideIcon]="leftIcon() ?? null" size="20" aria-hidden="true"></svg>
+      </span>
+    }
   }
   @if (asTextarea()) {
     <textarea
@@ -43,13 +49,19 @@
     />
   }
   @if (rightIcon()) {
-    <span
-      class="input__icon input__icon--right"
-      [class.input__icon--interactive]="rightIconInteractive()"
-      (click)="onRightIconClick($event)"
-      aria-hidden="true"
-    >
-      <svg [lucideIcon]="rightIcon() ?? null" size="20" aria-hidden="true"></svg>
-    </span>
+    @if (rightIconInteractive()) {
+      <button
+        type="button"
+        class="input__icon input__icon--right input__icon--interactive"
+        [attr.aria-label]="rightIconLabel()"
+        (click)="onRightIconClick($event)"
+      >
+        <svg [lucideIcon]="rightIcon() ?? null" size="20" aria-hidden="true"></svg>
+      </button>
+    } @else {
+      <span class="input__icon input__icon--right" aria-hidden="true">
+        <svg [lucideIcon]="rightIcon() ?? null" size="20" aria-hidden="true"></svg>
+      </span>
+    }
   }
 </div>

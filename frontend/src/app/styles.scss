@@ -130,10 +130,4 @@ a {
   position: relative;
   display: grid;
   gap: 15px;
-
-  &--double {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 50px;
-  }
 }

@@ -75,6 +75,7 @@
                       <button
                         type="button"
                         class="users-table__action users-table__action--danger"
+                        [disabled]="deletingId() === user.id"
                         (click)="deleteUser(user)"
                         aria-label="Удалить"
                       >
@@ -143,6 +144,7 @@
               [maxLength]="128"
               [rightIcon]="showPassword() ? eyeOffIcon : eyeIcon"
               [rightIconInteractive]="true"
+              [rightIconLabel]="showPassword() ? 'Скрыть пароль' : 'Показать пароль'"
               (rightIconClick)="togglePassword()"
             />
           </div>

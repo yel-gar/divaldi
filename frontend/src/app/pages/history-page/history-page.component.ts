@@ -1,6 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal
+} from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { LucideChevronRight, LucideChevronsUpDown } from '@lucide/angular';
 import { ChatService } from '../../core/services/chat.service';
 import { UserChat } from '../../core/models/models';
@@ -8,6 +16,11 @@ import { Spinner } from '../../shared/components/spinner/spinner.component';
 
 type SortColumn = 'number' | 'date';
 type SortDirection = 'asc' | 'desc';
+
+function timestampMs(value: string): number {
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
 
 @Component({
   selector: 'app-history-page',
@@ -19,6 +32,7 @@ type SortDirection = 'asc' | 'desc';
 export class HistoryPage {
   private readonly chatService = inject(ChatService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly loading = signal(true);
   readonly sessions = signal<UserChat[]>([]);
@@ -31,7 +45,8 @@ export class HistoryPage {
     if (this.sortColumn() === 'date') {
       return chats.sort(
         (a, b) =>
-          direction * (Date.parse(a.last_message.timestamp) - Date.parse(b.last_message.timestamp))
+          direction *
+          (timestampMs(a.last_message.timestamp) - timestampMs(b.last_message.timestamp))
       );
     }
     return chats.sort((a, b) => direction * a.session_id.localeCompare(b.session_id));
@@ -40,7 +55,10 @@ export class HistoryPage {
   constructor() {
     this.chatService
       .list()
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(
+        finalize(() => this.loading.set(false)),
+        takeUntilDestroyed(this.destroyRef)
+      )
       .subscribe((chats) => this.sessions.set(chats));
   }
 

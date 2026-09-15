@@ -13,22 +13,35 @@ export class ProfileService {
 
   readonly user = signal<User | null>(null);
   private meRequest$: Observable<User> | null = null;
+  private requestGeneration = 0;
 
   fetchMe(): Observable<User> {
     if (this.meRequest$) {
       return this.meRequest$;
     }
 
+    const generation = this.requestGeneration;
     const context = new HttpContext().set(SKIP_AUTH_ERROR_HANDLING, true);
-    this.meRequest$ = this.http.get<User>(`${environment.apiUrl}/users/me`, { context }).pipe(
-      tap((user) => this.user.set(user)),
-      finalize(() => (this.meRequest$ = null)),
+    const request = this.http.get<User>(`${environment.apiUrl}/users/me`, { context }).pipe(
+      tap((user) => {
+        if (generation === this.requestGeneration) {
+          this.user.set(user);
+        }
+      }),
+      finalize(() => {
+        if (this.meRequest$ === request) {
+          this.meRequest$ = null;
+        }
+      }),
       share()
     );
-    return this.meRequest$;
+    this.meRequest$ = request;
+    return request;
   }
 
   clear(): void {
+    this.requestGeneration++;
+    this.meRequest$ = null;
     this.user.set(null);
   }
 }

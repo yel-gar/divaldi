@@ -10,6 +10,8 @@ export interface Notification {
   providedIn: 'root'
 })
 export class NotificationService {
+  private lastError = { message: '', time: 0 };
+
   readonly notifications = signal<Notification[]>([]);
 
   success(message: string): void {
@@ -18,6 +20,15 @@ export class NotificationService {
 
   error(message: string): void {
     this.add('error', message);
+  }
+
+  errorOnce(message: string, windowMs = 3000): void {
+    const now = Date.now();
+    if (this.lastError.message === message && now - this.lastError.time < windowMs) {
+      return;
+    }
+    this.lastError = { message, time: now };
+    this.error(message);
   }
 
   info(message: string): void {

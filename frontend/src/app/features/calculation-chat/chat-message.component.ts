@@ -56,7 +56,7 @@ export class ChatMessageComponent {
   readonly hasAttachments = computed(() => (this.message().attachments?.length ?? 0) > 0);
 
   copyText(): void {
-    navigator.clipboard.writeText(this.message().text);
+    navigator.clipboard.writeText(this.message().text).catch(() => undefined);
     this.copied.set(true);
     if (this.copiedTimer !== null) {
       clearTimeout(this.copiedTimer);

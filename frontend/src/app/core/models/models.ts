@@ -71,6 +71,12 @@ export interface AdminUserPayload {
   expires_at: string | null;
 }
 
+export interface MessageResponse {
+  message: string;
+}
+
+export const KP_FILENAME = 'kp.xlsx';
+
 export type UploadState = 'idle' | 'uploading' | 'completed';
 
 export type UploadItemStatus = 'queued' | 'uploading' | 'done' | 'error';

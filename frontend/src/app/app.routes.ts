@@ -8,7 +8,7 @@ import { SettingsPage } from './pages/settings-page/settings-page.component';
 import { ProfilePage } from './pages/profile-page/profile-page';
 import { LoginPageComponent } from './pages/login-page/login-page.component';
 import { adminGuard, authGuard, publicGuard } from './core/guards/auth.guard';
-import { UsersPageComponent } from './pages/admin/users-page/users-page.component';
+import { UsersPage } from './pages/admin/users-page/users-page.component';
 import { SectionPlaceholder } from './shared/components/section-placeholder/section-placeholder.component';
 
 export const routes: Routes = [
@@ -24,7 +24,7 @@ export const routes: Routes = [
     data: { navItems: ADMIN_NAV_ITEMS, role: 'admin' },
     children: [
       { path: '', redirectTo: '/admin/users', pathMatch: 'full' },
-      { path: 'users', component: UsersPageComponent },
+      { path: 'users', component: UsersPage },
       {
         path: 'actions',
         component: SectionPlaceholder,
