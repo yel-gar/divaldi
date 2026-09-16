@@ -142,5 +142,8 @@ a {
   border-radius: 20px;
 
   padding: 50px;
-  box-shadow: 0px 20px 60px var(--color-main-shadow);
+
+  &--shadow {
+    box-shadow: 0px 20px 60px var(--color-main-shadow);
+  }
 }
