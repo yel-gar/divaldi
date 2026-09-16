@@ -200,7 +200,12 @@ export class FilePreviewComponent implements AfterViewInit {
   private async renderSpreadsheet(file: File): Promise<Node> {
     const buffer = await file.arrayBuffer();
     const XLSX = await import('xlsx');
-    const workbook = XLSX.read(buffer);
+    const workbook = XLSX.read(buffer, {
+      type: 'array',
+      cellStyles: true,
+      cellFormula: true,
+      cellNF: true
+    });
     const sheetNames = workbook.SheetNames;
     if (!sheetNames.length) {
       throw new Error('Spreadsheet has no renderable sheets');

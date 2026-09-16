@@ -37,35 +37,21 @@
 
     <footer class="chat-input-panel">
       <form class="chat-input-panel__form" (submit)="sendMessage($event)">
+        <app-drag-n-drop
+          [sessionId]="id()"
+          variant="compact"
+          (filesChange)="onFilesChange($event)"
+          (uploadingChange)="isUploading.set($event)"
+        />
         <div class="input-container">
-          <div #attachAnchor class="chat-input-panel__attach">
-            <button
-              type="button"
-              aria-label="Прикрепить файл"
-              aria-haspopup="dialog"
-              class="button button--outline chat-input-panel__paperclip-button"
-              [attr.aria-expanded]="isAttachPopupOpen()"
-              aria-controls="attach-popup"
-              (click)="toggleAttachPopup()"
-            >
-              <svg size="24" lucidePaperclip aria-hidden="true"></svg>
-            </button>
-
-            <div
-              id="attach-popup"
-              class="chat-input-panel__attach-popup"
-              [class.chat-input-panel__attach-popup--hidden]="!isAttachPopupOpen()"
-              role="dialog"
-              aria-label="Прикрепить файлы"
-            >
-              <app-drag-n-drop
-                [sessionId]="id()"
-                [showItemPercent]="false"
-                (filesChange)="onFilesChange($event)"
-                (uploadingChange)="isUploading.set($event)"
-              />
-            </div>
-          </div>
+          <button
+            type="button"
+            aria-label="Прикрепить файл"
+            class="button button--outline chat-input-panel__paperclip-button"
+            (click)="openFilePicker()"
+          >
+            <svg size="24" lucidePaperclip aria-hidden="true"></svg>
+          </button>
           <app-input
             #messageInput
             [asTextarea]="true"
@@ -147,3 +133,5 @@
 @if (previewedFile(); as file) {
 <app-file-preview [file]="file" (closed)="previewedFile.set(null)" />
 }
+
+<app-drag-overlay (filesDropped)="onFilesDropped($event)" />

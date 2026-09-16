@@ -20,6 +20,8 @@ body {
   --color-gray: #475569;
 
   --color-main: #2563eb;
+  --color-main-shadow: color-mix(in srgb, var(--color-main) 25%, transparent);
+
   --color-hover: #1d4edb;
   --color-background: #f8fafc;
   --color-secondary: #f4f6f9;
@@ -65,7 +67,8 @@ a {
 }
 
 .photo {
-  width: 60px;
+  width: 40px;
+  aspect-ratio: 1 / 1;
 
   border-radius: 50%;
   object-fit: cover;
@@ -139,5 +142,5 @@ a {
   border-radius: 20px;
 
   padding: 50px;
-  box-shadow: 0px 20px 60px color-mix(in srgb, var(--color-main) 25%, transparent);
+  box-shadow: 0px 20px 60px var(--color-main-shadow);
 }

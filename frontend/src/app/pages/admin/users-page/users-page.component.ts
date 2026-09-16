@@ -15,7 +15,6 @@ import {
   LucideEye,
   LucideEyeOff,
   LucidePencil,
-  LucidePlus,
   LucideSearch,
   LucideTrash2
 } from '@lucide/angular';
@@ -40,7 +39,7 @@ function localDateInputValue(iso: string): string {
 
 @Component({
   selector: 'app-users-page',
-  imports: [ReactiveFormsModule, InputComponent, Spinner, LucidePlus, LucidePencil, LucideTrash2],
+  imports: [ReactiveFormsModule, InputComponent, Spinner, LucidePencil, LucideTrash2],
   templateUrl: './users-page.component.html',
   styleUrl: './users-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush

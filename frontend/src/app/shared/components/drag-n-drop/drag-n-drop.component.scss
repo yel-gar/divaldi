@@ -60,6 +60,21 @@
   overflow: hidden;
   background: var(--color-white);
 
+  &--compact {
+    .uploader__list {
+      max-height: 160px;
+    }
+
+    .upload-item {
+      padding: 10px 14px;
+    }
+
+    .upload-item__icon-wrap {
+      width: 28px;
+      height: 28px;
+    }
+  }
+
   &__header {
     display: flex;
     align-items: center;

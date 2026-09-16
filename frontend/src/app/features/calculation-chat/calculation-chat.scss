@@ -52,11 +52,6 @@
   .results-aside {
     transition: none;
   }
-
-  .chat-input-panel__attach-popup,
-  .chat-input-panel__attach-popup--hidden {
-    transition: none;
-  }
 }
 
 .chat {
@@ -116,11 +111,16 @@
 
     &__form {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
 
       gap: 10px;
 
       width: 100%;
+
+      & > app-drag-n-drop {
+        flex: 1 1 100%;
+      }
     }
 
     &__paperclip-button {
@@ -129,52 +129,6 @@
 
       &:hover {
         background: var(--color-white);
-      }
-    }
-
-    &__attach {
-      position: relative;
-      display: flex;
-    }
-
-    &__attach-popup {
-      position: absolute;
-      bottom: calc(100% + 12px);
-      left: 0;
-
-      width: 380px;
-
-      padding: 16px;
-
-      background: var(--color-white);
-      border: 1px solid var(--color-outline);
-      border-radius: 10px;
-      box-shadow: 0 12px 32px rgb(15 23 42 / 0.14);
-
-      z-index: 10;
-
-      opacity: 1;
-      visibility: visible;
-
-      translate: 0 0;
-
-      transition:
-        opacity 180ms cubic-bezier(0.4, 0, 0.2, 1),
-        translate 180ms cubic-bezier(0.4, 0, 0.2, 1),
-        visibility 0s;
-
-      &--hidden {
-        opacity: 0;
-        visibility: hidden;
-
-        translate: 0 8px;
-
-        pointer-events: none;
-
-        transition:
-          opacity 150ms ease,
-          translate 150ms ease,
-          visibility 0s linear 150ms;
       }
     }
 

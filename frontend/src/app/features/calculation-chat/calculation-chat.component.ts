@@ -39,6 +39,7 @@ import { Router } from '@angular/router';
 import { InputComponent } from '../../shared/components/input/input.component';
 import { fileTypeStyleFor } from '../../shared/components/drag-n-drop/file-type-icons';
 import { getFileExtension } from '../../shared/utils/upload-format';
+import { DragOverlayComponent } from '../../shared/components/drag-n-drop/drag-overlay.component';
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
@@ -54,6 +55,7 @@ const POLL_TIMEOUT_MS = 5 * 60 * 1000;
     LucideEye,
     LucideDynamicIcon,
     DragNDropComponent,
+    DragOverlayComponent,
     LucideTrash2,
     ChatMessageComponent,
     AgentStatusComponent,
@@ -63,9 +65,7 @@ const POLL_TIMEOUT_MS = 5 * 60 * 1000;
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    '[class.results-open]': 'isResultsOpen()',
-    '(document:pointerdown)': 'onDocumentPointerdown($event)',
-    '(document:keydown.escape)': 'closeAttachPopup()'
+    '[class.results-open]': 'isResultsOpen()'
   },
   templateUrl: './calculation-chat.html',
   styleUrl: './calculation-chat.scss'
@@ -73,7 +73,6 @@ const POLL_TIMEOUT_MS = 5 * 60 * 1000;
 export class CalculationChatComponent {
   readonly id = input.required<string>();
   readonly isResultsOpen = signal<boolean>(false);
-  readonly isAttachPopupOpen = signal<boolean>(false);
   readonly agentStatus = signal<'thinking' | null>(null);
   readonly attachedFiles = signal<File[]>([]);
   readonly isUploading = signal(false);
@@ -142,7 +141,6 @@ export class CalculationChatComponent {
     });
   }
 
-  private readonly attachAnchor = viewChild<ElementRef<HTMLElement>>('attachAnchor');
   private readonly chatMessages = viewChild<ElementRef<HTMLUListElement>>('chatMessages');
   private readonly dragNDrop = viewChild(DragNDropComponent);
 
@@ -516,21 +514,11 @@ export class CalculationChatComponent {
     }
   }
 
-  toggleAttachPopup() {
-    this.isAttachPopupOpen.set(!this.isAttachPopupOpen());
+  openFilePicker(): void {
+    this.dragNDrop()?.openPicker();
   }
 
-  closeAttachPopup() {
-    this.isAttachPopupOpen.set(false);
-  }
-
-  onDocumentPointerdown(event: PointerEvent) {
-    if (!this.isAttachPopupOpen()) {
-      return;
-    }
-    const anchor = this.attachAnchor()?.nativeElement;
-    if (anchor && !anchor.contains(event.target as Node)) {
-      this.closeAttachPopup();
-    }
+  onFilesDropped(files: File[]): void {
+    this.dragNDrop()?.enqueue(files);
   }
 }
