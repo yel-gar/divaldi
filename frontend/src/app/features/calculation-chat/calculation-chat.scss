@@ -132,6 +132,10 @@
       }
     }
 
+    &__attach-button {
+      border: none;
+    }
+
     &__send-message {
       display: inline-flex;
       justify-content: center;

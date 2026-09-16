@@ -43,43 +43,44 @@
           (filesChange)="onFilesChange($event)"
           (uploadingChange)="isUploading.set($event)"
         />
-        <div class="input-container">
+        <app-input
+          #messageInput
+          [asTextarea]="true"
+          [autoResize]="true"
+          [rows]="1"
+          placeholder="Введите сообщение..."
+          ariaLabel="Введите сообщение"
+          autocomplete="off"
+          [value]="messageInputValue()"
+          (inputEvent)="onMessageInput($event)"
+          (keydown)="onMessageKeydown($event)"
+        >
           <button
+            appInputPrefix
             type="button"
             aria-label="Прикрепить файл"
-            class="button button--outline chat-input-panel__paperclip-button"
+            class="button button--outline chat-input-panel__attach-button"
             (click)="openFilePicker()"
           >
-            <svg size="24" lucidePaperclip aria-hidden="true"></svg>
+            <svg size="20" lucidePaperclip aria-hidden="true"></svg>
           </button>
-          <app-input
-            #messageInput
-            [asTextarea]="true"
-            [autoResize]="true"
-            [rows]="1"
-            placeholder="Введите сообщение..."
-            ariaLabel="Введите сообщение"
-            autocomplete="off"
-            [value]="messageInputValue()"
-            (inputEvent)="onMessageInput($event)"
-            (keydown)="onMessageKeydown($event)"
-          ></app-input>
-        </div>
-        <button
-          type="submit"
-          aria-label="Отправить"
-          class="button button--main chat-input-panel__send-message"
-          [disabled]="
-            !messageInputValue().trim() || isUploading() || isSending() || agentStatus() !== null
-          "
-        >
-          <svg size="32" lucideSendHorizontal aria-hidden="true"></svg>
-        </button>
+          <button
+            appInputSuffix
+            type="submit"
+            aria-label="Отправить"
+            class="button button--main chat-input-panel__send-button"
+            [disabled]="
+              !messageInputValue().trim() || isUploading() || isSending() || agentStatus() !== null
+            "
+          >
+            <svg size="18" lucideSendHorizontal aria-hidden="true"></svg>
+          </button>
+        </app-input>
       </form>
     </footer>
   </div>
 </section>
-<aside class="section results-aside" [attr.id]="id()">
+<aside class="section card results-aside" [attr.id]="id()">
   <header class="section__header">
     <h2 class="h2">Результаты расчёта</h2>
   </header>
