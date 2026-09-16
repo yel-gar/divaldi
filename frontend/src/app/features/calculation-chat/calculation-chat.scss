@@ -7,6 +7,10 @@
   grid-template-rows: minmax(0, 1fr);
   gap: 0;
 
+  transition:
+    grid-template-columns 350ms cubic-bezier(0.4, 0, 0.2, 1),
+    gap 350ms cubic-bezier(0.4, 0, 0.2, 1);
+
   &.results-open {
     grid-template-columns: 1.5fr 1fr;
     gap: 10px;
@@ -18,12 +22,11 @@
   overflow-x: hidden;
   overflow-y: auto;
 
-  position: relative;
-  top: 15px;
-  right: 5px;
-
-  width: calc(100% - 10px);
+  width: calc(100% - 5px);
   height: calc(100% - 20px);
+  position: relative;
+  right: 5px;
+  top: 15px;
 
   @include app-scrollbar;
 
@@ -32,28 +35,26 @@
   opacity: 0;
   visibility: hidden;
 
-  max-width: 0;
-  padding: 0 0 0 0;
-
   transition:
     opacity 250ms ease,
-    visibility 0s linear 250ms,
-    max-width 350ms cubic-bezier(0.4, 0, 0.2, 1),
-    padding 350ms cubic-bezier(0.4, 0, 0.2, 1);
+    visibility 0s linear 350ms;
 }
 
 :host(.results-open) .results-aside {
+  padding: 32px 40px;
+
+  width: calc(100% - 5px);
+  height: calc(100% - 20px);
+  position: relative;
+  right: 5px;
+  top: 15px;
+
   opacity: 1;
   visibility: visible;
 
-  max-width: 100%;
-  padding: 32px 40px;
-
   transition:
     opacity 250ms ease 100ms,
-    visibility 0s,
-    max-width 350ms cubic-bezier(0.4, 0, 0.2, 1),
-    padding 350ms cubic-bezier(0.4, 0, 0.2, 1);
+    visibility 0s;
 }
 
 @media (prefers-reduced-motion: reduce) {
