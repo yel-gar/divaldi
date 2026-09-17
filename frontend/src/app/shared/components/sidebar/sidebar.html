@@ -1,4 +1,4 @@
-<div class="sidebar">
+<aside class="sidebar">
   <div class="sidebar__header">
     <div class="logo">
       <img src="/assets/svgs/logo.svg" alt="logo" width="48" />
@@ -25,7 +25,6 @@
     <span>Создать заявку</span>
   </a>
   }
-
   <nav class="navigation" aria-label="Основная навигация">
     <ul class="navigation__list">
       @for (nav of visibleNavItems(); track nav.route) {
@@ -44,6 +43,45 @@
       }
     </ul>
   </nav>
+  @if (role() === 'user') {
+  <section class="history" aria-label="История заявок">
+    <header class="history__header">
+      <h2 class="history__title">ИСТОРИЯ</h2>
+    </header>
+
+    @if (chatsLoading()) {
+    <p class="history__state history__state--loading h4" role="status">
+      <app-spinner [size]="14" />
+      Загрузка истории…
+    </p>
+    } @else if (chatsError()) {
+    <p class="history__state h4" role="alert">Не удалось загрузить историю</p>
+    } @else if (sortedChats().length === 0) {
+    <p class="history__state h4">История пока пуста</p>
+    } @else {
+    <nav aria-label="История диалогов">
+      <ul class="history__list">
+        @for (chat of sortedChats(); track chat.id) {
+        <li>
+          <button
+            type="button"
+            class="history__item"
+            [class.history__item--active]="chat.id === activeChatId()"
+            [attr.aria-current]="chat.id === activeChatId() ? 'true' : null"
+            [attr.title]="chat.title"
+            (click)="openChat(chat.id)"
+          >
+            <svg size="16" class="history__icon" lucideMessageSquare aria-hidden="true"></svg>
+            <span class="history__item-title">{{ chat.title }}</span>
+          </button>
+        </li>
+        }
+      </ul>
+    </nav>
+    }
+  </section>
+  }
+
   <div class="profile">
     <img src="/assets/imgs/stock-man.jpg" alt="profile photo" class="photo" />
     <div class="profile__content">
@@ -61,4 +99,4 @@
       </button>
     </div>
   </div>
-</div>
+</aside>

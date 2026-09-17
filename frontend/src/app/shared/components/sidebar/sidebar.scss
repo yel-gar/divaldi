@@ -1,6 +1,12 @@
 @use '../../../fonts';
+@use '../../../scrollbars' as *;
 
 .sidebar {
+  display: flex;
+  flex-direction: column;
+
+  height: 100%;
+
   &:not(:has(.cta)) {
     & .navigation {
       margin-top: 40px;
@@ -11,6 +17,7 @@
 .sidebar__header {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 
   padding-right: 10px;
 }
@@ -51,6 +58,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
+
+  flex-shrink: 0;
 }
 
 .cta {
@@ -58,6 +67,8 @@
   max-width: 100%;
   margin-top: 40px;
   gap: 20px;
+
+  flex-shrink: 0;
 
   & > span {
     overflow: hidden;
@@ -78,8 +89,136 @@
   }
 }
 
+.history {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+
+  min-height: 0;
+
+  margin-top: 24px;
+
+  &__header {
+    flex-shrink: 0;
+
+    padding: 10px 20px;
+  }
+
+  &__title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+
+    color: var(--color-gray);
+  }
+
+  &__list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2px;
+
+    flex: 1 1 auto;
+
+    overflow-y: auto;
+
+    min-height: 40px;
+
+    padding: 4px;
+
+    @include app-scrollbar;
+  }
+
+  & nav {
+    display: flex;
+    flex-direction: column;
+
+    flex: 1 1 auto;
+
+    min-height: 0;
+  }
+
+  &__state {
+    display: flex;
+    align-items: center;
+
+    gap: 8px;
+
+    flex-shrink: 0;
+
+    padding: 10px 20px;
+
+    color: var(--color-gray);
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+
+    width: 100%;
+
+    gap: 10px;
+
+    padding: 10px 16px;
+
+    border: none;
+    border-radius: 10px;
+    background: none;
+
+    font: inherit;
+
+    color: var(--color-text);
+    cursor: pointer;
+
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+
+    &:hover {
+      background: var(--color-hover-secondary);
+      color: var(--color-main);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-main);
+      outline-offset: 2px;
+    }
+
+    &--active,
+    &--active:hover {
+      background: var(--color-outgoing-message);
+      color: var(--color-main);
+    }
+
+    &--active .history__icon {
+      color: var(--color-main);
+    }
+
+    .history__icon {
+      flex-shrink: 0;
+
+      color: var(--color-gray);
+
+      transition: color 0.15s ease;
+    }
+
+    &-title {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+
+      text-align: left;
+    }
+  }
+}
+
 .navigation {
   margin-top: 10px;
+
+  flex-shrink: 0;
 
   &__list {
     display: grid;
@@ -94,9 +233,9 @@
 
     padding: 20px;
 
-    border-radius: 15px;
+    border-radius: 10px;
 
-    transition: all 200ms;
+    transition: border-radius 500ms;
 
     &:hover {
       background: var(--color-hover-secondary);
@@ -136,12 +275,13 @@
 }
 
 .profile {
-  position: absolute;
-  bottom: 20px;
-
   display: flex;
   gap: 5px;
-  width: calc(100% - 60px);
+  width: 100%;
+
+  margin-top: 30px;
+
+  flex-shrink: 0;
 
   padding: 10px;
   border-radius: 10px;
@@ -225,6 +365,10 @@
     margin-left: 0;
   }
 
+  .history {
+    display: none;
+  }
+
   .cta {
     max-width: 54px;
 
@@ -258,7 +402,7 @@
 
     &.active-link {
       border-left: none;
-      border-radius: 5px;
+      border-radius: 3px;
 
       box-shadow: inset 5px 0 0 var(--color-main);
       background: var(--color-hover-secondary);
@@ -266,10 +410,10 @@
   }
 
   .profile {
-    width: fit-content;
+    width: 100%;
+    margin-top: auto;
 
-    left: 50%;
-    translate: -50%;
+    justify-content: center;
 
     &__content {
       display: none;
