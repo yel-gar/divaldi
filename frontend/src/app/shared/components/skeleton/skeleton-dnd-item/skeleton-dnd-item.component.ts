@@ -9,7 +9,6 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
       <div class="skeleton-item skeleton-item--dnd-icon skeleton-item--circle"></div>
     </div>
   `,
-  styleUrl: './skeleton-dnd-item.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SkeletonDnDItemComponent {}

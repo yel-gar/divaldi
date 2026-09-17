@@ -5,14 +5,15 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
   standalone: true,
   imports: [],
   template: `
-    @for (item of itemArray(); track $index) {
-      <div class="skeleton-item skeleton-item--chat-list-item">
-        <div class="skeleton-item skeleton-item--circle"></div>
-        <div class="skeleton-item skeleton-item--rect"></div>
-      </div>
-    }
+    <div class="skeleton-item skeleton-item--chat-list">
+      @for (item of itemArray(); track $index) {
+        <div class="skeleton-item skeleton-item--chat-list-item">
+          <div class="skeleton-item skeleton-item--circle"></div>
+          <div class="skeleton-item skeleton-item--rect"></div>
+        </div>
+      }
+    </div>
   `,
-  styleUrl: './skeleton-chat-list.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SkeletonChatListComponent {

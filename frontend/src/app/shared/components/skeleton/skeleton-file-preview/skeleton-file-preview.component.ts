@@ -10,7 +10,6 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
       <div class="skeleton-item skeleton-item--rect"></div>
     </div>
   `,
-  styleUrl: './skeleton-file-preview.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SkeletonFilePreviewComponent {}

@@ -1,0 +1,137 @@
+@keyframes skeleton-shimmer {
+  0% {
+    background-position-x: 200%;
+  }
+  100% {
+    background-position-x: 0%;
+  }
+}
+
+.skeleton-item {
+  display: block;
+  border-radius: 4px;
+
+  background: linear-gradient(
+    100deg,
+    var(--color-skeleton-base) 0%,
+    var(--color-skeleton-base) 50%,
+    var(--color-skeleton-shimmer) 60%,
+    var(--color-skeleton-base) 70%
+  );
+  background-size: 200% 100%;
+  background-attachment: fixed;
+  animation: skeleton-shimmer 2s ease-out infinite;
+}
+
+.skeleton-item--static {
+  animation: none;
+  background: var(--color-skeleton-base);
+}
+
+.skeleton-item--circle {
+  border-radius: 50%;
+}
+
+.skeleton-item--rect {
+  border-radius: 8px;
+}
+
+.skeleton-item--text {
+  border-radius: 4px;
+}
+
+.skeleton-item--chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.skeleton-item--chat-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--color-white, #ffffff);
+  border-radius: 8px;
+  width: 100%;
+
+  .skeleton-item--circle {
+    width: 40px;
+    height: 40px;
+  }
+
+  .skeleton-item--rect {
+    flex: 1;
+    height: 1.5em;
+  }
+}
+
+.skeleton-item--file-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  background: var(--color-white, #ffffff);
+  border-radius: 8px;
+}
+
+.skeleton-item--file-preview-icon {
+  width: 64px;
+  height: 64px;
+}
+
+.skeleton-item--dnd-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.skeleton-item--dnd-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.skeleton-item--users-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--color-white, #ffffff);
+  border-radius: 8px;
+}
+
+.skeleton-item--users-table-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: var(--color-white, #ffffff);
+  border-radius: 8px;
+}
+
+.skeleton-item--history-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--color-white, #ffffff);
+  border-radius: 8px;
+}
+
+.skeleton-item--history-table-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: var(--color-white, #ffffff);
+  border-radius: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-item {
+    animation: none;
+    background: var(--color-skeleton-base);
+  }
+}

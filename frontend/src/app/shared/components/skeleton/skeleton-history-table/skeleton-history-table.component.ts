@@ -15,7 +15,6 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
       }
     </div>
   `,
-  styleUrl: './skeleton-history-table.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SkeletonHistoryTableComponent {

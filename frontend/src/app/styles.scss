@@ -2,6 +2,7 @@
 @use '_buttons';
 @use '_forms';
 @use '_markdown';
+@use '_skeletons';
 @use '_mixins' as *;
 
 * {
@@ -22,6 +23,9 @@ body {
 
   --color-main: #2563eb;
   --color-main-shadow: color-mix(in srgb, var(--color-main) 25%, transparent);
+
+  --color-skeleton-base: #e8e8e8;
+  --color-skeleton-shimmer: #ffffff;
 
   --color-hover: #1d4edb;
   --color-background: #f8fafc;
