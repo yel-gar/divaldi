@@ -1,4 +1,5 @@
 @use '../../scrollbars' as *;
+@use '../../mixins' as *;
 
 :host {
   height: 100%;
@@ -60,19 +61,19 @@
 }
 
 .chat {
-  &-section {
+  &__section {
     display: flex;
     flex-direction: column;
 
     min-height: 0;
   }
 
-  &-section-header {
+  &__section-header {
     display: flex;
     justify-content: space-between;
   }
 
-  &-container {
+  &__container {
     overflow: hidden;
 
     display: flex;
@@ -84,7 +85,7 @@
     margin-top: 50px;
   }
 
-  &-messages {
+  &__messages {
     display: flex;
     flex-direction: column;
     gap: 15px;
@@ -101,7 +102,7 @@
     @include app-scrollbar;
   }
 
-  &-input-panel {
+  &__input-panel {
     display: flex;
     align-items: center;
     flex-shrink: 0;

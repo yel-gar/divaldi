@@ -2,6 +2,7 @@
 @use '_buttons';
 @use '_forms';
 @use '_markdown';
+@use '_mixins' as *;
 
 * {
   margin: 0;

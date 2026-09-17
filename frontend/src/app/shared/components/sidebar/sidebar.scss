@@ -1,5 +1,6 @@
 @use '../../../fonts';
 @use '../../../scrollbars' as *;
+@use '../../../mixins' as *;
 
 .sidebar {
   display: flex;
@@ -23,35 +24,14 @@
 }
 
 .sidebar__toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  @include icon-button;
 
   width: 36px;
   height: 36px;
 
   margin-left: auto;
 
-  border: none;
-  border-radius: 8px;
-  background: none;
   color: var(--color-text);
-  cursor: pointer;
-
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease;
-
-  &:hover {
-    background: var(--color-hover-secondary);
-    color: var(--color-main);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--color-main);
-    outline-offset: 2px;
-  }
 }
 
 .logo {
@@ -173,19 +153,14 @@
       background-color 0.15s ease,
       color 0.15s ease;
 
-    @media (prefers-reduced-motion: reduce) {
-      transition: none;
-    }
+    @include reduced-motion;
 
     &:hover {
       background: var(--color-hover-secondary);
       color: var(--color-main);
     }
 
-    &:focus-visible {
-      outline: 2px solid var(--color-main);
-      outline-offset: 2px;
-    }
+    @include focus-ring;
 
     &--active,
     &--active:hover {
@@ -203,6 +178,8 @@
       color: var(--color-gray);
 
       transition: color 0.15s ease;
+
+      @include reduced-motion;
     }
 
     &-title {
@@ -235,16 +212,17 @@
 
     border-radius: 10px;
 
-    transition: border-radius 500ms;
+    transition:
+      border-radius 500ms,
+      background 250ms;
+
+    @include reduced-motion;
 
     &:hover {
       background: var(--color-hover-secondary);
     }
 
     &:focus-visible {
-      outline: 2px solid var(--color-main);
-      outline-offset: 2px;
-
       background: var(--color-hover-secondary);
     }
 
@@ -263,9 +241,7 @@
         max-width 250ms ease,
         opacity 250ms ease;
 
-      @media (prefers-reduced-motion: reduce) {
-        transition: none;
-      }
+      @include reduced-motion;
     }
 
     &:not(:has(.cta)) & > span {
@@ -395,6 +371,7 @@
     & > span {
       max-width: 0;
       opacity: 0;
+
       transition:
         max-width 250ms ease,
         opacity 250ms ease;

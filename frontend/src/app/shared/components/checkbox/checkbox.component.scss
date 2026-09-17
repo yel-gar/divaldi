@@ -1,3 +1,5 @@
+@use '../../../mixins' as *;
+
 :host {
   display: block;
 }
@@ -34,6 +36,8 @@
   transition:
     background-color 0.18s ease,
     border-color 0.18s ease;
+
+  @include reduced-motion;
 }
 
 .checkbox:hover:not(.checkbox--disabled) .checkbox__box {
@@ -46,8 +50,7 @@
 }
 
 .checkbox__input:focus-visible + .checkbox__box {
-  outline: 2px solid var(--color-main);
-  outline-offset: 2px;
+  @include focus-ring;
 }
 
 .checkbox__check {
@@ -99,10 +102,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .checkbox__box {
-    transition: none;
-  }
-
   .checkbox__input:checked + .checkbox__box .checkbox__check {
     animation: none;
     opacity: 1;

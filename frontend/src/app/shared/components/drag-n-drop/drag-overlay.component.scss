@@ -1,3 +1,5 @@
+@use '../../../mixins' as *;
+
 .drag-overlay {
   position: fixed;
   inset: 0;
@@ -10,6 +12,8 @@
   background: color-mix(in srgb, var(--color-black) 60%, transparent);
 
   animation: drag-overlay-fade-in 150ms ease;
+
+  @include reduced-motion;
 }
 
 .drag-overlay__zone {
@@ -48,11 +52,5 @@
 
   to {
     opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .drag-overlay {
-    animation: none;
   }
 }

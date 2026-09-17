@@ -1,4 +1,5 @@
 @use '../../../scrollbars' as *;
+@use '../../../mixins' as *;
 
 :host {
   display: block;
@@ -82,9 +83,7 @@
 
   transition: color 0.15s ease;
 
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
-  }
+  @include reduced-motion;
 
   &:hover {
     color: var(--color-main);

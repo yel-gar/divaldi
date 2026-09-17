@@ -1,3 +1,6 @@
+@use '../../../scrollbars' as *;
+@use '../../../mixins' as *;
+
 :host {
   display: block;
 }
@@ -148,32 +151,7 @@
 
   &__collapse,
   &__show-all {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-
-    padding: 6px 10px;
-
-    color: var(--color-gray);
-    background: none;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 12px;
-
-    transition:
-      color 0.15s ease,
-      background-color 0.15s ease;
-
-    &:hover {
-      color: var(--color-main);
-      background: var(--color-hover-secondary);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--color-main);
-      outline-offset: 2px;
-    }
+    @include icon-button;
   }
 
   &__chevron {
@@ -214,6 +192,8 @@
   padding: 20px 20px;
 
   transition: background-color 0.15s ease;
+
+  @include reduced-motion;
 
   &:hover {
     background: var(--color-secondary);

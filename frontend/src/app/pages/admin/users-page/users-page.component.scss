@@ -1,3 +1,5 @@
+@use '../../../mixins' as *;
+
 .users-container {
   max-width: 1200px;
   margin: 0 auto;
@@ -125,38 +127,14 @@
   }
 
   &__action {
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
+    @include icon-button;
 
     width: 32px;
     height: 32px;
-    padding: 0;
 
-    background: none;
-    border: none;
     border-radius: 8px;
 
     color: var(--color-gray);
-    cursor: pointer;
-
-    transition:
-      color 0.15s ease,
-      background-color 0.15s ease;
-
-    @media (prefers-reduced-motion: reduce) {
-      transition: none;
-    }
-
-    &:hover {
-      background: var(--color-hover-secondary);
-      color: var(--color-main);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--color-main);
-      outline-offset: 2px;
-    }
 
     &--danger:hover {
       color: var(--color-danger);

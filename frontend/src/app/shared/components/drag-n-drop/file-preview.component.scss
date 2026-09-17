@@ -1,3 +1,5 @@
+@use '../../../mixins' as *;
+
 .file-preview {
   width: 100vw;
   height: 100dvh;
@@ -75,33 +77,7 @@
   }
 
   &__close {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-shrink: 0;
-
-    width: 32px;
-    height: 32px;
-
-    color: var(--color-gray);
-    background: none;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-
-    transition:
-      color 0.15s ease,
-      background-color 0.15s ease;
-
-    &:hover {
-      color: var(--color-text);
-      background: var(--color-hover-secondary);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--color-main);
-      outline-offset: 2px;
-    }
+    @include icon-button;
   }
 
   &__body {
@@ -194,40 +170,12 @@
   }
 
   &__sheet-tab {
-    padding: 6px 14px;
+    @include icon-button;
 
-    color: var(--color-gray);
-    background: none;
-    border: none;
-    border-radius: 6px;
+    padding: 6px 14px;
 
     font: inherit;
     font-size: 13px;
-    cursor: pointer;
-
-    transition:
-      color 0.15s ease,
-      background-color 0.15s ease;
-
-    @media (prefers-reduced-motion: reduce) {
-      transition: none;
-    }
-
-    &:hover {
-      color: var(--color-text);
-      background: var(--color-hover-secondary);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--color-main);
-      outline-offset: 2px;
-    }
-
-    &--active {
-      color: var(--color-main);
-      background: var(--color-hover-secondary);
-      font-weight: 600;
-    }
   }
 
   &__sheet-area {

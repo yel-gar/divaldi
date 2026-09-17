@@ -1,3 +1,5 @@
+@use '../../../mixins' as *;
+
 @keyframes notification-bubble-in {
   0% {
     opacity: 0;
@@ -45,6 +47,8 @@
   background: color-mix(in srgb, var(--notification-color) 8%, var(--color-white));
 
   animation: notification-bubble-in 450ms ease-out both;
+
+  @include reduced-motion;
 }
 
 :host(.notification--leaving) {
@@ -93,11 +97,4 @@
 
 .notification__close {
   padding: 5px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  :host,
-  :host(.notification--leaving) {
-    animation: none;
-  }
 }

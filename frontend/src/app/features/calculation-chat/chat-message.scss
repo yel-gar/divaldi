@@ -1,3 +1,5 @@
+@use '../../mixins' as *;
+
 @keyframes message-slide-in {
   from {
     opacity: 0;
@@ -130,23 +132,15 @@
 }
 
 .message__action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  @include icon-button;
 
   width: 30px;
   height: 30px;
-
   padding: 0;
 
   background: var(--color-secondary);
   border: 1px solid var(--color-outline);
   border-radius: 6px;
-  cursor: pointer;
-
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease;
 
   & > svg {
     stroke: var(--color-gray);
@@ -158,16 +152,6 @@
     & > svg {
       stroke: var(--color-main);
     }
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--color-main);
-    outline-offset: 2px;
-  }
-
-  &:disabled {
-    pointer-events: none;
-    opacity: 0.5;
   }
 }
 
@@ -191,6 +175,8 @@
   border-radius: 8px;
 
   transition: background-color 0.15s ease;
+
+  @include reduced-motion;
 
   &:hover {
     background: var(--color-hover-secondary);
@@ -244,27 +230,13 @@
     opacity 0.2s ease,
     scale 0.2s ease,
     background-color 0.15s ease;
+
+  @include reduced-motion;
 }
 
-.message__attachment:hover,
-.message__attachment:focus-within {
-  & .message__attachment-preview {
-    opacity: 1;
-    pointer-events: auto;
-    scale: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  :host,
-  :host .message__bubble,
-  :host .message__avatar {
-    animation: none;
-  }
-
-  .message__attachment,
-  .message__attachment-preview,
-  .message__backdrop {
-    transition: none;
-  }
+.message__attachment:hover .message__attachment-preview,
+.message__attachment:focus-within .message__attachment-preview {
+  opacity: 1;
+  pointer-events: auto;
+  scale: 1;
 }

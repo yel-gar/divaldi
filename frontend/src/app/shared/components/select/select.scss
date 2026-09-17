@@ -1,3 +1,5 @@
+@use '../../../mixins' as *;
+
 :host {
   display: block;
 }
@@ -24,15 +26,16 @@
   border-radius: 8px;
 
   cursor: pointer;
+
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
-}
 
-.select__trigger:focus-visible {
-  outline: none;
-  border-color: var(--color-main);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-main) 15%, transparent);
+  &:focus-visible {
+    outline: none;
+    border-color: var(--color-main);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-main) 15%, transparent);
+  }
 }
 
 .select--open .select__trigger {
@@ -195,9 +198,12 @@
   color: var(--color-text);
   border-radius: 6px;
   cursor: pointer;
+
   transition:
     background-color 0.1s ease,
     color 0.1s ease;
+
+  @include reduced-motion;
 }
 
 .select__option--highlighted,
