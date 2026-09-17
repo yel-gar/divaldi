@@ -21,6 +21,8 @@
   flex-shrink: 0;
 
   padding-right: 10px;
+
+  min-height: 48px;
 }
 
 .sidebar__toggle {
@@ -222,9 +224,7 @@
       background: var(--color-hover-secondary);
     }
 
-    &:focus-visible {
-      background: var(--color-hover-secondary);
-    }
+    @include focus-ring;
 
     &.active-link {
       border-left: 5px solid var(--color-main);
