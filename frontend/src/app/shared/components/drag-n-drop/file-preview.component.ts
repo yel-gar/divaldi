@@ -17,12 +17,12 @@ import {
 import { DomSanitizer } from '@angular/platform-browser';
 import { LucideFileWarning, LucideX } from '@lucide/angular';
 import { getFileExtension } from '../../utils/upload-format';
-import { Spinner } from '../spinner/spinner.component';
+import { SkeletonFilePreviewComponent } from '../skeleton/skeleton-file-preview/skeleton-file-preview.component';
 import { PreviewKind, mimeTypeFor, previewKindFor } from './file-preview.model';
 
 @Component({
   selector: 'app-file-preview',
-  imports: [LucideFileWarning, LucideX, Spinner],
+  imports: [LucideFileWarning, LucideX, SkeletonFilePreviewComponent],
   templateUrl: './file-preview.component.html',
   styleUrl: './file-preview.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

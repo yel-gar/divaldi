@@ -5,7 +5,7 @@
   </header>
   @if (loading()) {
   <div class="history-state">
-    <app-spinner [size]="28" />
+    <app-skeleton-history-table [rows]="3" />
   </div>
   } @else if (sessions().length === 0) {
   <p class="history-state history-state--empty">Пока нет заявок</p>

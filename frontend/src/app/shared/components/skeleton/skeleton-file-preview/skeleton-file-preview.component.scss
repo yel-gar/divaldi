@@ -1,0 +1,15 @@
+.skeleton-item--file-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  background: var(--color-surface, #ffffff);
+  border-radius: 8px;
+}
+
+.skeleton-item--file-preview-icon {
+  width: 64px;
+  height: 64px;
+}

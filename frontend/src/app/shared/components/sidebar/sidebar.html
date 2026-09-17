@@ -51,7 +51,7 @@
 
     @if (chatsLoading()) {
     <p class="history__state history__state--loading h4" role="status">
-      <app-spinner [size]="14" />
+      <app-skeleton-chat-list [items]="3" />
       Загрузка истории…
     </p>
     } @else if (chatsError()) {

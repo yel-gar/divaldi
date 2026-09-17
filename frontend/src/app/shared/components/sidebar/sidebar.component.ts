@@ -25,7 +25,7 @@ import { ChatService } from '../../../core/services/chat.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import { ProfileService } from '../../../core/services/profile.service';
 import type { UserChat } from '../../../core/models/models';
-import { Spinner } from '../spinner/spinner.component';
+import { SkeletonChatListComponent } from '../skeleton/skeleton-chat-list/skeleton-chat-list.component';
 import type { NavItem, Role } from './sidebar.config';
 
 export interface SidebarHistoryItem {
@@ -56,7 +56,7 @@ function toHistoryItem(chat: UserChat): SidebarHistoryItem {
     LucidePanelLeftClose,
     LucidePanelLeftOpen,
     LucideLogOut,
-    Spinner
+    SkeletonChatListComponent
   ],
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.scss',

@@ -19,7 +19,7 @@
 
         @if (loading()) {
           <div class="users-card__state">
-            <app-spinner [size]="28" />
+            <app-skeleton-users-table [rows]="3" />
           </div>
         } @else if (filteredUsers().length === 0) {
           <p class="users-card__state users-card__state--empty">

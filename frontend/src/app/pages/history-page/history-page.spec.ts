@@ -94,16 +94,16 @@ describe('HistoryPage', () => {
     expect(headers()[1].nativeElement.getAttribute('aria-sort')).toBe('none');
   });
 
-  it('shows a spinner while loading', () => {
+  it('shows a skeleton while loading', () => {
     fixture = TestBed.createComponent(HistoryPage);
     fixture.detectChanges();
 
-    expect(fixture.debugElement.query(By.css('app-spinner'))).not.toBeNull();
+    expect(fixture.debugElement.query(By.css('app-skeleton-history-table'))).not.toBeNull();
 
     http.expectOne(`${environment.apiUrl}/chats/`).flush(SESSIONS);
     fixture.detectChanges();
 
-    expect(fixture.debugElement.query(By.css('app-spinner'))).toBeNull();
+    expect(fixture.debugElement.query(By.css('app-skeleton-history-table'))).toBeNull();
   });
 
   it('shows an empty state when there are no sessions', () => {

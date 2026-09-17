@@ -1,0 +1,25 @@
+.skeleton-item--chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.skeleton-item--chat-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--color-surface, #ffffff);
+  border-radius: 8px;
+  width: 100%;
+
+  .skeleton-item--circle {
+    width: 40px;
+    height: 40px;
+  }
+
+  .skeleton-item--rect {
+    flex: 1;
+    height: 1.5em;
+  }
+}

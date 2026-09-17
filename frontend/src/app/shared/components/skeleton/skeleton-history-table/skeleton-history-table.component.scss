@@ -1,0 +1,17 @@
+.skeleton-item--history-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--color-surface, #ffffff);
+  border-radius: 8px;
+}
+
+.skeleton-item--history-table-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: var(--color-surface, #ffffff);
+  border-radius: 8px;
+}
