@@ -2,16 +2,15 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  effect,
   inject,
   Injector,
   input,
   OnInit,
   signal
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { ControlValueAccessor, NgControl } from '@angular/forms';
 import { noop } from 'rxjs';
+import { controlErrorSignal } from '../../utils/control-error-signal';
 
 @Component({
   selector: 'app-textarea',
@@ -52,21 +51,7 @@ export class Textarea implements ControlValueAccessor, OnInit {
   }
 
   ngOnInit(): void {
-    const control = this.ngControl?.control ?? null;
-    if (!control) {
-      return;
-    }
-    const controlEvents = toSignal(control.events, {
-      initialValue: null,
-      injector: this.injector
-    });
-    effect(
-      () => {
-        controlEvents();
-        this.showError.set(control.invalid && control.touched);
-      },
-      { injector: this.injector }
-    );
+    controlErrorSignal(this.ngControl, this.injector, this.showError);
   }
 
   onInput(event: Event) {

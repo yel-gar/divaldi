@@ -6,7 +6,6 @@ import {
   computed,
   DestroyRef,
   DOCUMENT,
-  effect,
   ElementRef,
   HostListener,
   inject,
@@ -17,10 +16,10 @@ import {
   signal,
   viewChild
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { ControlValueAccessor, NgControl } from '@angular/forms';
 import { LucideCheck, LucideChevronDown } from '@lucide/angular';
 import { noop } from 'rxjs';
+import { controlErrorSignal } from '../../utils/control-error-signal';
 import { createId } from '../../utils/create-id';
 
 export interface SelectOption {
@@ -100,24 +99,6 @@ export class Select implements ControlValueAccessor, OnInit {
     });
   }
 
-  ngOnInit(): void {
-    const control = this.ngControl?.control ?? null;
-    if (!control) {
-      return;
-    }
-    const controlEvents = toSignal(control.events, {
-      initialValue: null,
-      injector: this.injector
-    });
-    effect(
-      () => {
-        controlEvents();
-        this.showError.set(control.invalid && control.touched);
-      },
-      { injector: this.injector }
-    );
-  }
-
   private readonly window = this.document.defaultView!;
   private scrollFrame: number | null = null;
 
@@ -152,6 +133,10 @@ export class Select implements ControlValueAccessor, OnInit {
     this.window.cancelAnimationFrame(this.scrollFrame);
     this.scrollFrame = null;
     this.processScroll();
+  }
+
+  ngOnInit(): void {
+    controlErrorSignal(this.ngControl, this.injector, this.showError);
   }
 
   readonly selectedLabel = computed(() => {
