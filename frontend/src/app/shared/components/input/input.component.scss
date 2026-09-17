@@ -41,13 +41,7 @@
   & > [appInputPrefix],
   & > [appInputSuffix] {
     flex-shrink: 0;
-
     align-self: center;
-  }
-
-  :host(.input--textarea) & > [appInputPrefix],
-  :host(.input--textarea) & > [appInputSuffix] {
-    align-self: flex-end;
   }
 }
 
@@ -150,7 +144,8 @@
     overflow-y: auto;
     min-height: 40px;
     line-height: 1.5;
-    padding: 5px;
+
+    padding: 8px 5px;
 
     justify-self: flex-start;
     @include app-scrollbar;
