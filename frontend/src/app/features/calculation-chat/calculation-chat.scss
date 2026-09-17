@@ -61,19 +61,19 @@
 }
 
 .chat {
-  &__section {
+  &-section {
     display: flex;
     flex-direction: column;
 
     min-height: 0;
+
+    &-header {
+      display: flex;
+      justify-content: space-between;
+    }
   }
 
-  &__section-header {
-    display: flex;
-    justify-content: space-between;
-  }
-
-  &__container {
+  &-container {
     overflow: hidden;
 
     display: flex;
@@ -85,7 +85,7 @@
     margin-top: 50px;
   }
 
-  &__messages {
+  &-messages {
     display: flex;
     flex-direction: column;
     gap: 15px;
@@ -102,7 +102,7 @@
     @include app-scrollbar;
   }
 
-  &__input-panel {
+  &-input-panel {
     display: flex;
     align-items: center;
     flex-shrink: 0;
@@ -129,7 +129,7 @@
       }
     }
 
-    &__paperclip-button {
+    &__attach-button {
       border: none;
       padding: 0;
 
@@ -142,7 +142,7 @@
       border: none;
     }
 
-    &__send-message {
+    &__send-button {
       display: inline-flex;
       justify-content: center;
       align-items: center;
