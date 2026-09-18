@@ -19,6 +19,8 @@
   font-weight: 400;
   color: var(--color-gray);
 
+  background: var(--color-white);
+
   transition:
     border-color 300ms,
     background-color 300ms;
@@ -47,6 +49,10 @@
 
   &__text {
     line-height: 1.75;
+
+    .active-link:hover {
+      text-decoration: underline;
+    }
   }
 
   &__icon {
