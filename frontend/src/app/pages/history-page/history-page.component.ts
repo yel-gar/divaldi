@@ -25,8 +25,8 @@ function timestampMs(value: string): number {
 @Component({
   selector: 'app-history-page',
   imports: [LucideChevronsUpDown, LucideChevronRight, SkeletonHistoryTableComponent, RouterLink],
-  templateUrl: './history-page.html',
-  styleUrl: './history-page.scss',
+  templateUrl: './history-page.component.html',
+  styleUrl: './history-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class HistoryPage {

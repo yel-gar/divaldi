@@ -17,8 +17,8 @@ const LEAVE_ANIMATION_MS = 220;
   selector: 'app-notifications',
   imports: [Notification],
   standalone: true,
-  templateUrl: './notifications.html',
-  styleUrl: './notifications.scss',
+  templateUrl: './notifications.component.html',
+  styleUrl: './notifications.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class NotificationsComponent {

@@ -58,8 +58,8 @@ function toHistoryItem(chat: UserChat): SidebarHistoryItem {
     LucideLogOut,
     SkeletonChatListComponent
   ],
-  templateUrl: './sidebar.html',
-  styleUrl: './sidebar.scss',
+  templateUrl: './sidebar.component.html',
+  styleUrl: './sidebar.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class.sidebar--collapsed]': 'collapsed()'

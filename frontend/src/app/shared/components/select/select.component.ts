@@ -30,8 +30,8 @@ export interface SelectOption {
 @Component({
   selector: 'app-select',
   imports: [LucideChevronDown, LucideCheck],
-  templateUrl: './select.html',
-  styleUrl: './select.scss',
+  templateUrl: './select.component.html',
+  styleUrl: './select.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class Select implements ControlValueAccessor, OnInit {

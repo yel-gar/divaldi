@@ -67,8 +67,8 @@ const POLL_TIMEOUT_MS = 5 * 60 * 1000;
   host: {
     '[class.results-open]': 'isResultsOpen()'
   },
-  templateUrl: './calculation-chat.html',
-  styleUrl: './calculation-chat.scss'
+  templateUrl: './calculation-chat.component.html',
+  styleUrl: './calculation-chat.component.scss'
 })
 export class CalculationChatComponent {
   readonly id = input.required<string>();

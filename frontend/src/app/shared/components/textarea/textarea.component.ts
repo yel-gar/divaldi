@@ -17,8 +17,8 @@ import { controlErrorSignal } from '../../utils/control-error-signal';
   host: {
     '[class.textarea--error]': 'showError()'
   },
-  templateUrl: './textarea.html',
-  styleUrl: './textarea.scss',
+  templateUrl: './textarea.component.html',
+  styleUrl: './textarea.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class Textarea implements ControlValueAccessor, OnInit {

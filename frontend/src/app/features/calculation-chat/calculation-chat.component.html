@@ -10,28 +10,29 @@
       (click)="handleResultsOpen()"
     >
       @if (isResultsOpen()) {
-      <svg lucidePanelRightClose aria-hidden="true"></svg>
+        <svg lucidePanelRightClose aria-hidden="true"></svg>
       } @else {
-      <svg lucidePanelRightOpen aria-hidden="true"></svg>
+        <svg lucidePanelRightOpen aria-hidden="true"></svg>
       }
     </button>
   </header>
   <div class="chat-container">
     <ul #chatMessages class="chat-messages" role="log" aria-label="История сообщений">
       @for (message of messages(); track message.id; let last = $last) {
-      <li>
-        <app-chat-message
-          [message]="message"
-          [failed]="lastMessageFailed() && last"
-          (preview)="openAttachmentPreview($event)"
-          (download)="downloadAttachment($event)"
-          (reply)="onRetryRequest()"
-        />
-      </li>
-      } @if (agentStatus()) {
-      <li>
-        <app-agent-status />
-      </li>
+        <li>
+          <app-chat-message
+            [message]="message"
+            [failed]="lastMessageFailed() && last"
+            (preview)="openAttachmentPreview($event)"
+            (download)="downloadAttachment($event)"
+            (reply)="onRetryRequest()"
+          />
+        </li>
+      }
+      @if (agentStatus()) {
+        <li>
+          <app-agent-status />
+        </li>
       }
     </ul>
 
@@ -88,34 +89,34 @@
   <section class="calculation-results__section">
     <h3 class="calculation-results__subtitle">Файлы</h3>
     @if (sessionFiles().length > 0) {
-    <ul class="calculation-results__files">
-      @for (file of sessionFiles(); track file.attachmentId) {
-      <li class="calculation-results__file">
-        <span class="calculation-results__file-icon" [style.color]="fileColorFor(file.name)">
-          <svg size="18" [lucideIcon]="fileIconFor(file.name)" aria-hidden="true"></svg>
-        </span>
-        <span class="calculation-results__file-name">{{ file.name }}</span>
-        <button
-          type="button"
-          class="button button--outline button--centered"
-          aria-label="Предпросмотр"
-          (click)="openAttachmentPreview(file)"
-        >
-          <svg size="16" lucideEye aria-hidden="true"></svg>
-        </button>
-        <button
-          type="button"
-          class="button button--outline button--centered"
-          aria-label="Скачать"
-          (click)="downloadAttachment(file)"
-        >
-          <svg size="16" lucideDownload aria-hidden="true"></svg>
-        </button>
-      </li>
-      }
-    </ul>
+      <ul class="calculation-results__files">
+        @for (file of sessionFiles(); track file.attachmentId) {
+          <li class="calculation-results__file">
+            <span class="calculation-results__file-icon" [style.color]="fileColorFor(file.name)">
+              <svg size="18" [lucideIcon]="fileIconFor(file.name)" aria-hidden="true"></svg>
+            </span>
+            <span class="calculation-results__file-name">{{ file.name }}</span>
+            <button
+              type="button"
+              class="button button--outline button--centered"
+              aria-label="Предпросмотр"
+              (click)="openAttachmentPreview(file)"
+            >
+              <svg size="16" lucideEye aria-hidden="true"></svg>
+            </button>
+            <button
+              type="button"
+              class="button button--outline button--centered"
+              aria-label="Скачать"
+              (click)="downloadAttachment(file)"
+            >
+              <svg size="16" lucideDownload aria-hidden="true"></svg>
+            </button>
+          </li>
+        }
+      </ul>
     } @else {
-    <p class="calculation-results__files-placeholder h4">Пока нет файлов</p>
+      <p class="calculation-results__files-placeholder h4">Пока нет файлов</p>
     }
   </section>
 
@@ -132,7 +133,7 @@
 </aside>
 
 @if (previewedFile(); as file) {
-<app-file-preview [file]="file" (closed)="previewedFile.set(null)" />
+  <app-file-preview [file]="file" (closed)="previewedFile.set(null)" />
 }
 
 <app-drag-overlay (filesDropped)="onFilesDropped($event)" />

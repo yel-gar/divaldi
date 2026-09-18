@@ -4,7 +4,7 @@ import { SectionPlaceholder } from '../../shared/components/section-placeholder/
 @Component({
   selector: 'app-profile-page',
   imports: [SectionPlaceholder],
-  templateUrl: './profile-page.html',
-  styleUrl: './profile-page.scss'
+  templateUrl: './profile-page.component.html',
+  styleUrl: './profile-page.component.scss'
 })
 export class ProfilePage {}

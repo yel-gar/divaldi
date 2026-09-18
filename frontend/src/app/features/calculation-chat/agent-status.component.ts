@@ -5,8 +5,8 @@ import { LucideBot } from '@lucide/angular';
   selector: 'app-agent-status',
   imports: [LucideBot],
   standalone: true,
-  templateUrl: './agent-status.html',
-  styleUrl: './agent-status.scss',
+  templateUrl: './agent-status.component.html',
+  styleUrl: './agent-status.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'agent-status--thinking'

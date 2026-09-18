@@ -132,6 +132,12 @@
     color: var(--color-gray);
   }
 
+  &__skeleton {
+    flex-shrink: 0;
+
+    padding: 4px;
+  }
+
   &__item {
     display: flex;
     align-items: center;

@@ -5,6 +5,6 @@ import { NotificationsComponent } from './shared/components/notifications/notifi
 @Component({
   selector: 'app-root',
   imports: [RouterOutlet, NotificationsComponent],
-  templateUrl: './app.html'
+  templateUrl: './app.component.html'
 })
 export class App {}

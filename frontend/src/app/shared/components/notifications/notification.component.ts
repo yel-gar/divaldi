@@ -13,8 +13,8 @@ export type NotificationType = 'success' | 'error' | 'info' | 'warning';
   selector: 'app-notification',
   imports: [LucideCircleCheck, LucideCircleX, LucideInfo, LucideTriangleAlert, LucideX],
   standalone: true,
-  templateUrl: './notification.html',
-  styleUrl: './notification.scss',
+  templateUrl: './notification.component.html',
+  styleUrl: './notification.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     role: 'status',

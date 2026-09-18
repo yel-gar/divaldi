@@ -28,8 +28,8 @@ import { ChatMessage, ChatMessageAttachment } from './chat-message.model';
     LucideRefreshCw
   ],
   standalone: true,
-  templateUrl: './chat-message.html',
-  styleUrl: './chat-message.scss',
+  templateUrl: './chat-message.component.html',
+  styleUrl: './chat-message.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class.message--incoming]': 'isIncoming()',

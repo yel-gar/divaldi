@@ -12,7 +12,7 @@
 ></textarea>
 
 @if (maxLength()) {
-<span class="textarea__counter h5" [class.textarea__counter--max]="isMaxLengthReached()">
-  {{ symbolsCount() }}/{{ maxLength() }}
-</span>
+  <span class="textarea__counter h5" [class.textarea__counter--max]="isMaxLengthReached()">
+    {{ symbolsCount() }}/{{ maxLength() }}
+  </span>
 }

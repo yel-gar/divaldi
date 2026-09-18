@@ -6,8 +6,8 @@ import type { NavItem, Role } from '../sidebar/sidebar.config';
 @Component({
   selector: 'app-layout',
   imports: [RouterOutlet, Sidebar],
-  templateUrl: './layout.html',
-  styleUrl: './layout.scss'
+  templateUrl: './layout.component.html',
+  styleUrl: './layout.component.scss'
 })
 export class Layout {
   readonly navItems = input<NavItem[]>([]);

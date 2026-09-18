@@ -29,8 +29,8 @@ function trimmedRequired(control: AbstractControl): ValidationErrors | null {
   selector: 'app-order-create',
   standalone: true,
   imports: [DragNDropComponent, Textarea, ReactiveFormsModule, LucideArrowRight],
-  templateUrl: './order-create.html',
-  styleUrl: './order-create.scss'
+  templateUrl: './order-create.component.html',
+  styleUrl: './order-create.component.scss'
 })
 export class OrderCreateComponent {
   private readonly fb = inject(FormBuilder);
