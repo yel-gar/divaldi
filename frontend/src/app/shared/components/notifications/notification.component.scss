@@ -44,7 +44,7 @@
 
   border: 1px solid color-mix(in srgb, var(--notification-color) 40%, transparent);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--notification-color) 8%, var(--color-white));
+  background: color-mix(in srgb, var(--notification-color) 8%, var(--color-surface));
 
   animation: notification-bubble-in 450ms ease-out both;
 

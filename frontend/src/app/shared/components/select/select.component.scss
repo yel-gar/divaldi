@@ -20,7 +20,7 @@
   font: inherit;
   text-align: left;
 
-  background: var(--color-white);
+  background: var(--color-surface);
   color: var(--color-text);
   border: 1px solid var(--color-outline);
   border-radius: 8px;
@@ -95,7 +95,7 @@
   margin: 0;
   padding: 6px;
 
-  background: var(--color-white);
+  background: var(--color-surface);
   border: 1px solid var(--color-outline);
   border-radius: 8px;
   box-shadow: 0 8px 24px color-mix(in srgb, var(--color-black) 8%, transparent);

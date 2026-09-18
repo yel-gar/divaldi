@@ -2,6 +2,8 @@
   font: inherit;
   color: var(--color-text);
 
+  background: var(--color-surface);
+
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
@@ -29,4 +31,33 @@
 
     line-height: 1.5;
   }
+}
+
+.input-wrapper > [appinputprefix],
+.input-wrapper > [appinputsuffix] {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.input-wrapper > [appinputprefix],
+.input-wrapper > [appinputsuffix] {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.input-wrapper .input__divider {
+  display: none;
+  flex-shrink: 0;
+  align-self: center;
+
+  width: 1px;
+  height: 20px;
+  margin-left: -3px;
+  margin-right: -8px;
+
+  background: var(--color-outline);
+}
+
+.input-wrapper:has(> [appinputprefix]) .input__divider {
+  display: block;
 }
