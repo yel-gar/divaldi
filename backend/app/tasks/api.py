@@ -170,7 +170,7 @@ async def process_response(user_uuid: uuid.UUID, session_id: uuid.UUID, response
             update_name = None
             if output.chat_name:
                 session = await db.get(ChatSession, session_id)
-                if session is not None and session.name != "Новый чат":
+                if session is not None and session.name == "Новый чат":
                     chat_name = output.chat_name
                     if len(chat_name) > MAX_CHAT_NAME_LENGTH:
                         chat_name = chat_name[: MAX_CHAT_NAME_LENGTH - 3].rstrip() + "..."
