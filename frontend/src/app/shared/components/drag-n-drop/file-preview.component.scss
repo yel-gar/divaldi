@@ -77,11 +77,14 @@
   }
 
   &__close {
+    padding: 5px;
     @include icon-button;
   }
 
   &__body {
     position: relative;
+
+    padding: 30px 0;
 
     flex: 1;
     min-height: 0;
