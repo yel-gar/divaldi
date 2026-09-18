@@ -127,6 +127,12 @@
       & > app-drag-n-drop {
         flex: 1 1 100%;
       }
+
+      & > app-input {
+        flex: 1;
+
+        min-width: 0;
+      }
     }
 
     &__attach-button {

@@ -65,18 +65,17 @@
           >
             <svg size="20" lucidePaperclip aria-hidden="true"></svg>
           </button>
-          <button
-            appInputSuffix
-            type="submit"
-            aria-label="Отправить"
-            class="button button--main chat-input-panel__send-button"
-            [disabled]="
-              !messageInputValue().trim() || isUploading() || isSending() || agentStatus() !== null
-            "
-          >
-            <svg size="18" lucideSendHorizontal aria-hidden="true"></svg>
-          </button>
         </app-input>
+        <button
+          type="submit"
+          aria-label="Отправить"
+          class="button button--main chat-input-panel__send-button"
+          [disabled]="
+            !messageInputValue().trim() || isUploading() || isSending() || agentStatus() !== null
+          "
+        >
+          <svg size="18" lucideSendHorizontal aria-hidden="true"></svg>
+        </button>
       </form>
     </footer>
   </div>
