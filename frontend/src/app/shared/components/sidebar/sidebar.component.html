@@ -99,4 +99,30 @@
       </button>
     </div>
   </div>
+
+  <div class="sidebar__footer">
+    <button
+      type="button"
+      class="icon-action"
+      [attr.aria-label]="theme() === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'"
+      [attr.title]="theme() === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'"
+      (click)="toggleTheme()"
+    >
+      @if (theme() === 'dark') {
+        <svg size="18" lucideSun aria-hidden="true"></svg>
+      } @else {
+        <svg size="18" lucideMoon aria-hidden="true"></svg>
+      }
+    </button>
+    @if (adminItem(); as admin) {
+      <a
+        class="icon-action"
+        [routerLink]="admin.route"
+        [attr.aria-label]="admin.label"
+        [title]="admin.label"
+      >
+        <svg size="18" [lucideIcon]="admin.icon" aria-hidden="true"></svg>
+      </a>
+    }
+  </div>
 </aside>
