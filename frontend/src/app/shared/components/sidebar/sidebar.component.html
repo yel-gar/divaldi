@@ -83,7 +83,11 @@
   }
 
   <div class="profile">
-    <img src="/assets/imgs/empty-avatar.png" alt="profile photo" class="photo" />
+    @if (avatarLoading()) {
+      <div class="photo skeleton-item skeleton-item--circle" aria-hidden="true"></div>
+    } @else {
+      <img [src]="avatarSrc()" alt="profile photo" class="photo" (error)="onAvatarError()" />
+    }
     <div class="profile__content">
       <div class="profile__info">
         <span class="profile__name h3">{{ displayName() }}</span>

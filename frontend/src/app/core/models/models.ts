@@ -54,6 +54,10 @@ export interface User {
   is_superuser: boolean;
 }
 
+export interface S3AvatarUrl {
+  avatar_url: string | null;
+}
+
 export interface AdminUser {
   id: number;
   username: string;

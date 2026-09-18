@@ -115,6 +115,15 @@ export class Sidebar implements OnInit {
   });
   readonly isLoggingOut = signal(false);
 
+  private static readonly EMPTY_AVATAR = '/assets/imgs/empty-avatar.png';
+
+  readonly avatarLoading = this.profile.avatarLoading;
+  readonly avatarSrc = computed(() => this.profile.avatarUrl() ?? Sidebar.EMPTY_AVATAR);
+
+  onAvatarError(): void {
+    this.profile.avatarUrl.set(null);
+  }
+
   readonly chats = signal<SidebarHistoryItem[]>([]);
   readonly chatsLoading = signal(false);
   readonly chatsError = signal(false);
@@ -133,6 +142,7 @@ export class Sidebar implements OnInit {
   });
 
   ngOnInit(): void {
+    this.profile.loadAvatar();
     if (this.role() !== 'user' || this.historyLoaded()) {
       return;
     }
