@@ -25,11 +25,15 @@ export class Textarea implements ControlValueAccessor, OnInit {
   readonly inputId = input<string>();
   readonly placeholder = input('');
   readonly maxLength = input<number>();
+  readonly counterVisibleFrom = input(0);
 
   readonly value = signal('');
   private readonly formDisabled = signal(false);
 
   readonly symbolsCount = computed(() => this.value().length);
+  readonly isCounterVisible = computed(
+    () => this.maxLength() !== undefined && this.symbolsCount() >= this.counterVisibleFrom()
+  );
   readonly isMaxLengthReached = computed(() => {
     const maxLength = this.maxLength();
     return maxLength !== undefined && this.symbolsCount() >= maxLength;

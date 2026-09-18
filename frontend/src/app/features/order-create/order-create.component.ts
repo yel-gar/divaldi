@@ -42,7 +42,8 @@ export class OrderCreateComponent {
 
   readonly isSubmitting = signal<boolean>(false);
   readonly selectedFiles = signal<File[]>([]);
-  readonly MAX_SYMBOLS = 1000;
+  readonly MAX_SYMBOLS = 5000;
+  readonly COUNTER_VISIBLE_FROM = 1000;
 
   readonly orderForm = this.fb.nonNullable.group({
     description: ['', [trimmedRequired, Validators.maxLength(this.MAX_SYMBOLS)]]
