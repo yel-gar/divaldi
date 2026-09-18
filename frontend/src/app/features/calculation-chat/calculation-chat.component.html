@@ -3,16 +3,16 @@
     <h1 class="h2">Чат с агентом</h1>
     <button
       type="button"
-      class="button button--outline h3"
+      class="chat-section-header__toggle"
       aria-label="Панель результатов расчёта"
       [attr.aria-expanded]="isResultsOpen()"
       [attr.aria-controls]="id()"
       (click)="handleResultsOpen()"
     >
       @if (isResultsOpen()) {
-        <svg lucidePanelRightClose aria-hidden="true"></svg>
+        <svg size="18" lucidePanelRightClose aria-hidden="true"></svg>
       } @else {
-        <svg lucidePanelRightOpen aria-hidden="true"></svg>
+        <svg size="18" lucidePanelRightOpen aria-hidden="true"></svg>
       }
     </button>
   </header>
@@ -69,7 +69,7 @@
         <button
           type="submit"
           aria-label="Отправить"
-          class="button button--main chat-input-panel__send-button"
+          class="button button--main button--squared chat-input-panel__send-button"
           [disabled]="
             !messageInputValue().trim() || isUploading() || isSending() || agentStatus() !== null
           "
@@ -122,10 +122,10 @@
   <footer class="calculation-results__actions">
     <button
       type="button"
-      class="button button--outline button--danger h3"
+      class="button button--outline button--danger button--centered h3 button__remove-session"
       (click)="deleteSession()"
     >
-      <svg lucideTrash2 aria-hidden="true"></svg>
+      <svg size="18" lucideTrash2 aria-hidden="true"></svg>
       Удалить сессию
     </button>
   </footer>
