@@ -2,14 +2,17 @@ import os
 from datetime import datetime
 from typing import Annotated
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from starlette import status
 
 from app.auth import hash_password
-from app.deps import DbSession, require_admin
+from app.cache import get_avatar_waiting_key
+from app.deps import DbSession, RedisSession, S3InternalClient, S3PublicClient, require_admin
 from app.models.auth import User
+from app.routes.users import ALLOWED_CONTENT_TYPES
 from app.schemas import MessageResponse
 from app.schemas.admin import (
     AdminCreateUserSchema,
@@ -17,8 +20,12 @@ from app.schemas.admin import (
     AdminSetPasswordSchema,
     AdminUserFilters,
 )
+from app.schemas.files import S3UploadParams, S3UploadRequest
 from app.schemas.users import AdminUserSchema
+from app.storage import MAX_AVATAR_FILE_SIZE, get_s3_avatar_unprocessed_key
+from app.tasks.files import process_avatar
 
+log = structlog.stdlib.get_logger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
 
@@ -142,3 +149,65 @@ async def admin_create_user(db: DbSession, data: AdminCreateUserSchema):
 
     await db.refresh(user)
     return user
+
+
+@router.post(
+    "/users/{user_id}/set-avatar",
+    response_model=S3UploadParams,
+)
+async def users_set_avatar(user_id: int, s3: S3PublicClient, redis: RedisSession, data: S3UploadRequest, db: DbSession):
+    if data.content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Bad content type. Allowed types: {ALLOWED_CONTENT_TYPES}",
+        )
+    if data.file_size > MAX_AVATAR_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Max size: {MAX_AVATAR_FILE_SIZE} bytes",
+        )
+
+    user = await db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    redis_key = get_avatar_waiting_key(user.uuid)
+    await redis.delete(redis_key)
+
+    key = get_s3_avatar_unprocessed_key(user.uuid)
+    s3_data = await s3.generate_presigned_post(
+        Bucket="avatars",
+        Key=key,
+        Fields={"Content-Type": data.content_type},
+        Conditions=[
+            ["content-length-range", 1, MAX_AVATAR_FILE_SIZE],
+            {"Content-Type": data.content_type},
+        ],
+        ExpiresIn=300,
+    )
+    await redis.set(redis_key, str(key), ex=600, nx=True)
+    return s3_data
+
+
+@router.post(
+    "/users/{user_id}/set-avatar/complete",
+    response_model=MessageResponse,
+)
+async def users_set_avatar_complete(user_id: int, s3: S3InternalClient, redis: RedisSession, db: DbSession):
+    user = await db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not await redis.exists(get_avatar_waiting_key(user.uuid)):
+        raise HTTPException(
+            status_code=404,
+            detail="You were not uploading anything or your upload expired",
+        )
+    try:
+        await s3.head_object(Bucket="avatars", Key=get_s3_avatar_unprocessed_key(user.uuid))
+    except Exception as e:
+        log.warning("no_avatar", key=get_s3_avatar_unprocessed_key(user.uuid), exc=e)
+        raise HTTPException(status_code=400, detail="Object has not been uploaded yet") from e
+
+    await process_avatar.kiq(user.uuid)
+    return MessageResponse(message="Upload OK, processing started")
