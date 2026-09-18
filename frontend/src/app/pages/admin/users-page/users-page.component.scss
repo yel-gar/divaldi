@@ -63,6 +63,12 @@
     &--empty {
       color: var(--color-gray);
     }
+
+    &--loading {
+      justify-content: flex-start;
+
+      padding: 0;
+    }
   }
 }
 

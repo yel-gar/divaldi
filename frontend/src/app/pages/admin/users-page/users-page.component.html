@@ -18,7 +18,7 @@
         />
 
         @if (loading()) {
-          <div class="users-card__state">
+          <div class="users-card__state users-card__state--loading">
             <app-skeleton-users-table [rows]="3" />
           </div>
         } @else if (filteredUsers().length === 0) {

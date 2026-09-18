@@ -6,8 +6,15 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
   imports: [],
   template: `
     <div class="skeleton-item skeleton-item--history-table">
+      <div class="skeleton-item skeleton-item--history-table-head">
+        <div class="skeleton-item skeleton-item--rect"></div>
+        <div class="skeleton-item skeleton-item--rect"></div>
+        <div class="skeleton-item skeleton-item--rect"></div>
+        <div class="skeleton-item skeleton-item--rect"></div>
+      </div>
       @for (row of itemArray(); track $index) {
         <div class="skeleton-item skeleton-item--history-table-row">
+          <div class="skeleton-item skeleton-item--rect"></div>
           <div class="skeleton-item skeleton-item--rect"></div>
           <div class="skeleton-item skeleton-item--rect"></div>
           <div class="skeleton-item skeleton-item--rect"></div>
@@ -15,6 +22,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
       }
     </div>
   `,
+  styles: [':host { display: block; width: 100%; }'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SkeletonHistoryTableComponent {
