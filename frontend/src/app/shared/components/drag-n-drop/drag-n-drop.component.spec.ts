@@ -53,6 +53,13 @@ function dragEvent(type: string, files: File[] = []): DragEvent {
 })
 class TestHost {}
 
+@Component({
+  selector: 'app-dnd-compact-test-host',
+  imports: [DragNDropComponent],
+  template: `<app-drag-n-drop [sessionId]="'test-session'" variant="compact" />`
+})
+class CompactTestHost {}
+
 describe('DragNDropComponent', () => {
   let fixture: ComponentFixture<TestHost>;
   let component: DragNDropComponent;
@@ -202,6 +209,39 @@ describe('DragNDropComponent', () => {
     expect(texts.some((t: string) => t.includes('Загружается'))).toBe(true);
     expect(texts.some((t: string) => t.includes('В очереди'))).toBe(true);
     expect(texts.some((t: string) => t.includes('%'))).toBe(true);
+  });
+});
+
+describe('DragNDropComponent compact variant', () => {
+  let fixture: ComponentFixture<CompactTestHost>;
+  let component: DragNDropComponent;
+
+  const getDropzone = () => fixture.debugElement.query(By.css('.dropzone__area'));
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [CompactTestHost],
+      providers: [{ provide: AttachmentUploadService, useClass: FakeUploader }]
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(CompactTestHost);
+    fixture.detectChanges();
+    component = fixture.debugElement.query(By.directive(DragNDropComponent))
+      .componentInstance as DragNDropComponent;
+  });
+
+  it('renders no dropzone in compact mode', () => {
+    expect(getDropzone()).toBeNull();
+    expect(fixture.debugElement.query(By.css('.uploader'))).toBeNull();
+  });
+
+  it('renders the compact uploader list while uploading', () => {
+    component.enqueue([makeFile('compact.pdf', MB)]);
+    fixture.detectChanges();
+
+    expect(component.items().length).toBe(1);
+    expect(fixture.debugElement.query(By.css('.uploader--compact'))).not.toBeNull();
+    expect(fixture.debugElement.query(By.css('.uploader__header'))).toBeNull();
   });
 });
 

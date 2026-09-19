@@ -13,10 +13,10 @@ import {
   ViewChild,
   ElementRef
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { ControlValueAccessor, NgControl } from '@angular/forms';
 import { LucideDynamicIcon, LucideIcon } from '@lucide/angular';
 import { noop } from 'rxjs';
+import { controlErrorSignal } from '../../utils/control-error-signal';
 
 @Component({
   selector: 'app-input',
@@ -68,7 +68,6 @@ export class InputComponent implements ControlValueAccessor, OnInit {
   private readonly formDisabled = signal(false);
 
   readonly isDisabled = computed(() => this.formDisabled() || this.disabled());
-  readonly showError = signal(false);
 
   @ViewChild('inputRef', { static: false }) inputRef?: ElementRef<
     HTMLInputElement | HTMLTextAreaElement
@@ -76,6 +75,8 @@ export class InputComponent implements ControlValueAccessor, OnInit {
 
   private readonly ngControl = inject(NgControl, { optional: true, self: true });
   private readonly injector = inject(Injector);
+
+  readonly showError = signal(false);
 
   private onChange: (value: string) => void = noop;
   private onTouched: () => void = noop;
@@ -98,6 +99,8 @@ export class InputComponent implements ControlValueAccessor, OnInit {
   }
 
   ngOnInit(): void {
+    controlErrorSignal(this.ngControl, this.injector, this.showError);
+
     effect(
       () => {
         const externalValue = this.value();
@@ -108,22 +111,6 @@ export class InputComponent implements ControlValueAccessor, OnInit {
         if (this._value() !== externalValue) {
           this._value.set(externalValue);
         }
-      },
-      { injector: this.injector }
-    );
-
-    const control = this.ngControl?.control ?? null;
-    if (!control) {
-      return;
-    }
-    const controlEvents = toSignal(control.events, {
-      initialValue: null,
-      injector: this.injector
-    });
-    effect(
-      () => {
-        controlEvents();
-        this.showError.set(control.invalid && control.touched);
       },
       { injector: this.injector }
     );

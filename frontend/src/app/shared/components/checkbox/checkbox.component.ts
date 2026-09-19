@@ -4,17 +4,16 @@ import {
   ElementRef,
   ViewChild,
   computed,
-  effect,
   inject,
   Injector,
   input,
   OnInit,
   signal
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { ControlValueAccessor, NgControl } from '@angular/forms';
 import { LucideCheck } from '@lucide/angular';
 import { noop } from 'rxjs';
+import { controlErrorSignal } from '../../utils/control-error-signal';
 
 @Component({
   selector: 'app-checkbox',
@@ -31,7 +30,6 @@ export class CheckboxComponent implements ControlValueAccessor, OnInit {
   readonly label = input('');
   readonly caption = input('');
 
-  readonly showError = signal(false);
   private readonly formDisabled = signal(false);
 
   readonly isDisabled = computed(() => this.formDisabled());
@@ -41,6 +39,8 @@ export class CheckboxComponent implements ControlValueAccessor, OnInit {
 
   private readonly ngControl = inject(NgControl, { optional: true, self: true });
   private readonly injector = inject(Injector);
+
+  readonly showError = signal(false);
 
   private onChange: (checked: boolean) => void = noop;
   private onTouched: () => void = noop;
@@ -52,21 +52,7 @@ export class CheckboxComponent implements ControlValueAccessor, OnInit {
   }
 
   ngOnInit(): void {
-    const control = this.ngControl?.control ?? null;
-    if (!control) {
-      return;
-    }
-    const controlEvents = toSignal(control.events, {
-      initialValue: null,
-      injector: this.injector
-    });
-    effect(
-      () => {
-        controlEvents();
-        this.showError.set(control.invalid && control.touched);
-      },
-      { injector: this.injector }
-    );
+    controlErrorSignal(this.ngControl, this.injector, this.showError);
   }
 
   onInput(event: Event): void {

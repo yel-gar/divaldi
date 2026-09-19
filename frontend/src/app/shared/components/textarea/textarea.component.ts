@@ -2,35 +2,38 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  effect,
   inject,
   Injector,
   input,
   OnInit,
   signal
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { ControlValueAccessor, NgControl } from '@angular/forms';
 import { noop } from 'rxjs';
+import { controlErrorSignal } from '../../utils/control-error-signal';
 
 @Component({
   selector: 'app-textarea',
   host: {
     '[class.textarea--error]': 'showError()'
   },
-  templateUrl: './textarea.html',
-  styleUrl: './textarea.scss',
+  templateUrl: './textarea.component.html',
+  styleUrl: './textarea.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class Textarea implements ControlValueAccessor, OnInit {
   readonly inputId = input<string>();
   readonly placeholder = input('');
   readonly maxLength = input<number>();
+  readonly counterVisibleFrom = input(0);
 
   readonly value = signal('');
   private readonly formDisabled = signal(false);
 
   readonly symbolsCount = computed(() => this.value().length);
+  readonly isCounterVisible = computed(
+    () => this.maxLength() !== undefined && this.symbolsCount() >= this.counterVisibleFrom()
+  );
   readonly isMaxLengthReached = computed(() => {
     const maxLength = this.maxLength();
     return maxLength !== undefined && this.symbolsCount() >= maxLength;
@@ -52,21 +55,7 @@ export class Textarea implements ControlValueAccessor, OnInit {
   }
 
   ngOnInit(): void {
-    const control = this.ngControl?.control ?? null;
-    if (!control) {
-      return;
-    }
-    const controlEvents = toSignal(control.events, {
-      initialValue: null,
-      injector: this.injector
-    });
-    effect(
-      () => {
-        controlEvents();
-        this.showError.set(control.invalid && control.touched);
-      },
-      { injector: this.injector }
-    );
+    controlErrorSignal(this.ngControl, this.injector, this.showError);
   }
 
   onInput(event: Event) {

@@ -1,4 +1,6 @@
 <div class="input-wrapper">
+  <ng-content select="[appInputPrefix]" />
+  <div class="input__divider"></div>
   @if (leftIcon()) {
     @if (leftIconInteractive()) {
       <button
@@ -64,4 +66,5 @@
       </span>
     }
   }
+  <ng-content select="[appInputSuffix]" />
 </div>

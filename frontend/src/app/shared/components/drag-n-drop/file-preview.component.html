@@ -14,7 +14,7 @@
 
       <button
         type="button"
-        class="file-preview__close"
+        class="button button--outline file-preview__close"
         aria-label="Закрыть предпросмотр"
         (click)="close()"
       >
@@ -25,7 +25,7 @@
     <div class="file-preview__body">
       @if (phase() === 'loading') {
         <div class="file-preview__placeholder" role="status">
-          <app-spinner [size]="32" class="file-preview__spinner" />
+          <app-skeleton-file-preview />
           <p class="h5">Загрузка предпросмотра…</p>
         </div>
       } @else if (phase() === 'error') {

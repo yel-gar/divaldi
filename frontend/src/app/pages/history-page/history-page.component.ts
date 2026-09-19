@@ -12,7 +12,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { LucideChevronRight, LucideChevronsUpDown } from '@lucide/angular';
 import { ChatService } from '../../core/services/chat.service';
 import { UserChat } from '../../core/models/models';
-import { Spinner } from '../../shared/components/spinner/spinner.component';
+import { SkeletonHistoryTableComponent } from '../../shared/components/skeleton/skeleton-history-table/skeleton-history-table.component';
 
 type SortColumn = 'number' | 'date';
 type SortDirection = 'asc' | 'desc';
@@ -24,9 +24,9 @@ function timestampMs(value: string): number {
 
 @Component({
   selector: 'app-history-page',
-  imports: [LucideChevronsUpDown, LucideChevronRight, Spinner, RouterLink],
-  templateUrl: './history-page.html',
-  styleUrl: './history-page.scss',
+  imports: [LucideChevronsUpDown, LucideChevronRight, SkeletonHistoryTableComponent, RouterLink],
+  templateUrl: './history-page.component.html',
+  styleUrl: './history-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class HistoryPage {

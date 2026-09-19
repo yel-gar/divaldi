@@ -5,14 +5,6 @@
         <h1 class="h2">Пользователи</h1>
         <p class="h4">Управление учетными записями и правами доступа</p>
       </div>
-      <button
-        type="button"
-        class="users-add button button--main button--centered h3"
-        (click)="resetForm()"
-      >
-        <svg size="18" lucidePlus aria-hidden="true"></svg>
-        <span>Новый пользователь</span>
-      </button>
     </header>
 
     <div class="users-grid">
@@ -26,8 +18,8 @@
         />
 
         @if (loading()) {
-          <div class="users-card__state">
-            <app-spinner [size]="28" />
+          <div class="users-card__state users-card__state--loading">
+            <app-skeleton-users-table [rows]="3" />
           </div>
         } @else if (filteredUsers().length === 0) {
           <p class="users-card__state users-card__state--empty">

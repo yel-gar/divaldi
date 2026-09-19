@@ -1,3 +1,5 @@
+@use '../../../mixins' as *;
+
 :host {
   display: block;
 }
@@ -32,13 +34,12 @@
   border-radius: 999px;
   background: var(--color-outline);
   border: 1px solid var(--color-outline);
+
   transition:
     background-color 0.2s ease,
     border-color 0.2s ease;
 
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
-  }
+  @include reduced-motion;
 }
 
 .toggle__input:checked + .toggle__track {
@@ -54,11 +55,10 @@
   height: 22px;
   border-radius: 50%;
   background: var(--color-white);
+
   transition: transform 0.2s ease;
 
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
-  }
+  @include reduced-motion;
 }
 
 .toggle__input:checked + .toggle__track .toggle__thumb {

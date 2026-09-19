@@ -4,6 +4,9 @@ export function extractApiErrorMessage(error: HttpErrorResponse): string {
   if (error.status === 0) {
     return 'Не удалось связаться с сервером';
   }
+  if (error.status >= 500) {
+    return 'Ошибка сервера';
+  }
   const detail = error.error?.detail;
   if (typeof detail === 'string' && detail) {
     return detail;
@@ -11,5 +14,5 @@ export function extractApiErrorMessage(error: HttpErrorResponse): string {
   if (Array.isArray(detail) && detail.length > 0) {
     return detail[0]?.msg ?? 'Проверьте корректность введённых данных';
   }
-  return error.error?.message || error.message || 'Неизвестная ошибка';
+  return error.error?.message || 'Ошибка сервера';
 }

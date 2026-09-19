@@ -1,11 +1,16 @@
 import { extractApiErrorMessage } from './api-error';
 
 describe('extractApiErrorMessage', () => {
-  const error = (body: unknown, status = 500): never =>
+  const error = (body: unknown, status = 400): never =>
     ({ error: body, status, message: 'Http failure response' }) as never;
 
   it('returns a network error message when the server is unreachable', () => {
     expect(extractApiErrorMessage(error({}, 0))).toBe('Не удалось связаться с сервером');
+  });
+
+  it('returns a generic message for server errors', () => {
+    expect(extractApiErrorMessage(error({}))).toBe('Ошибка сервера');
+    expect(extractApiErrorMessage(error({ detail: 'Traceback ...' }, 502))).toBe('Ошибка сервера');
   });
 
   it('returns a string detail as-is', () => {
@@ -30,8 +35,8 @@ describe('extractApiErrorMessage', () => {
     ).toBe('String should have at most 32 characters');
   });
 
-  it('falls back to body and http message for other shapes', () => {
-    expect(extractApiErrorMessage(error({ message: 'Login OK' }))).toBe('Login OK');
-    expect(extractApiErrorMessage(error({}))).toBe('Http failure response');
+  it('falls back to backend message and generic text for other shapes', () => {
+    expect(extractApiErrorMessage(error({ message: 'Login OK' }, 400))).toBe('Login OK');
+    expect(extractApiErrorMessage(error({}))).toBe('Ошибка сервера');
   });
 });

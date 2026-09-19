@@ -1,3 +1,6 @@
+@use '../../../scrollbars' as *;
+@use '../../../mixins' as *;
+
 :host {
   display: block;
 }
@@ -15,6 +18,8 @@
 
   font-weight: 400;
   color: var(--color-gray);
+
+  background: var(--color-surface);
 
   transition:
     border-color 300ms,
@@ -44,6 +49,10 @@
 
   &__text {
     line-height: 1.75;
+
+    .active-link:hover {
+      text-decoration: underline;
+    }
   }
 
   &__icon {
@@ -58,7 +67,22 @@
   border-radius: 8px;
 
   overflow: hidden;
-  background: var(--color-white);
+  background: var(--color-surface);
+
+  &--compact {
+    .uploader__list {
+      max-height: 160px;
+    }
+
+    .upload-item {
+      padding: 10px 14px;
+    }
+
+    .upload-item__icon-wrap {
+      width: 28px;
+      height: 28px;
+    }
+  }
 
   &__header {
     display: flex;
@@ -133,32 +157,7 @@
 
   &__collapse,
   &__show-all {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-
-    padding: 6px 10px;
-
-    color: var(--color-gray);
-    background: none;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 12px;
-
-    transition:
-      color 0.15s ease,
-      background-color 0.15s ease;
-
-    &:hover {
-      color: var(--color-main);
-      background: var(--color-hover-secondary);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--color-main);
-      outline-offset: 2px;
-    }
+    @include icon-button;
   }
 
   &__chevron {
@@ -171,7 +170,7 @@
 
   &__list {
     margin: 0;
-    padding: 8px 0;
+    padding: 0;
 
     list-style: none;
 
@@ -199,6 +198,8 @@
   padding: 20px 20px;
 
   transition: background-color 0.15s ease;
+
+  @include reduced-motion;
 
   &:hover {
     background: var(--color-secondary);

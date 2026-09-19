@@ -61,7 +61,7 @@
 
     overflow-x: auto;
 
-    background: var(--color-text);
+    background: var(--color-code-bg);
     border-radius: 8px;
 
     code {
@@ -70,7 +70,7 @@
       background: transparent;
       border: 0;
 
-      color: var(--color-outline);
+      color: var(--color-code-muted);
       font-size: 13px;
       line-height: 1.5;
     }

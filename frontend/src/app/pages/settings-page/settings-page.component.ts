@@ -4,7 +4,7 @@ import { SectionPlaceholder } from '../../shared/components/section-placeholder/
 @Component({
   selector: 'app-settings-page',
   imports: [SectionPlaceholder],
-  templateUrl: './settings-page.html',
-  styleUrl: './settings-page.scss'
+  templateUrl: './settings-page.component.html',
+  styleUrl: './settings-page.component.scss'
 })
 export class SettingsPage {}

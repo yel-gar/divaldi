@@ -1,7 +1,7 @@
 @mixin app-scrollbar {
   @supports (-moz-appearance: none) {
     scrollbar-width: thin;
-    scrollbar-color: var(--color-main) var(--color-white);
+    scrollbar-color: var(--color-main) var(--color-surface);
   }
 
   &::-webkit-scrollbar {
@@ -10,7 +10,7 @@
   }
 
   &::-webkit-scrollbar-track {
-    background: var(--color-white);
+    background: var(--color-surface);
     border: 1px solid var(--color-outline);
     border-radius: 999px;
   }

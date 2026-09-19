@@ -1,16 +1,32 @@
+@use '_mixins' as *;
+
 .button {
+  font: inherit;
+
   padding: 15px;
-  border: none;
-  cursor: pointer;
-  color: var(--color-white);
-  transition: all 300ms;
-  border-radius: 8px;
 
   display: flex;
+  gap: 8px;
+
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+
+  color: var(--color-white);
+
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+
+  @include reduced-motion;
 
   &--centered {
     align-items: center;
     justify-content: center;
+  }
+
+  &--squared {
+    border-radius: 25%;
   }
 
   &--main {
@@ -39,10 +55,7 @@
     }
   }
 
-  &:focus-visible {
-    outline: 2px solid var(--color-main);
-    outline-offset: 2px;
-  }
+  @include focus-ring;
 
   &:disabled {
     pointer-events: none;

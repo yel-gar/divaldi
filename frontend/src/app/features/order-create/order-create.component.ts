@@ -29,8 +29,8 @@ function trimmedRequired(control: AbstractControl): ValidationErrors | null {
   selector: 'app-order-create',
   standalone: true,
   imports: [DragNDropComponent, Textarea, ReactiveFormsModule, LucideArrowRight],
-  templateUrl: './order-create.html',
-  styleUrl: './order-create.scss'
+  templateUrl: './order-create.component.html',
+  styleUrl: './order-create.component.scss'
 })
 export class OrderCreateComponent {
   private readonly fb = inject(FormBuilder);
@@ -42,7 +42,8 @@ export class OrderCreateComponent {
 
   readonly isSubmitting = signal<boolean>(false);
   readonly selectedFiles = signal<File[]>([]);
-  readonly MAX_SYMBOLS = 1000;
+  readonly MAX_SYMBOLS = 5000;
+  readonly COUNTER_VISIBLE_FROM = 1000;
 
   readonly orderForm = this.fb.nonNullable.group({
     description: ['', [trimmedRequired, Validators.maxLength(this.MAX_SYMBOLS)]]

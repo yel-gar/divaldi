@@ -1,12 +1,14 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   OnDestroy,
   computed,
   inject,
   input,
   output,
-  signal
+  signal,
+  viewChild
 } from '@angular/core';
 import { Subscription } from 'rxjs';
 import {
@@ -35,7 +37,7 @@ import { createId } from '../../utils/create-id';
 import { previewKindFor } from './file-preview.model';
 import { FilePreviewComponent } from './file-preview.component';
 import { ProgressBarComponent } from '../progress-bar/progress-bar.component';
-import { Spinner } from '../spinner/spinner.component';
+import { SkeletonDnDItemComponent } from '../skeleton/skeleton-dnd-item/skeleton-dnd-item.component';
 import { AttachmentUploadService } from '../../../core/services/attachment-upload.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import { fileTypeStyleFor } from './file-type-icons';
@@ -54,7 +56,7 @@ const PROGRESS_CIRCLE_RADIUS = 20;
   imports: [
     FilePreviewComponent,
     ProgressBarComponent,
-    Spinner,
+    SkeletonDnDItemComponent,
     LucideCheck,
     LucideChevronDown,
     LucideCircleAlert,
@@ -86,12 +88,14 @@ export class DragNDropComponent implements OnDestroy {
   readonly showItemPercent = input(true);
   readonly inputId = input<string>();
   readonly sessionId = input<string>();
+  readonly variant = input<'full' | 'compact'>('full');
 
   readonly filesChange = output<File[]>();
   readonly uploadingChange = output<boolean>();
 
   readonly previewKindFor = previewKindFor;
 
+  private readonly fileInput = viewChild.required<ElementRef<HTMLInputElement>>('fileInput');
   private readonly uploader = inject(AttachmentUploadService);
   private readonly notifications = inject(NotificationService);
 
@@ -133,6 +137,14 @@ export class DragNDropComponent implements OnDestroy {
 
   openFilePicker(input: HTMLInputElement): void {
     input.click();
+  }
+
+  openPicker(): void {
+    this.fileInput().nativeElement.click();
+  }
+
+  enqueue(files: File[]): void {
+    this.enqueueFiles(files);
   }
 
   onFileInputChange(event: Event): void {

@@ -1,0 +1,56 @@
+@use '../../../mixins' as *;
+
+.drag-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: color-mix(in srgb, var(--color-black) 60%, transparent);
+
+  animation: drag-overlay-fade-in 150ms ease;
+
+  @include reduced-motion;
+}
+
+.drag-overlay__zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  width: calc(100vw - 48px);
+  height: calc(100dvh - 48px);
+
+  border: 2px solid var(--color-white);
+  border-radius: 12px;
+
+  color: var(--color-white);
+  text-align: center;
+
+  & p {
+    margin: 0;
+  }
+}
+
+.drag-overlay__icon {
+  stroke: var(--color-white);
+}
+
+.drag-overlay__subtext {
+  opacity: 0.8;
+}
+
+@keyframes drag-overlay-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}

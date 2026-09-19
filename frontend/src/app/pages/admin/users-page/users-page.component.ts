@@ -15,7 +15,6 @@ import {
   LucideEye,
   LucideEyeOff,
   LucidePencil,
-  LucidePlus,
   LucideSearch,
   LucideTrash2
 } from '@lucide/angular';
@@ -24,7 +23,7 @@ import { AdminUsersService } from '../../../core/services/admin-users.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import { extractApiErrorMessage } from '../../../shared/utils/api-error';
 import { InputComponent } from '../../../shared/components/input/input.component';
-import { Spinner } from '../../../shared/components/spinner/spinner.component';
+import { SkeletonUsersTableComponent } from '../../../shared/components/skeleton/skeleton-users-table/skeleton-users-table.component';
 
 type UserStatus = 'active' | 'expiring' | 'expired';
 
@@ -40,7 +39,13 @@ function localDateInputValue(iso: string): string {
 
 @Component({
   selector: 'app-users-page',
-  imports: [ReactiveFormsModule, InputComponent, Spinner, LucidePlus, LucidePencil, LucideTrash2],
+  imports: [
+    ReactiveFormsModule,
+    InputComponent,
+    SkeletonUsersTableComponent,
+    LucidePencil,
+    LucideTrash2
+  ],
   templateUrl: './users-page.component.html',
   styleUrl: './users-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
