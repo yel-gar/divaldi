@@ -4,6 +4,7 @@ import {
   DestroyRef,
   OnInit,
   computed,
+  effect,
   inject,
   input,
   signal
@@ -141,12 +142,25 @@ export class Sidebar implements OnInit {
     return CHAT_URL_PATTERN.exec(url)?.[1];
   });
 
+  constructor() {
+    effect(() => {
+      if (this.chatService.historyVersion() === 0) {
+        return;
+      }
+      this.loadHistory();
+    });
+  }
+
   ngOnInit(): void {
     this.profile.loadAvatar();
     if (this.role() !== 'user' || this.historyLoaded()) {
       return;
     }
     this.historyLoaded.set(true);
+    this.loadHistory();
+  }
+
+  private loadHistory(): void {
     this.chatsLoading.set(true);
     this.chatService
       .list()

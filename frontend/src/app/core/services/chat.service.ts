@@ -1,6 +1,6 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   ChatAttachmentStatus,
@@ -20,8 +20,10 @@ export class ChatService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiUrl}/chats`;
 
+  readonly historyVersion = signal(0);
+
   create(): Observable<ChatCreated> {
-    return this.http.post<ChatCreated>(`${this.baseUrl}/`, {});
+    return this.http.post<ChatCreated>(`${this.baseUrl}/`, {}).pipe(tap(() => this.bumpHistory()));
   }
 
   list(): Observable<UserChat[]> {
@@ -33,19 +35,33 @@ export class ChatService {
   }
 
   result(sessionId: string): Observable<ChatResult> {
-    return this.http.get<ChatResult>(`${this.baseUrl}/${sessionId}/result`);
+    return this.http.get<ChatResult>(`${this.baseUrl}/${sessionId}/result`).pipe(
+      tap((result) => {
+        if (!result.running) {
+          this.bumpHistory();
+        }
+      })
+    );
   }
 
   send(sessionId: string, content: string): Observable<MessageResponse> {
-    return this.http.post<MessageResponse>(`${this.baseUrl}/${sessionId}`, { content });
+    return this.http
+      .post<MessageResponse>(`${this.baseUrl}/${sessionId}`, { content })
+      .pipe(tap(() => this.bumpHistory()));
   }
 
   remove(sessionId: string): Observable<{ deleted: boolean }> {
-    return this.http.delete<{ deleted: boolean }>(`${this.baseUrl}/${sessionId}`);
+    return this.http
+      .delete<{ deleted: boolean }>(`${this.baseUrl}/${sessionId}`)
+      .pipe(tap(() => this.bumpHistory()));
   }
 
   retry(sessionId: string): Observable<MessageResponse> {
     return this.http.post<MessageResponse>(`${this.baseUrl}/${sessionId}/retry`, {});
+  }
+
+  private bumpHistory(): void {
+    this.historyVersion.update((version) => version + 1);
   }
 
   requestUpload(
