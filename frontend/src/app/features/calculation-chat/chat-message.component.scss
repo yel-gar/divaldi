@@ -117,13 +117,14 @@
   }
 }
 
-.message__failed-retry {
-  margin-top: 6px;
-  margin-left: auto;
+.message__action--retry {
+  & > svg {
+    stroke: var(--color-main);
+  }
 
-  padding: 8px 14px;
-
-  font-size: 13px;
+  &:hover > svg {
+    stroke: var(--color-hover);
+  }
 }
 
 :host:hover .message__backdrop,

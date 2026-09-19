@@ -75,6 +75,16 @@
     </div>
   </div>
   <div class="message__backdrop">
+    @if (!isIncoming() && failed()) {
+      <button
+        type="button"
+        class="message__action message__action--retry"
+        aria-label="Повторить запрос"
+        (click)="reply.emit()"
+      >
+        <svg size="14" lucideRefreshCw aria-hidden="true"></svg>
+      </button>
+    }
     <button
       type="button"
       class="message__action"
