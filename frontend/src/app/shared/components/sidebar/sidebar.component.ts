@@ -4,6 +4,7 @@ import {
   DestroyRef,
   OnInit,
   computed,
+  effect,
   inject,
   input,
   signal
@@ -15,15 +16,18 @@ import {
   LucideDynamicIcon,
   LucideLogOut,
   LucideMessageSquare,
+  LucideMoon,
   LucidePanelLeftClose,
   LucidePanelLeftOpen,
   LucidePlus,
-  LucideShieldCheck
+  LucideShieldCheck,
+  LucideSun
 } from '@lucide/angular';
 import { AuthService } from '../../../core/services/auth.service';
 import { ChatService } from '../../../core/services/chat.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import { ProfileService } from '../../../core/services/profile.service';
+import { ThemeService } from '../../../core/services/theme.service';
 import type { UserChat } from '../../../core/models/models';
 import { SkeletonChatListComponent } from '../skeleton/skeleton-chat-list/skeleton-chat-list.component';
 import type { NavItem, Role } from './sidebar.config';
@@ -56,6 +60,8 @@ function toHistoryItem(chat: UserChat): SidebarHistoryItem {
     LucidePanelLeftClose,
     LucidePanelLeftOpen,
     LucideLogOut,
+    LucideMoon,
+    LucideSun,
     SkeletonChatListComponent
   ],
   templateUrl: './sidebar.component.html',
@@ -80,14 +86,25 @@ export class Sidebar implements OnInit {
   private readonly notifications = inject(NotificationService);
   private readonly profile = inject(ProfileService);
   private readonly router = inject(Router);
+  private readonly themeService = inject(ThemeService);
+
+  readonly theme = this.themeService.theme;
+
+  toggleTheme(): void {
+    const theme = this.themeService.toggle();
+    const message = theme === 'dark' ? 'Включена тёмная тема' : 'Включена светлая тема';
+    this.notifications.info(message);
+  }
 
   readonly user = this.profile.user;
-  readonly visibleNavItems = computed<NavItem[]>(() => {
-    const items = this.navItems();
+  readonly visibleNavItems = computed<NavItem[]>(() =>
+    this.navItems().filter((item) => item !== Sidebar.ADMIN_PANEL_ITEM)
+  );
+  readonly adminItem = computed<NavItem | null>(() => {
     if (this.role() !== 'user' || !this.user()?.is_superuser) {
-      return items;
+      return null;
     }
-    return [...items, Sidebar.ADMIN_PANEL_ITEM];
+    return Sidebar.ADMIN_PANEL_ITEM;
   });
   readonly displayName = computed(() => {
     const user = this.user();
@@ -98,6 +115,15 @@ export class Sidebar implements OnInit {
     return name || user.username;
   });
   readonly isLoggingOut = signal(false);
+
+  private static readonly EMPTY_AVATAR = '/assets/imgs/empty-avatar.png';
+
+  readonly avatarLoading = this.profile.avatarLoading;
+  readonly avatarSrc = computed(() => this.profile.avatarUrl() ?? Sidebar.EMPTY_AVATAR);
+
+  onAvatarError(): void {
+    this.profile.avatarUrl.set(null);
+  }
 
   readonly chats = signal<SidebarHistoryItem[]>([]);
   readonly chatsLoading = signal(false);
@@ -116,11 +142,25 @@ export class Sidebar implements OnInit {
     return CHAT_URL_PATTERN.exec(url)?.[1];
   });
 
+  constructor() {
+    effect(() => {
+      if (this.chatService.historyVersion() === 0) {
+        return;
+      }
+      this.loadHistory();
+    });
+  }
+
   ngOnInit(): void {
+    this.profile.loadAvatar();
     if (this.role() !== 'user' || this.historyLoaded()) {
       return;
     }
     this.historyLoaded.set(true);
+    this.loadHistory();
+  }
+
+  private loadHistory(): void {
     this.chatsLoading.set(true);
     this.chatService
       .list()

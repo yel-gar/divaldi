@@ -20,6 +20,28 @@ import { getFileExtension } from '../../utils/upload-format';
 import { SkeletonFilePreviewComponent } from '../skeleton/skeleton-file-preview/skeleton-file-preview.component';
 import { PreviewKind, mimeTypeFor, previewKindFor } from './file-preview.model';
 
+type XLSXModule = typeof import('xlsx');
+type HyperFormulaCtor = typeof import('hyperformula').HyperFormula;
+
+const RUSSIAN_FUNCTION_MAP = new Map([
+  ['СУММ', 'SUM'],
+  ['ЕСЛИ', 'IF'],
+  ['СРЗНАЧ', 'AVERAGE'],
+  ['МАКС', 'MAX'],
+  ['МИН', 'MIN'],
+  ['ОКРУГЛ', 'ROUND'],
+  ['ОКРУГЛВВЕРХ', 'ROUNDUP'],
+  ['ОКРУГЛВНИЗ', 'ROUNDDOWN'],
+  ['КОРЕНЬ', 'SQRT'],
+  ['СТЕПЕНЬ', 'POWER'],
+  ['ПРОИЗВЕД', 'PRODUCT'],
+  ['СЧЁТ', 'COUNT'],
+  ['СЧЁТЕСЛИ', 'COUNTIF'],
+  ['СУММЕСЛИ', 'SUMIF'],
+  ['ОСТАТ', 'MOD'],
+  ['ЦЕЛОЕ', 'INT']
+]);
+
 @Component({
   selector: 'app-file-preview',
   imports: [LucideFileWarning, LucideX, SkeletonFilePreviewComponent],
@@ -211,6 +233,11 @@ export class FilePreviewComponent implements AfterViewInit {
       throw new Error('Spreadsheet has no renderable sheets');
     }
 
+    const { HyperFormula } = await import('hyperformula');
+    sheetNames.forEach((name) => {
+      this.evaluateSheetFormulas(workbook.Sheets[name], XLSX, HyperFormula);
+    });
+
     const workbookEl = document.createElement('div');
     workbookEl.className = 'file-preview__workbook';
 
@@ -257,6 +284,47 @@ export class FilePreviewComponent implements AfterViewInit {
     workbookEl.appendChild(tabs);
     workbookEl.appendChild(sheetArea);
     return workbookEl;
+  }
+
+  private evaluateSheetFormulas(
+    sheet: import('xlsx').WorkSheet,
+    XLSX: XLSXModule,
+    HyperFormula: HyperFormulaCtor
+  ): void {
+    const range = XLSX.utils.decode_range(sheet['!ref'] ?? 'A1');
+    const rows: import('hyperformula').RawCellContent[][] = [];
+    for (let r = range.s.r; r <= range.e.r; r++) {
+      const row: import('hyperformula').RawCellContent[] = [];
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const cell = sheet[XLSX.utils.encode_cell({ r, c })] as
+          import('xlsx').CellObject | undefined;
+        row.push(cell?.f ? `=${this.normalizeFormula(cell.f)}` : (cell?.v ?? null));
+      }
+      rows.push(row);
+    }
+    let engine: import('hyperformula').HyperFormula;
+    try {
+      engine = HyperFormula.buildFromArray(rows, { licenseKey: 'gpl-v3' });
+    } catch {
+      return;
+    }
+    for (const [addr, cell] of Object.entries(sheet).filter(([key]) => !key.startsWith('!'))) {
+      if (!cell.f) {
+        continue;
+      }
+      const { r, c } = XLSX.utils.decode_cell(addr);
+      const value = engine.getCellValue({ sheet: 0, row: r, col: c });
+      if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean') {
+        cell.t = typeof value === 'number' ? 'n' : typeof value === 'boolean' ? 'b' : 's';
+        cell.v = value;
+        delete cell.w;
+      }
+    }
+    engine.destroy();
+  }
+
+  private normalizeFormula(formula: string): string {
+    return formula.replace(/[А-ЯЁ]+/g, (name) => RUSSIAN_FUNCTION_MAP.get(name) ?? name);
   }
 
   private importTableHtml(tableHtml: string): Node | null {

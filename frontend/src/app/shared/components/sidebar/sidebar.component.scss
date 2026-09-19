@@ -78,12 +78,14 @@
 
   min-height: 0;
 
-  margin-top: 24px;
+  margin-top: 15px;
+
+  margin-left: -10px;
 
   &__header {
     flex-shrink: 0;
 
-    padding: 10px 20px;
+    padding: 10px 20px 10px 12px;
   }
 
   &__title {
@@ -96,12 +98,14 @@
 
   &__list {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
     gap: 2px;
 
     flex: 1 1 auto;
 
     overflow-y: auto;
+    overflow-x: clip;
 
     min-height: 40px;
 
@@ -127,7 +131,7 @@
 
     flex-shrink: 0;
 
-    padding: 10px 20px;
+    padding: 10px 20px 10px 12px;
 
     color: var(--color-gray);
   }
@@ -146,7 +150,7 @@
 
     gap: 10px;
 
-    padding: 10px 16px;
+    padding: 10px 16px 10px 8px;
 
     border: none;
     border-radius: 10px;
@@ -191,6 +195,9 @@
     }
 
     &-title {
+      flex: 1;
+      min-width: 0;
+
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
@@ -220,9 +227,7 @@
 
     border-radius: 10px;
 
-    transition:
-      border-radius 500ms,
-      background 250ms;
+    transition: background 250ms;
 
     @include reduced-motion;
 
@@ -302,6 +307,8 @@
     height: 36px;
     padding: 0;
 
+    color: var(--color-text);
+
     background: none;
     border: none;
     border-radius: 8px;
@@ -332,11 +339,70 @@
   }
 }
 
+.sidebar__footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+
+  flex-shrink: 0;
+
+  padding: 8px 10px 0;
+}
+
+.icon-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 36px;
+  height: 36px;
+
+  flex-shrink: 0;
+
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+
+  color: var(--color-gray);
+
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    rotate 0.3s ease;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition:
+      color 0.15s ease,
+      background-color 0.15s ease;
+  }
+
+  &:hover {
+    color: var(--color-main);
+    background: var(--color-hover-secondary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-main);
+    outline-offset: 2px;
+  }
+
+  &:active svg {
+    rotate: -30deg;
+  }
+}
+
 :host(.sidebar--collapsed) {
   .sidebar__header {
     justify-content: center;
 
     padding-right: 0;
+  }
+
+  .sidebar__footer {
+    flex-direction: column;
+    gap: 10px;
   }
 
   .logo {

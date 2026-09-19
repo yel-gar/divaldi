@@ -190,20 +190,19 @@
               <span class="upload-item__status-text">{{ statusLabel(item) }}</span>
             </span>
 
-            @if (item.status === 'error') {
-              <button
-                type="button"
-                class="button button--outline upload-item__action upload-item__action--retry"
-                aria-label="Повторить"
-                title="Повторить"
-                (click)="retryItem(item.id)"
-              >
-                <svg size="16" lucideRotateCcw></svg>
-              </button>
-            }
-
-            @if (state() === 'completed') {
-              <span class="upload-item__actions">
+            <span class="upload-item__actions">
+              @if (item.status === 'error') {
+                <button
+                  type="button"
+                  class="button button--outline button--centered upload-item__action upload-item__action--retry"
+                  aria-label="Повторить"
+                  title="Повторить"
+                  (click)="retryItem(item.id)"
+                >
+                  <svg size="16" lucideRotateCcw></svg>
+                </button>
+              }
+              @if (state() === 'completed') {
                 @if (previewKindFor(item.extension)) {
                   <button
                     type="button"
@@ -222,8 +221,8 @@
                 >
                   <svg size="16" lucideTrash2></svg>
                 </button>
-              </span>
-            }
+              }
+            </span>
           </li>
         }
       </ul>

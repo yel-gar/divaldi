@@ -50,6 +50,9 @@ describe('Sidebar accessibility', () => {
   });
 
   afterEach(() => {
+    http
+      .match(`${environment.apiUrl}/users/me/avatar`)
+      .forEach((request) => request.flush({ avatar_url: null }));
     http.verify();
   });
 
@@ -131,6 +134,9 @@ describe('Sidebar tab navigation', () => {
   });
 
   afterEach(() => {
+    http
+      .match(`${environment.apiUrl}/users/me/avatar`)
+      .forEach((request) => request.flush({ avatar_url: null }));
     http.verify();
   });
 
@@ -197,6 +203,9 @@ describe('Sidebar history section', () => {
   });
 
   afterEach(() => {
+    http
+      .match(`${environment.apiUrl}/users/me/avatar`)
+      .forEach((request) => request.flush({ avatar_url: null }));
     http.verify();
   });
 

@@ -19,7 +19,7 @@
   font-weight: 400;
   color: var(--color-gray);
 
-  background: var(--color-white);
+  background: var(--color-surface);
 
   transition:
     border-color 300ms,
@@ -67,7 +67,7 @@
   border-radius: 8px;
 
   overflow: hidden;
-  background: var(--color-white);
+  background: var(--color-surface);
 
   &--compact {
     .uploader__list {
@@ -170,7 +170,7 @@
 
   &__list {
     margin: 0;
-    padding: 8px 0;
+    padding: 0;
 
     list-style: none;
 

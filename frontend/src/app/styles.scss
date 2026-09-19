@@ -24,8 +24,12 @@ body {
   --color-main: #2563eb;
   --color-main-shadow: color-mix(in srgb, var(--color-main) 25%, transparent);
 
+  --color-surface: #ffffff;
   --color-skeleton-base: #e8e8e8;
   --color-skeleton-shimmer: #ffffff;
+
+  --color-code-bg: #0f172a;
+  --color-code-muted: #94a3b8;
 
   --color-hover: #1d4edb;
   --color-background: #f8fafc;
@@ -42,6 +46,30 @@ body {
   --color-danger: #ef4444;
 
   --color-cad: #4f46e5;
+}
+
+html[data-theme='dark'] {
+  --color-gray: #94a3b8;
+
+  --color-main: #3b82f6;
+  --color-main-shadow: color-mix(in srgb, var(--color-main) 30%, transparent);
+
+  --color-hover: #60a5fa;
+  --color-background: #0b1120;
+  --color-surface: #101a2e;
+  --color-secondary: #18233a;
+  --color-hover-secondary: #1d2a44;
+  --color-outgoing-message: #1d2c4f;
+  --color-outline: #263349;
+
+  --color-text: #e2e8f0;
+
+  --color-success-text: #4ade80;
+
+  --color-code-bg: #1e293b;
+
+  --color-skeleton-base: #1b2740;
+  --color-skeleton-shimmer: #2b3a58;
 }
 
 body {
@@ -141,7 +169,7 @@ a {
 }
 
 .card {
-  background: var(--color-white);
+  background: var(--color-surface);
 
   border: 1px solid var(--color-outline);
   border-radius: 20px;
