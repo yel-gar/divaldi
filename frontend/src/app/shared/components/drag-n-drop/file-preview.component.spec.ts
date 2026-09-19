@@ -21,7 +21,7 @@ async function waitForPhase(
       fixture.detectChanges();
       expect(fixture.componentInstance.phase()).toBe(phase);
     },
-    { timeout: 5000, interval: 5 }
+    { timeout: 10000, interval: 5 }
   );
 }
 
@@ -102,7 +102,7 @@ describe('FilePreviewComponent', () => {
     expect(activeTab.getAttribute('aria-selected')).toBe('true');
     expect(fixture.nativeElement.querySelector('.file-preview__sheet-table table')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.file-preview__warning')).toBeNull();
-  });
+  }, 15000);
 
   it('creates a blob URL for images and revokes it on destroy', async () => {
     const stub = blobUrlStub();

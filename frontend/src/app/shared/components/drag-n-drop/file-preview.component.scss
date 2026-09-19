@@ -240,6 +240,10 @@
         border: 1px solid var(--color-outline);
 
         white-space: nowrap;
+
+        &[data-t='n'] {
+          text-align: right;
+        }
       }
     }
   }
