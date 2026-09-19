@@ -23,6 +23,25 @@ import { PreviewKind, mimeTypeFor, previewKindFor } from './file-preview.model';
 type XLSXModule = typeof import('xlsx');
 type HyperFormulaCtor = typeof import('hyperformula').HyperFormula;
 
+const RUSSIAN_FUNCTION_MAP = new Map([
+  ['СУММ', 'SUM'],
+  ['ЕСЛИ', 'IF'],
+  ['СРЗНАЧ', 'AVERAGE'],
+  ['МАКС', 'MAX'],
+  ['МИН', 'MIN'],
+  ['ОКРУГЛ', 'ROUND'],
+  ['ОКРУГЛВВЕРХ', 'ROUNDUP'],
+  ['ОКРУГЛВНИЗ', 'ROUNDDOWN'],
+  ['КОРЕНЬ', 'SQRT'],
+  ['СТЕПЕНЬ', 'POWER'],
+  ['ПРОИЗВЕД', 'PRODUCT'],
+  ['СЧЁТ', 'COUNT'],
+  ['СЧЁТЕСЛИ', 'COUNTIF'],
+  ['СУММЕСЛИ', 'SUMIF'],
+  ['ОСТАТ', 'MOD'],
+  ['ЦЕЛОЕ', 'INT']
+]);
+
 @Component({
   selector: 'app-file-preview',
   imports: [LucideFileWarning, LucideX, SkeletonFilePreviewComponent],
@@ -277,8 +296,9 @@ export class FilePreviewComponent implements AfterViewInit {
     for (let r = range.s.r; r <= range.e.r; r++) {
       const row: import('hyperformula').RawCellContent[] = [];
       for (let c = range.s.c; c <= range.e.c; c++) {
-        const cell = sheet[XLSX.utils.encode_cell({ r, c })];
-        row.push(cell?.f ? `=${cell.f}` : (cell?.v ?? null));
+        const cell = sheet[XLSX.utils.encode_cell({ r, c })] as
+          import('xlsx').CellObject | undefined;
+        row.push(cell?.f ? `=${this.normalizeFormula(cell.f)}` : (cell?.v ?? null));
       }
       rows.push(row);
     }
@@ -297,9 +317,14 @@ export class FilePreviewComponent implements AfterViewInit {
       if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean') {
         cell.t = typeof value === 'number' ? 'n' : typeof value === 'boolean' ? 'b' : 's';
         cell.v = value;
+        delete cell.w;
       }
     }
     engine.destroy();
+  }
+
+  private normalizeFormula(formula: string): string {
+    return formula.replace(/[А-ЯЁ]+/g, (name) => RUSSIAN_FUNCTION_MAP.get(name) ?? name);
   }
 
   private importTableHtml(tableHtml: string): Node | null {
