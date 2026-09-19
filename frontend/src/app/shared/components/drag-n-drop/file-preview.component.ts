@@ -246,6 +246,10 @@ export class FilePreviewComponent implements AfterViewInit {
     tabs.setAttribute('role', 'tablist');
     tabs.setAttribute('aria-label', 'Листы книги');
 
+    const indicator = document.createElement('div');
+    indicator.className = 'file-preview__sheet-tab-indicator';
+    tabs.appendChild(indicator);
+
     const sheetArea = document.createElement('div');
     sheetArea.className = 'file-preview__sheet-area';
 
@@ -254,6 +258,11 @@ export class FilePreviewComponent implements AfterViewInit {
     sheetArea.appendChild(tableHost);
 
     let activeButton: HTMLButtonElement | null = null;
+
+    const moveIndicator = (button: HTMLButtonElement): void => {
+      indicator.style.left = `${button.offsetLeft}px`;
+      indicator.style.width = `${button.offsetWidth}px`;
+    };
 
     const selectSheet = (name: string, button: HTMLButtonElement): void => {
       const table = this.importTableHtml(XLSX.utils.sheet_to_html(workbook.Sheets[name]));
@@ -266,7 +275,16 @@ export class FilePreviewComponent implements AfterViewInit {
       button.classList.add('file-preview__sheet-tab--active');
       button.setAttribute('aria-selected', 'true');
       activeButton = button;
+      moveIndicator(button);
     };
+
+    const resizeObserver = new ResizeObserver(() => {
+      if (activeButton) {
+        moveIndicator(activeButton);
+      }
+    });
+    resizeObserver.observe(tabs);
+    this.destroyRef.onDestroy(() => resizeObserver.disconnect());
 
     sheetNames.forEach((name, index) => {
       const button = document.createElement('button');

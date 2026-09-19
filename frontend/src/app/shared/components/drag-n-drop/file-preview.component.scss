@@ -166,7 +166,10 @@
   &__sheet-tabs {
     position: sticky;
     top: 0;
+    left: 25px;
     z-index: 2;
+
+    width: fit-content;
 
     display: flex;
     flex-wrap: wrap;
@@ -175,12 +178,34 @@
 
     padding: 10px 24px;
 
+    border: 1px solid var(--color-outline);
+    border-radius: 10px;
+
     background: var(--color-secondary);
-    border-bottom: 1px solid var(--color-outline);
+  }
+
+  &__sheet-tab-indicator {
+    position: absolute;
+    top: 10px;
+    bottom: 10px;
+    left: 0;
+    width: 0;
+    z-index: 0;
+
+    border-radius: 8px;
+
+    background: var(--color-surface);
+
+    transition:
+      left 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+      width 0.25s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   &__sheet-tab {
     @include icon-button;
+
+    position: relative;
+    z-index: 1;
 
     padding: 6px 14px;
 
@@ -220,6 +245,18 @@
   }
 }
 
+html[data-theme='dark'] .file-preview__sheet-tab {
+  color: var(--color-white);
+}
+
+html[data-theme='dark'] .file-preview__sheet-tab:hover {
+  color: var(--color-main);
+}
+
+html[data-theme='dark'] .file-preview__sheet-tab-indicator {
+  background: var(--color-hover-secondary);
+}
+
 @keyframes file-preview-fade-in {
   from {
     opacity: 0;
@@ -249,5 +286,9 @@
   .file-preview {
     opacity: 1 !important;
     animation: none !important;
+  }
+
+  .file-preview__sheet-tab-indicator {
+    transition: none;
   }
 }
