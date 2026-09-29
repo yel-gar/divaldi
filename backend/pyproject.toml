@@ -129,4 +129,3 @@ exclude_also = [
 
 [tool.coverage.json]
 output = "coverage.json"
-
