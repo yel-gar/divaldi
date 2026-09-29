@@ -254,22 +254,47 @@ poetry -C backend run pytest --cov         # with a branch-coverage report
 
 ### Coverage
 
-Backend coverage is measured with `pytest-cov` and **reported but not enforced**. The
-threshold lives in exactly one place, `fail_under` in `backend/pyproject.toml`, which
-pytest-cov reads and enforces. It is currently `0`, so nothing blocks.
+Backend coverage is measured with `pytest-cov` and **enforced at 90%**. The threshold
+lives in exactly one place, `fail_under` in `backend/pyproject.toml`, which pytest-cov
+reads and enforces.
 
 | Where | What it does |
 |---|---|
-| `backend/pyproject.toml` | `[tool.coverage.*]` config, including `fail_under` |
-| `.pre-commit-config.yaml` | `pytest-coverage` hook, **pre-push** stage, reports only |
+| `backend/pyproject.toml` | `[tool.coverage.*]` config, including `fail_under = 90` |
+| `.pre-commit-config.yaml` | `pytest-coverage` hook, **pre-push** stage |
 | `.github/workflows/backend-coverage.yml` | runs the same command, uploads `coverage.json` |
 
-**To make 90% the gate:** set `fail_under = 90` in `backend/pyproject.toml`. Nothing else
-needs to change. This was verified to work: at `fail_under = 90` the run exits 1 with
-`Required test coverage of 90.0% not reached`, and at `0` it exits 0.
+**To change the gate:** edit `fail_under` in `backend/pyproject.toml`. Nothing else names
+a percentage. Verified to bite: at `fail_under = 90` the run exits 0, at `99` it exits 1.
 
-Branch coverage is on (`branch = true`) and `source = ["app"]`. Coverage artifacts
-(`.coverage*`, `coverage.json`, `coverage.xml`, `htmlcov/`) are gitignored.
+Current coverage is **98.79%** statements across 308 tests. Branch coverage is on
+(`branch = true`) and `source = ["app"]`. Coverage artifacts (`.coverage*`, `coverage.json`,
+`coverage.xml`, `htmlcov/`) are gitignored.
+
+### The mock provider
+
+`SBER_API_KEY=mock` selects `app/providers/mock.py` instead of the real GigaChat client.
+It performs no network I/O, which is what lets the worker, route and e2e suites run
+without credentials and without LLM cost. Its behaviour is set by `MOCK_PROVIDER_MODE`:
+
+| Mode | Behaviour | Used to exercise |
+|---|---|---|
+| `kp` (default) | a complete offer with positions | the happy path, e2e |
+| `clarify` | empty `positions` | the clarification loop |
+| `empty` | a response with no content | "Provider did not respond properly" |
+| `error` | returns `None` | the backend's error path |
+
+Output is deterministic: numbers derive from a hash of the conversation, so the same
+input always yields the same spreadsheet.
+
+### Live API tests
+
+Tests marked `live` hit the real GigaChat and **are deselected by default** via
+`addopts = "-m 'not live'"`, because they cost money. Run them deliberately:
+
+```bash
+SBER_API_KEY=<real-key> SBER_API_SCOPE=PERS poetry -C backend run pytest -m live
+```
 
 ### Processing
 
@@ -466,7 +491,10 @@ follow.
 
 1. **`providers/containers.py` constructs the provider at import time.** Importing any
    task or route module requires `SBER_API_KEY` and `SBER_API_SCOPE` to exist. The tests
-   set them in the autouse `env` fixture for exactly this reason.
+   set them at the top of `conftest.py`, *before* any `app` import, for exactly this reason.
+1. **`SBER_API_KEY=mock` means no LLM call happens.** If you are surprised by a
+   deterministic-looking response in tests or e2e, that is the mock provider, not a real
+   model. Use `MOCK_PROVIDER_MODE` to change its behaviour.
 2. **The app must run with CWD == `backend/`.** See the CWD-sensitive paths in section 5.
 3. **The LLM prompt is Russian and drives the output schema.** `harness.py` defines
    `MATERIALS` (27 indexed steel grades) and `HARNESS_STRUCTURED_SCHEMA`. The `material`
@@ -490,11 +518,12 @@ follow.
 
 - [ ] Dependencies added with `poetry add` / `npm install`, lockfiles committed
 - [ ] `black --check` and `ruff check` clean in every touched Python package
-- [ ] `pytest` green in every touched Python package
-- [ ] `poetry -C backend run pytest --cov` run if backend code changed; coverage did not drop
+- [ ] `pytest` green in every touched Python package (backend gate: 90% coverage)
+- [ ] `poetry -C backend run pytest --cov` run if backend code changed; still at or above 90%
 - [ ] `ng lint`, `ng build` and `vitest` green if the frontend was touched
 - [ ] `npx ng test --coverage` run if frontend code changed; coverage did not drop
 - [ ] Migration added if any ORM model changed (`alembic check` proves it)
+- [ ] If backend behaviour changed: did the offline mock provider still model it? (`MOCK_PROVIDER_MODE`)
 - [ ] No secrets, no committed `.env`, no committed `docker-compose.override.yml`
 - [ ] `.context/DECISIONS.md`, `LESSONS.md` and `PROJECT_STATE.md` updated as warranted
 - [ ] Commit message follows Conventional Commits

@@ -85,12 +85,32 @@ Chat routes carry a multi-line docstring **and** a `responses={...}` map for 401
 - The LLM contract lives in `app/harness.py`. `MATERIALS` order is a data contract because
   the model returns `material` as an integer index. Append only.
 
-## 9. Dependencies
+## 9. Testing
+
+- **`SBER_API_KEY=mock` is not a test-only hack.** It selects `app/providers/mock.py`, a
+  real `AIClient` implementation that ships in the image. Its mode comes from
+  `MOCK_PROVIDER_MODE` (`kp`, `clarify`, `empty`, `error`) and its output is
+  deterministic, so tests and e2e never depend on an LLM.
+- **PostgreSQL, Redis and MinIO are real testcontainers**, not fakes. Only the LLM and the
+  `httpx` calls inside `SberProvider` (via `httpx.MockTransport`) are stubbed.
+- **Worker tasks are not awaitable.** Use `tests.helpers.run_task(task, *args)`, which
+  calls `task.original_func`, so nothing is enqueued to RabbitMQ.
+- **Worker tests must commit rows through the engine**, not via the `db_session` fixture:
+  the worker's `tsq_db` opens its own connection and cannot see an uncommitted
+  transaction, so such a test silently asserts against an empty database.
+- **Patch `app.cache.get_redis_pool`, not `get_redis_client`.** Task modules bind
+  `get_redis_client` into their own namespace with `from ... import`, so patching the
+  defining module alone does not affect them.
+- **Live API tests carry `@pytest.mark.live`** and are deselected by
+  `addopts = "-m 'not live'"`. They cost money per call; run them only deliberately with a
+  real key via `pytest -m live`.
+
+## 10. Dependencies
 
 Add Python dependencies with **`poetry add`** from `backend/` or `processing/`, never by
 hand-editing `pyproject.toml`. There is no `requirements.txt` and no `uv`.
 
-## 10. Verify
+## 11. Verify
 
 ```bash
 poetry -C backend run black --check .

@@ -191,6 +191,39 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   plus `localStorage['theme']`. A hardcoded hex in a component is invisible to the theme
   toggle.
 
+## Test infrastructure
+
+- **Patching `app.cache.get_redis_client` does nothing for the workers.** The task modules
+  do `from app.cache import get_redis_client`, which binds the name into their own
+  namespace; `monkeypatch.setattr("app.cache.get_redis_client", ...)` leaves those bindings
+  pointing at the real `redis://redis:6379`. Patch `app.cache.get_redis_pool` instead, so
+  every call site is covered at once. The same trap applies to `tsq_db`, where all three
+  task modules must be patched, not just `app.tasks.conf.broker`.
+- **Worker tests must commit, not use the `db_session` fixture.** `db_session` wraps
+  everything in a transaction it rolls back, and the worker's `tsq_db` opens a separate
+  connection, so it cannot see pending rows at all. Tests that appeared to pass were
+  silently asserting against an empty database until they committed through the engine.
+- **`app.storage` and `app.providers.containers` read `os.environ` at import time**, so
+  the test env must be set at the top of `conftest.py` *before* any `app` import. An
+  autouse fixture is too late: fixtures run after collection, and these modules import
+  during it. This surfaced as `KeyError: MINIO_ROOT_PASSWORD` at collection.
+- **`get_redis_pool` and friends are `@cache`d, so tests that change the environment must
+  call `cache_clear()`.** `get_debug` returned a stale value across every value of `DEBUG`
+  until the cache was cleared, which looked like the truthiness logic being wrong.
+- **`redis-py` 8 made `ConnectionPool.get_connection()` a coroutine.** `async with
+  pool.get_connection()` is a `TypeError`; it must be awaited.
+- **A failing suite silently suppresses the coverage report.** With failures present,
+  `pytest --cov` writes an empty `coverage/` directory and prints no summary, so a coverage
+  number can look like "no change" when in fact nothing was measured.
+- **Testcontainers' MinIO helper needs the `minio` python package**, which the project does
+  not depend on. `DockerContainer(image, command=..., env=..., ports=[9000])` plus a retry
+  loop around `create_bucket` achieves the same thing with no new dependency, and reports
+  the real S3 error when MinIO never comes up.
+- **`@broker.task` objects are not awaitable**; `task.original_func` is the underlying
+  coroutine. `tests/helpers.run_task` wraps this so worker tests never touch RabbitMQ.
+- **`RUF003` rejects Cyrillic in comments** but not in string literals, so refer to Russian
+  sheet and material names without quoting them in a comment.
+
 ## Agent skills and documentation
 
 - **Do not hand-write a skill for a framework you can install.** `openai/skills` (curated)
@@ -263,6 +296,21 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
 - **Check `target-version` before judging unusual syntax in either language.** This project
   pins `py314` for black and ruff and Angular 21 / ES2022 for the frontend, so modern-only
   constructs are expected rather than suspicious.
+- **`Position.material_id_to_material_str` catches the wrong exception**
+  (`app/providers/models.py`). It does `MATERIALS[int(val)]` inside
+  `except KeyError`, but `MATERIALS` is a **list**, so an out-of-range index raises
+  `IndexError` and the raw error escapes `model_validate` instead of the intended
+  `ValueError("Invalid material id")`. A negative index also silently wraps to the last
+  element. A test pins the current behaviour and says what the fix is; the one-word fix
+  (`except IndexError`) is left for a maintainer.
+- **`cleanup_orphan_attachments` deletes rows but leaks their S3 objects**
+  (`app/tasks/files.py`). It calls `orphans.all()` to log a count, which exhausts the
+  `ScalarResult`; the following list comprehension then iterates a closed result and
+  collects nothing, so `asyncio.gather` runs zero `_s3_try_delete` calls. The logged
+  `count` is rows found, not rows whose objects were removed.
+- **Two chat endpoints disagree about attachment readiness.** `GET /chats/` returns every
+  attachment while `GET /chats/{id}` filters on `ready == True`. Pinned by tests rather
+  than papered over; one of the two is a bug.
 - **Verify claims against the source before reporting them, and verify your own corrections.**
   The misdiagnosis above was first rejected with the wrong reason ("the review misread a
   wrapped tuple") and only later traced to PEP 758. Confirming *that* a file parses is not the

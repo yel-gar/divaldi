@@ -51,21 +51,20 @@ instance, created by `conf/postgres-init/01-taskiq-dashboard.sql`.
 
 | Suite | Command | Notes |
 |---|---|---|
-| Backend | `poetry -C backend run pytest` | auth, admin, migrations; needs a Docker daemon |
-| Backend coverage | `poetry -C backend run pytest --cov` | 33 tests, **49.55%** (branch coverage on) |
+| Backend | `poetry -C backend run pytest` | 308 tests; needs a Docker daemon |
+| Backend coverage | `poetry -C backend run pytest --cov` | **98.79%**, gated at 90% by `fail_under` |
 | Processing | `poetry -C processing run pytest -v` | DXF, PDF, calculator; pure, no Docker |
 | Frontend | `npm --prefix frontend test` | Vitest, 154 tests; runs in `frontend-ci.yml` |
 | Frontend coverage | `npx ng test --coverage` | 67.6% stmts, 68.71% branches, 62.81% funcs |
 
-**Coverage is reported, not enforced.** `fail_under = 0` in `backend/pyproject.toml`.
-Reported by a `pre-push` hook and by `.github/workflows/backend-coverage.yml`. Raising
-`fail_under` to 90 is the single change needed to make it a gate, and it was verified to
-exit 1 when set that way.
+**Coverage is enforced at 90%** via `fail_under` in `backend/pyproject.toml`, currently
+reading **98.79%** across 308 tests with branch coverage. Enforced by the `pre-push` hook
+and by `.github/workflows/backend-coverage.yml`, neither of which names a percentage.
 
-**Known gap:** no tests cover the chat routes, the file upload and confirm flow, or any
-TaskIQ worker. The coverage report quantifies it: `routes/chat.py` 24%, `tasks/files.py`
-15%, `tasks/api.py` 17%, `routes/users.py` 34%, `providers/sber.py` 28%. Those are the
-highest-risk areas and the natural place to add coverage next.
+PostgreSQL, Redis and MinIO are real testcontainers. The LLM is faked by
+`app/providers/mock.py`, selected with `SBER_API_KEY=mock` and switchable via
+`MOCK_PROVIDER_MODE`; the real GigaChat is only reachable through `@pytest.mark.live`
+tests, which are deselected by default.
 
 **The frontend suite is GREEN.** 154 of 154 tests pass across 20 spec files. It was red
 before this change: 14 tests in `sidebar.component.spec.ts` failed because the jsdom test
@@ -107,7 +106,13 @@ backend and frontend coverage pipelines:
 - `.agents/skills/` created with eight task-specific playbooks.
 - Backend coverage pipeline: `pytest-cov` added to the `dev` group, `[tool.coverage.*]`
   config in `backend/pyproject.toml`, a `pre-push` pre-commit hook, and
-  `.github/workflows/backend-coverage.yml`. Reporting only, `fail_under = 0`.
+  `.github/workflows/backend-coverage.yml`.
+- Backend coverage raised from 49.55% to **98.79%** and gated at 90% (`fail_under = 90`).
+  Added `app/providers/mock.py`, an offline `AIClient` selected by `SBER_API_KEY=mock` and
+  switchable with `MOCK_PROVIDER_MODE`; real PostgreSQL, Redis and MinIO testcontainers;
+  ~275 new tests across the chat routes, both worker modules, the providers, and the
+  user/admin routes; and `@pytest.mark.live` tests for the real GigaChat, deselected by
+  default via `addopts = "-m 'not live'"`.
 - Frontend coverage pipeline: `@vitest/coverage-v8@4.1.11` added as a dev dependency,
   native `coverage` options on the `test` target in `angular.json`, a `vitest-coverage`
   pre-push hook, and `.github/workflows/frontend-coverage.yml`. Reporting only; the gate
@@ -125,9 +130,8 @@ dependency, its config, and the test-only setup file.
 
 Ordered by value, not by commitment:
 
-1. **Cover the chat and file flow.** The async generation path, the upload confirm
-   handshake, `TEST_INSTANCE_MODE` guarding and at least one worker have no tests. This is
-   the work that moves backend coverage from 49.55% toward a 90% gate.
+1. **Add end-to-end tests with Playwright** against the Compose stack, with
+   `SBER_API_KEY=mock` so no LLM call is made.
 2. **Fill the placeholder sections:** profile, settings, and the admin action log
    (`Журнал действий`) and system info.
 3. **Action log.** The admin nav links to it but nothing backs it; the database has no audit

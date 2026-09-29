@@ -95,6 +95,13 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
+# `live` marks tests that talk to the real GigaChat API. They are deselected by
+# default because every call costs money and needs a real SBER_API_KEY. Run them
+# explicitly with:  MOCK_PROVIDER_MODE= unset, SBER_API_KEY=<real> pytest -m live
+addopts = "-m 'not live'"
+markers = [
+    "live: hits the real GigaChat API; deselected by default because it costs money (run with -m live)",
+]
 
 [tool.coverage.run]
 source = ["app"]
@@ -108,12 +115,12 @@ omit = [
 show_missing = true
 skip_covered = false
 precision = 2
-# Coverage is reported but NOT enforced yet. The backend sits well below a
-# 90% gate because the chat routes, the upload handshake and every TaskIQ
-# worker have no tests at all (see .context/PROJECT_STATE.md).
-# When those are covered, raise this to 90 and add --cov-fail-under=90 to
-# the pre-push hook and the backend-coverage workflow.
-fail_under = 0
+# The gate. 90% was reached on 2026-09-29 by adding suites for the chat routes,
+# every TaskIQ worker, the providers, and the user/admin routes, backed by real
+# PostgreSQL, Redis and MinIO testcontainers and an offline mock provider.
+# pytest-cov reads this and turns the run's exit code on it, so the pre-push hook
+# and the backend-coverage workflow enforce it without naming a number.
+fail_under = 90
 exclude_also = [
     "if TYPE_CHECKING:",
     "raise NotImplementedError",

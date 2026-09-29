@@ -311,30 +311,48 @@ Append new entries at the bottom, one `##` section per topic, chronological.
 
 ## Backend test coverage
 
-- **Coverage is measured and reported, not enforced.** `pytest-cov` was added to the
-  `backend` `dev` group via `poetry add --group dev pytest-cov` (pulls in `coverage` 7.16.2
-  and `pytest-cov` 7.1.0). Current baseline is **49.55%** with branch coverage on, across
-  1356 statements / 204 branches from 33 passing tests.
+- **Coverage is measured and enforced at 90%.** `pytest-cov` is a `dev` dependency added
+  via `poetry add --group dev pytest-cov`. Current state is **98.79% statements** with
+  branch coverage on, across 1437 statements / 216 branches from 308 passing tests.
 - **The threshold lives in exactly one place: `fail_under` in `backend/pyproject.toml`.**
-  pytest-cov reads it and turns the run's exit code on it. This was verified in both
-  directions: at `fail_under = 90` the run exits 1 with `Required test coverage of 90.0% not
-  reached`, and at `0` it exits 0. Neither the pre-push hook nor the CI workflow hardcodes a
-  percentage, so **enabling the gate later is a one-line change** with no risk of the three
-  disagreeing.
-- **The hook is `pre-push`, not `pre-commit`, for two reasons:** it needs the whole suite
-  plus a live Docker daemon for testcontainers, which is too slow and too fragile to run on
-  every save; and coverage is a reporting signal, not a formatting fix.
-- **Branch coverage is on** (`branch = true`) and `source = ["app"]`. Branch data matters
-  here because the guard clauses in `deps.py` and the two chat flows are almost entirely
-  branch-shaped, and statement-only coverage flatters them.
-- **Why 90% is not yet the gate:** the untested areas are not incidental. `routes/chat.py`
-  is 24%, `tasks/files.py` is 15%, `tasks/api.py` is 17%, `routes/users.py` is 34%, and
-  `providers/sber.py` is 28%. These are the riskiest parts of the codebase, so a 90% gate
-  today would either block all work or push people to write shallow tests that touch lines
-  without exercising behaviour. The gate becomes meaningful once those are genuinely covered.
+  pytest-cov reads it and turns the run's exit code on it. Verified in both directions: at
+  `90` the run exits 0, at `99` it exits 1. Neither the pre-push hook nor the CI workflow
+  hardcodes a percentage, so the three cannot drift apart.
+- **The gate was unreachable before 2026-09-29, and the way it was reached is the point.**
+  Coverage went from 49.55% to 98.79% by testing exactly the areas that were untested,
+  which were also the riskiest: the chat routes (24% to 99%), `tasks/files.py` (15% to
+  100%), `tasks/api.py` (17% to 100%), the users routes (34% to 100%) and the GigaChat
+  provider (28% to 100%).
+- **Test dependencies are real wherever Compose provides a service.** PostgreSQL 18, Redis
+  8 and MinIO all run as testcontainers, so the suites exercise the actual SQL, the actual
+  Redis semantics (locks, counters, `getdel`) and the actual S3 API. Only two things are
+  faked: the LLM, and the outbound HTTP inside `SberProvider` via `httpx.MockTransport`.
+- **Worker tests cannot use the request-scoped `db_session` fixture.** Task bodies open
+  their own session through `app.tasks.conf.broker.tsq_db`, so rows left pending in
+  `db_session`'s rolled-back transaction are invisible to them. Such tests commit through
+  the engine directly and clean up in teardown.
+- **The hook is `pre-push`, not `pre-commit`,** because it needs the whole suite plus a
+  live Docker daemon for testcontainers, which is too slow and too fragile per save.
 - **Coverage artifacts are gitignored** (`.coverage*`, `coverage.json`, `coverage.xml`,
-  `htmlcov/`), because the JSON report is written into `backend/` by the CI step and would
-  otherwise show up as an untracked file on every local run.
+  `htmlcov/`), since the JSON report is written into `backend/` on every run.
+
+## Offline provider and live tests
+
+- **`SBER_API_KEY=mock` selects `app/providers/mock.py`**, a full `AIClient` implementation
+  that performs no network I/O. Chosen over mocking at the call site because it is a
+  production code path: the same class runs in the compose stack, in end-to-end tests and
+  in the unit suite, so the substitution is exercised rather than assumed.
+- **The mock is deterministic by design.** Geometry values derive from a SHA-256 hash of
+  the conversation, so the same input always produces the same numbers. Non-determinism
+  would make the generated spreadsheet and any end-to-end assertion drift between runs.
+- **Its behaviour is switched by `MOCK_PROVIDER_MODE`** (`kp`, `clarify`, `empty`, `error`),
+  so one deployment can exercise the happy path, the clarification loop and both error
+  branches of the worker. The mode is read per call rather than at construction, so tests
+  can flip it with `monkeypatch.setenv`.
+- **Tests that hit the real GigaChat are marked `live` and deselected by default** through
+  `addopts = "-m 'not live'"`, because they cost money per call. They are opted into with
+  `pytest -m live` and a real key. Every other provider test uses `httpx.MockTransport`, so
+  nothing reaches the network by accident.
 
 ## Documentation
 

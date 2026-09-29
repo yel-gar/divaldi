@@ -23,8 +23,11 @@ poetry -C processing run pytest -v                             # pure, no Docker
 
 - `pytest-cov` is a `dev` dependency of the backend package. `source = ["app"]` with
   `branch = true`.
-- The threshold is `fail_under` in `backend/pyproject.toml`, currently `0`, so the run
-  reports without blocking. **Set it to 90 to make coverage a gate**; nothing else changes.
+- The threshold is `fail_under` in `backend/pyproject.toml`, currently **90**, so coverage
+  is enforced. It reads 98.79% today. To change the gate, edit that one value; the pre-push
+  hook and the CI workflow name no percentage.
+- `addopts = "-m 'not live'"` deselects the `live` tests, which hit the real GigaChat and
+  cost money. Opt in with `SBER_API_KEY=<real> poetry -C backend run pytest -m live`.
 - `--cov` alone prints the terminal report and writes no file. Add
   `--cov-report=json` when a `coverage.json` artifact is wanted, since
   `[tool.coverage.json] output` only applies when that report is actually requested.
@@ -88,6 +91,40 @@ it as a real gate: change a model, generate the migration, do not try to weaken 
   instead.
 - Ruff's `per-file-ignores` sets `ARG001` (unused function argument) as allowed under
   `tests/**/*.py`, so fixture-driven tests with unused parameters are fine.
+
+## Shared fixtures
+
+Available from `conftest.py` (see the file for the full set):
+
+| Fixture | Gives you |
+|---|---|
+| `db_session` | a transactional session, rolled back per test |
+| `redis_session` / `redis_client` | the real Redis container |
+| `s3` / `s3_put` | the real MinIO, buckets pre-created, wired into `app.storage.storage` |
+| `task_db` | rebinds `tsq_db()` inside the workers to the test database |
+| `engine` | the session-scoped test engine |
+| `client` / `admin_client` | authenticated `httpx.AsyncClient` over ASGI |
+| `chat_session`, `factories`, `test_user` | domain rows |
+| `mock_mode(mode)` | sets `MOCK_PROVIDER_MODE` for one test |
+| `minio_container`, `postgres_container`, `redis_container` | the raw containers |
+
+## Conventions that will waste your time if ignored
+
+- **Worker tests must commit.** `db_session` rolls back, and the worker's `tsq_db` uses a
+  different connection, so it cannot see pending rows. Commit through `engine` and clean
+  up in teardown, or the assertion passes against an empty database.
+- **Tasks are not awaitable.** `await run_task(task, *args)` from `tests/helpers.py`;
+  `task.original_func` is the coroutine.
+- **Patch `get_redis_pool`, not `get_redis_client`.** Task modules do
+  `from app.cache import get_redis_client`, so patching the defining module does not
+  reach them. The fixture patches the pool instead, which covers every call site.
+- **Neutralise `.kiq`.** Any task or route that enqueues work must have its `.kiq`
+  replaced with an `AsyncMock`, or the test will try to reach RabbitMQ.
+- **`@cache`d env readers need `cache_clear()`.** `get_debug`, `get_origins` and
+  `get_database_url` are cached; change the env and clear the cache or you test a stale
+  value.
+- **The env is set at the top of `conftest.py`, before the `app` imports**, because
+  `app.storage` and `app.providers.containers` read `os.environ` at import time.
 
 ## Language version: Python 3.14
 

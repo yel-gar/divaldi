@@ -21,6 +21,11 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    env:
+      # The offline provider: no LLM calls, no credentials, deterministic output.
+      # Tests that need the real API are marked `live` and deselected.
+      SBER_API_KEY: mock
+      SBER_API_SCOPE: PERS
     steps:
       - uses: actions/checkout@v4
 
@@ -40,13 +45,12 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-root
 
-      # Testcontainers starts real PostgreSQL and Redis via the runner's
+      # Testcontainers starts PostgreSQL, Redis and MinIO via the runner's
       # Docker daemon, which is available on ubuntu-latest by default.
       #
       # The threshold lives in ONE place: `fail_under` in
-      # backend/pyproject.toml, which pytest-cov reads and enforces. It is
-      # currently 0, so this step reports without blocking. To make 90% the
-      # gate, set fail_under = 90 there and change nothing in this file.
+      # backend/pyproject.toml, which pytest-cov reads and enforces (currently
+      # 90). This step names no percentage, so the two cannot disagree.
       - name: Test with coverage
         run: poetry run pytest --cov --cov-report=term-missing --cov-report=json
 
