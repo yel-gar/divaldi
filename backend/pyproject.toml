@@ -39,6 +39,7 @@ dev = [
     "httpx (>=0.28.1,<0.29.0)",
     "testcontainers[postgres] (>=4.15.0,<5.0.0)",
     "pre-commit (>=4.6.2,<5.0.0)",
+    "pytest-cov (>=7.1.0,<8.0.0)",
 ]
 
 [tool.black]
@@ -94,3 +95,31 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+omit = [
+    "*/__main__.py",
+    "*/alembic/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+precision = 2
+# Coverage is reported but NOT enforced yet. The backend sits well below a
+# 90% gate because the chat routes, the upload handshake and every TaskIQ
+# worker have no tests at all (see .context/PROJECT_STATE.md).
+# When those are covered, raise this to 90 and add --cov-fail-under=90 to
+# the pre-push hook and the backend-coverage workflow.
+fail_under = 0
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abstractmethod",
+]
+
+[tool.coverage.json]
+output = "coverage.json"
+

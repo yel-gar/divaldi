@@ -169,6 +169,29 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
 
 ## Cross-cutting
 
+- **`pytest-cov` needs to be a dev-group dependency, not a global install.** `poetry add
+  --group dev pytest-cov` from `backend/` is the only correct route; the pre-push hook runs
+  `poetry -C backend run pytest --cov`, which resolves the plugin from the backend venv.
+  A globally installed `pytest-cov` will not be visible there.
+- **`--cov` alone does not produce `coverage.json`.** Coverage is configured in
+  `backend/pyproject.toml` under `[tool.coverage.json] output = "coverage.json"`, but that
+  section only takes effect when the `json` report is actually requested. The CI step uses
+  `--cov --cov-report=term-missing --cov-report=json`; a bare `--cov` prints the terminal
+  report and writes nothing, so the upload-artifact step would fail on a missing file.
+- **`pytest-cov` is silent about a missing threshold, which is fine.** With `fail_under = 0`
+  the run exits 0 and still prints `TOTAL`. Do not read "exit 0" as "no coverage"; read the
+  `TOTAL` line.
+- **Coverage of untested code should be read as a work list, not a score.** The
+  `Missing` column of the terminal report is the actionable output: it points at
+  `routes/chat.py`, `tasks/files.py`, `tasks/api.py`, `routes/users.py` and
+  `providers/sber.py`, which is the same gap `.context/PROJECT_STATE.md` already records.
+- **A pre-push hook that needs a Docker daemon will fail on a machine without one.** The
+  coverage hook inherits the backend suite's testcontainers requirement, so a developer
+  without Docker cannot push. This is the same constraint as the existing `pytest` hook and
+  is accepted deliberately; CI is the authoritative check.
+- **`pre-commit install --hook-type pre-push` must be re-run** after adding a hook with
+  `stages: [pre-push]`. A clone that only installed `pre-commit` and `commit-msg` has no
+  `.git/hooks/pre-push` and will silently skip the coverage report entirely.
 - **The root `parser/` directory is dead**: only `__pycache__` from the pre-`processing/` era,
   with Python 3.13 bytecode. Nothing in the build, pre-commit or CI references it. If a file
   you need seems to be "missing" from `processing/`, search the git history

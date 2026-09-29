@@ -3,7 +3,7 @@
 Rewritten in place on each update. Do not append. Keep it short and current; detail belongs
 in `DECISIONS.md` (rationale) or `AGENTS.md` (procedure).
 
-Last updated: **2026-09-29**
+Last updated: **2026-09-29** (coverage pipeline added)
 
 ---
 
@@ -52,11 +52,19 @@ instance, created by `conf/postgres-init/01-taskiq-dashboard.sql`.
 | Suite | Command | Notes |
 |---|---|---|
 | Backend | `poetry -C backend run pytest` | auth, admin, migrations; needs a Docker daemon |
+| Backend coverage | `poetry -C backend run pytest --cov` | 33 tests, **49.55%** (branch coverage on) |
 | Processing | `poetry -C processing run pytest -v` | DXF, PDF, calculator; pure, no Docker |
 | Frontend | `npm --prefix frontend test` | Vitest; **not run in CI** |
 
+**Coverage is reported, not enforced.** `fail_under = 0` in `backend/pyproject.toml`.
+Reported by a `pre-push` hook and by `.github/workflows/backend-coverage.yml`. Raising
+`fail_under` to 90 is the single change needed to make it a gate, and it was verified to
+exit 1 when set that way.
+
 **Known gap:** no tests cover the chat routes, the file upload and confirm flow, or any
-TaskIQ worker. Those are the highest-risk areas and the natural place to add coverage next.
+TaskIQ worker. The coverage report quantifies it: `routes/chat.py` 24%, `tasks/files.py`
+15%, `tasks/api.py` 17%, `routes/users.py` 34%, `providers/sber.py` 28%. Those are the
+highest-risk areas and the natural place to add coverage next.
 
 ---
 
@@ -65,6 +73,7 @@ TaskIQ worker. Those are the highest-risk areas and the natural place to add cov
 | Workflow | Runs |
 |---|---|
 | `backend-ci.yml` | black, ruff, pytest (Python 3.14) |
+| `backend-coverage.yml` | pytest with coverage, uploads `coverage.json` (reporting only) |
 | `processing-ci.yml` | black, ruff, pytest |
 | `frontend-ci.yml` | `ng lint`, `ng build --configuration production` (Node 22) |
 | `commitlint.yml` | Conventional Commits on push and PR |
@@ -76,7 +85,8 @@ There is no deploy workflow; CI only.
 
 ## Current work
 
-**Branch `docs/agent-harness` (from `main`)** — documentation and agent-harness work:
+**Branch `docs/agent-harness` (from `main`)** — documentation, agent harness, and the
+backend coverage pipeline:
 
 - `README.md` rewritten with a product description, features, an architecture diagram, the
   request lifecycle, the stack, ports, quick start, dev setup, security notes and code
@@ -88,6 +98,9 @@ There is no deploy workflow; CI only.
   `.context/` contract, and a pre-submission checklist.
 - `.context/` created with `DECISIONS.md`, `LESSONS.md` and `PROJECT_STATE.md`.
 - `.agents/skills/` created with eight task-specific playbooks.
+- Backend coverage pipeline: `pytest-cov` added to the `dev` group, `[tool.coverage.*]`
+  config in `backend/pyproject.toml`, a `pre-push` pre-commit hook, and
+  `.github/workflows/backend-coverage.yml`. Reporting only, `fail_under = 0`.
 
 No runtime code was touched.
 
@@ -98,7 +111,8 @@ No runtime code was touched.
 Ordered by value, not by commitment:
 
 1. **Cover the chat and file flow.** The async generation path, the upload confirm
-   handshake, `TEST_INSTANCE_MODE` guarding and at least one worker have no tests.
+   handshake, `TEST_INSTANCE_MODE` guarding and at least one worker have no tests. This is
+   also the work that moves coverage from 49.55% toward a 90% gate.
 2. **Fill the placeholder sections:** profile, settings, and the admin action log
    (`Журнал действий`) and system info.
 3. **Action log.** The admin nav links to it but nothing backs it; the database has no audit

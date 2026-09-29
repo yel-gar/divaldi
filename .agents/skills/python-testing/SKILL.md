@@ -12,11 +12,27 @@ testcontainers for PostgreSQL and Redis.
 
 ```bash
 poetry -C backend run pytest                                  # needs a Docker daemon
+poetry -C backend run pytest --cov                            # branch-coverage report
 poetry -C backend run pytest tests/test_migrations.py          # the migration drift gate
 poetry -C processing run pytest -v                             # pure, no Docker
 ```
 
 **Tests may be run locally.** The full application may not; see AGENTS.md.
+
+## Coverage
+
+- `pytest-cov` is a `dev` dependency of the backend package. `source = ["app"]` with
+  `branch = true`.
+- The threshold is `fail_under` in `backend/pyproject.toml`, currently `0`, so the run
+  reports without blocking. **Set it to 90 to make coverage a gate**; nothing else changes.
+- `--cov` alone prints the terminal report and writes no file. Add
+  `--cov-report=json` when a `coverage.json` artifact is wanted, since
+  `[tool.coverage.json] output` only applies when that report is actually requested.
+- Read the `Missing` column as a work list, not the percentage as a score. It points at the
+  untested chat routes and TaskIQ workers.
+- A `pre-push` pre-commit hook and `.github/workflows/backend-coverage.yml` both run this.
+  After adding a pre-push hook, run `pre-commit install --hook-type pre-push`, otherwise a
+  clone that installed only `pre-commit` and `commit-msg` silently skips it.
 
 ## Layout and naming
 
@@ -100,4 +116,8 @@ once. Adding parentheses would fight the formatter and be reverted by the next `
 poetry -C backend run black --check .
 poetry -C backend run ruff check .
 poetry -C backend run pytest
+poetry -C backend run pytest --cov     # reports coverage; enforced via fail_under
 ```
+
+Coverage artifacts (`.coverage*`, `coverage.json`, `coverage.xml`, `htmlcov/`) are
+gitignored. Do not commit them.

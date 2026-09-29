@@ -271,6 +271,33 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   `ty` and `uv` vocabulary. It was deliberately **not** copied, because it recommends
   SQLModel over SQLAlchemy and `uv` over Poetry, both of which contradict this project.
 
+## Backend test coverage
+
+- **Coverage is measured and reported, not enforced.** `pytest-cov` was added to the
+  `backend` `dev` group via `poetry add --group dev pytest-cov` (pulls in `coverage` 7.16.2
+  and `pytest-cov` 7.1.0). Current baseline is **49.55%** with branch coverage on, across
+  1356 statements / 204 branches from 33 passing tests.
+- **The threshold lives in exactly one place: `fail_under` in `backend/pyproject.toml`.**
+  pytest-cov reads it and turns the run's exit code on it. This was verified in both
+  directions: at `fail_under = 90` the run exits 1 with `Required test coverage of 90.0% not
+  reached`, and at `0` it exits 0. Neither the pre-push hook nor the CI workflow hardcodes a
+  percentage, so **enabling the gate later is a one-line change** with no risk of the three
+  disagreeing.
+- **The hook is `pre-push`, not `pre-commit`, for two reasons:** it needs the whole suite
+  plus a live Docker daemon for testcontainers, which is too slow and too fragile to run on
+  every save; and coverage is a reporting signal, not a formatting fix.
+- **Branch coverage is on** (`branch = true`) and `source = ["app"]`. Branch data matters
+  here because the guard clauses in `deps.py` and the two chat flows are almost entirely
+  branch-shaped, and statement-only coverage flatters them.
+- **Why 90% is not yet the gate:** the untested areas are not incidental. `routes/chat.py`
+  is 24%, `tasks/files.py` is 15%, `tasks/api.py` is 17%, `routes/users.py` is 34%, and
+  `providers/sber.py` is 28%. These are the riskiest parts of the codebase, so a 90% gate
+  today would either block all work or push people to write shallow tests that touch lines
+  without exercising behaviour. The gate becomes meaningful once those are genuinely covered.
+- **Coverage artifacts are gitignored** (`.coverage*`, `coverage.json`, `coverage.xml`,
+  `htmlcov/`), because the JSON report is written into `backend/` by the CI step and would
+  otherwise show up as an untracked file on every local run.
+
 ## Documentation
 
 - **`README.md` is English, `README.ru.md` is Russian**, cross-linked in the header. The

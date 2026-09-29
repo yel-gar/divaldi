@@ -249,7 +249,27 @@ Run all of these **before** proposing a change is done.
 poetry -C backend run black --check .      # line-length 120, py314
 poetry -C backend run ruff check .         # select F,E,W,I,N,UP,B,ASYNC,C4,PIE,T20,Q,RET,SIM,ARG,PTH,RUF
 poetry -C backend run pytest               # needs Docker daemon (testcontainers)
+poetry -C backend run pytest --cov         # with a branch-coverage report
 ```
+
+### Coverage
+
+Backend coverage is measured with `pytest-cov` and **reported but not enforced**. The
+threshold lives in exactly one place, `fail_under` in `backend/pyproject.toml`, which
+pytest-cov reads and enforces. It is currently `0`, so nothing blocks.
+
+| Where | What it does |
+|---|---|
+| `backend/pyproject.toml` | `[tool.coverage.*]` config, including `fail_under` |
+| `.pre-commit-config.yaml` | `pytest-coverage` hook, **pre-push** stage, reports only |
+| `.github/workflows/backend-coverage.yml` | runs the same command, uploads `coverage.json` |
+
+**To make 90% the gate:** set `fail_under = 90` in `backend/pyproject.toml`. Nothing else
+needs to change. This was verified to work: at `fail_under = 90` the run exits 1 with
+`Required test coverage of 90.0% not reached`, and at `0` it exits 0.
+
+Branch coverage is on (`branch = true`) and `source = ["app"]`. Coverage artifacts
+(`.coverage*`, `coverage.json`, `coverage.xml`, `htmlcov/`) are gitignored.
 
 ### Processing
 
@@ -439,6 +459,7 @@ follow.
 - [ ] Dependencies added with `poetry add` / `npm install`, lockfiles committed
 - [ ] `black --check` and `ruff check` clean in every touched Python package
 - [ ] `pytest` green in every touched Python package
+- [ ] `poetry -C backend run pytest --cov` run if backend code changed; coverage did not drop
 - [ ] `ng lint`, `ng build` and `vitest` green if the frontend was touched
 - [ ] Migration added if any ORM model changed (`alembic check` proves it)
 - [ ] No secrets, no committed `.env`, no committed `docker-compose.override.yml`

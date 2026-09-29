@@ -16,3 +16,10 @@ docs
 __pycache__/
 .freebuff/
 .zcode/
+
+# coverage artifacts
+.coverage
+.coverage.*
+coverage.json
+coverage.xml
+htmlcov/
