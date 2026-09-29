@@ -1,0 +1,50 @@
+services:
+  frontend:
+    ports:
+      # A distinct port so an e2e run never collides with a development stack.
+      - "${E2E_FRONTEND_PORT:-18080}:80"
+    build:
+      args:
+        BACKEND_URL: ""
+    environment:
+      E2E: "1"
+
+  backend:
+    ports: !reset []
+    environment:
+      # The offline provider: no GigaChat calls, no credentials, deterministic
+      # output. Every request still exercises the real router, the real workers
+      # and the real MinIO/Redis/PostgreSQL stack.
+      SBER_API_KEY: "mock"
+      SBER_API_SCOPE: "PERS"
+      MOCK_PROVIDER_MODE: "${E2E_MOCK_MODE:-kp}"
+      DEBUG: "0"
+
+  migrate:
+    environment:
+      SBER_API_KEY: "mock"
+      SBER_API_SCOPE: "PERS"
+
+  scheduler:
+    environment:
+      SBER_API_KEY: "mock"
+      SBER_API_SCOPE: "PERS"
+
+  worker_default:
+    environment:
+      SBER_API_KEY: "mock"
+      SBER_API_SCOPE: "PERS"
+
+  worker_network:
+    environment:
+      SBER_API_KEY: "mock"
+      SBER_API_SCOPE: "PERS"
+
+  taskiq_dashboard:
+    ports: !reset []
+
+  rabbitmq:
+    ports: !reset []
+
+  minio:
+    ports: !reset []

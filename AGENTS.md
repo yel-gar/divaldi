@@ -304,6 +304,38 @@ poetry -C processing run ruff check src tests
 poetry -C processing run pytest -v
 ```
 
+### End-to-end (Playwright)
+
+The e2e suite drives the real Compose stack with **`SBER_API_KEY=mock`**, so the whole
+request path is exercised while the LLM itself is offline and free.
+
+```bash
+./e2e/scripts/run.sh              # bring the stack up, seed it, run the suite
+./e2e/scripts/setup.sh            # stack and seed only
+cd e2e && npx playwright test --ui
+```
+
+| What | Where |
+|---|---|
+| Specs | `e2e/tests/*.spec.ts` |
+| Config | `e2e/playwright.config.ts` |
+| Stack override | `docker-compose.override.yml.e2e` (forces `SBER_API_KEY=mock`, moves the frontend to port 18080) |
+| Seed + stack | `e2e/scripts/setup.sh` (creates the `e2e` superuser, clears rate limits) |
+| CI | `.github/workflows/e2e.yml` |
+
+`setup.sh` copies the override to the gitignored `docker-compose.override.yml`; copy
+`docker-compose.override.yml.bak` back if you had a development override in place.
+
+Two constraints worth knowing before adding a spec:
+
+- **The suite runs as one user, and the backend limits chat creation and message sending
+  to 5 per minute per user.** The helper fixture clears the `ratelimit:*` counters in Redis
+  before each test and `workers: 1` keeps the tests serial. Adding a chat-creating test
+  without those will produce a 429 and a test that fails with a confusing "did not
+  navigate" error.
+- **The mock provider names every chat the same** (`Расчёт КП (mock)`), so identify a
+  session by its URL id, not by its title.
+
 ### Frontend
 
 ```bash
@@ -393,9 +425,10 @@ subfolder for detail that is only sometimes needed.
 
 ### Provenance and precedence
 
-Six skills are project-specific and were written from this repository's source:
+Seven skills are project-specific and were written from this repository's source:
 `sqlalchemy-async`, `taskiq-workers`, `python-testing`, `frontend-file-preview`,
-`docker-compose`, `conventional-commits`. They encode divaldi's actual conventions.
+`docker-compose`, `e2e-playwright`, `conventional-commits`. They encode divaldi's actual
+conventions.
 
 Two are **third-party** and installed from public registries:
 
@@ -429,6 +462,7 @@ this repository, including both `divaldi-overrides.md` files, is emoji-free.
 | `angular` | third-party | Writing components, services, signals, templates, or styles |
 | `frontend-file-preview` | project | Working on the docx/xlsx/pdf/image preview and its lazy dependencies |
 | `docker-compose` | project | Changing services, Dockerfiles, env plumbing, or the dev overrides |
+| `e2e-playwright` | project | Writing or debugging an end-to-end spec, or changing the e2e stack override |
 | `conventional-commits` | project | Writing a commit message or naming a branch |
 
 **Load the relevant skill before doing the work it covers.** If a skill is missing or

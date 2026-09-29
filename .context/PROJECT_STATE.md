@@ -82,6 +82,7 @@ Fixed by `src/test-setup.ts`, registered through the builder's `setupFiles` opti
 
 | Workflow | Runs |
 |---|---|
+| `e2e.yml` | Playwright against the Compose stack, `SBER_API_KEY=mock` (10 tests) |
 | `backend-ci.yml` | black, ruff, pytest (Python 3.14) |
 | `backend-coverage.yml` | pytest with coverage, uploads `coverage.json` (reporting only) |
 | `processing-ci.yml` | black, ruff, pytest |
@@ -121,6 +122,13 @@ backend and frontend coverage pipelines:
   native `coverage` options on the `test` target in `angular.json`, a `vitest-coverage`
   pre-push hook, and `.github/workflows/frontend-coverage.yml`. Reporting only; the gate
   will be `coverageThresholds` in `angular.json`.
+- **End-to-end suite added**: Playwright in `e2e/`, driving the real Compose stack with
+  `SBER_API_KEY=mock`. 10 specs covering authentication, the request-to-offer journey
+  (including the generated `kp.xlsx` in the results panel), a follow-up message, the
+  history list, and the admin user management. `docker-compose.override.yml.e2e` moves the
+  frontend to port 18080 and forces the offline provider; `e2e/scripts/setup.sh` brings the
+  stack up, seeds an `e2e` superuser and clears rate limits. Runs in
+  `.github/workflows/e2e.yml`.
 - Frontend coverage raised from 67.6% to **90.24%** and gated at 90%
   (`coverageThresholds` in `angular.json`). Added 151 tests: login page, order create,
   upload/download services, error interceptor, the checkbox, toggle, input and select
@@ -137,8 +145,10 @@ backend and frontend coverage pipelines:
 
 Ordered by value, not by commitment:
 
-1. **Add end-to-end tests with Playwright** against the Compose stack, with
-   `SBER_API_KEY=mock` so no LLM call is made.
+1. **Extend the e2e suite.** It covers authentication, the request-to-offer journey, a
+   follow-up message, the history list and admin user management. Not yet covered: file
+   upload through the drag-and-drop zone, the docx/xlsx preview, avatar upload, the theme
+   toggle, and the error paths (a generation that fails, a session that was deleted).
 2. **Fill the placeholder sections:** profile, settings, and the admin action log
    (`Журнал действий`) and system info.
 3. **Action log.** The admin nav links to it but nothing backs it; the database has no audit
@@ -152,6 +162,9 @@ Ordered by value, not by commitment:
    `frontend-coverage.yml` each run the full suite, so a PR touching the frontend pays for
    it twice. Merging them, or making the coverage job depend on the CI job, would halve
    that. Not urgent while the suite is fast.
+8. **Add a per-test e2e user.** The suite currently shares one seeded user and works
+   around the 5-per-minute rate limit by clearing Redis between tests. Giving each worker
+   its own user would be cleaner, at the cost of a provisioning step per test.
 
 ---
 

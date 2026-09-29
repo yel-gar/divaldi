@@ -224,6 +224,32 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
 - **`RUF003` rejects Cyrillic in comments** but not in string literals, so refer to Russian
   sheet and material names without quoting them in a comment.
 
+## End-to-end
+
+- **A rate-limited backend makes an e2e suite trip its own limiter.** `chats:post` allows 5
+  per minute per user for both chat creation and message sending. One run creates several
+  chats as a single shared user, so the limit is reached *within* the suite. The failure is
+  far from the cause: the chat is created (202), the send is rejected (429), and the create
+  page never navigates, so the assertion reports "expected URL to match /chats/.+".
+  `workers: 1` plus clearing `ratelimit:*` in Redis before each test is the fix; parallel
+  workers make per-test clearing useless because they trip each other.
+- **`docker compose exec` does not forward host env vars** into the container. Seeding a
+  user from a heredoc needs `docker compose exec -T -e NAME=value ...`.
+- **Python inside the backend container needs `poetry run python`**, not bare `python`; the
+  venv is not on the system path. This is the same reason `createsuperuser.sh` wraps it.
+- **`import.meta` is unavailable in Playwright specs** here, because the config and specs
+  are transpiled to CommonJS. Use `process.cwd()` or an env var for the repo root.
+- **Icon-only buttons have no accessible name unless one is set.** The chat results panel
+  toggles via `aria-label="Панель результатов расчёта"`, and guessing a visible-text locator
+  for it fails. Prefer the aria-label in specs.
+- **`app-input` renders both a hidden input and the textarea**, so
+  `getByPlaceholder` resolves to two elements and trips strict mode. Target
+  `textarea[placeholder="..."]` instead.
+- **User-facing errors are toasts, not inline field errors.** A failed login raises a
+  notification; there is no `.auth-error` element to assert on.
+- **The admin user form is always visible**, not a dialog, and its submit button reads
+  "Сохранить" in both create and edit mode.
+
 ## Frontend test environment
 
 - **jsdom implements neither `window.matchMedia` nor `Element.prototype.scrollTo`**, and

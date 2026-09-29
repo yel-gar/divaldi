@@ -428,6 +428,32 @@ See [`.github/CODEOWNERS`](.github/CODEOWNERS).
 
 ---
 
+<details>
+<summary><b>🎭 End-to-end tests (Playwright)</b></summary>
+
+The e2e suite drives the real Compose stack — browser, FastAPI, TaskIQ workers,
+PostgreSQL, Redis, MinIO — with **`SBER_API_KEY=mock`**, so the whole request path is
+exercised while the LLM itself is offline and free.
+
+```bash
+./e2e/scripts/run.sh
+```
+
+That starts the stack on port **18080** (so it never collides with a running dev
+stack), seeds an `e2e` superuser, and runs the suite in `e2e/`.
+
+To drive it interactively:
+
+```bash
+./e2e/scripts/setup.sh
+cd e2e && npx playwright install chromium
+npx playwright test --ui
+```
+
+</details>
+
+---
+
 ## 🤖 For AI agents
 
 Working on this repo? Read these first:

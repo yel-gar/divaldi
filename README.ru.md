@@ -428,6 +428,30 @@ npm --prefix frontend run format
 
 См. [`.github/CODEOWNERS`](.github/CODEOWNERS).
 
+<details>
+<summary><b>🎭 End-to-end тесты (Playwright)</b></summary>
+
+E2E-набор работает с реальным стеком Compose — браузер, FastAPI, воркеры TaskIQ,
+PostgreSQL, Redis, MinIO — с **`SBER_API_KEY=mock`**, поэтому весь путь запроса
+проверяется, а сама языковая модель работает офлайн и бесплатно.
+
+```bash
+./e2e/scripts/run.sh
+```
+
+Стек поднимается на порту **18080** (чтобы не конфликтовать с уже запущенным dev-стеком),
+создаётся суперпользователь `e2e`, затем запускаются тесты из `e2e/`.
+
+Запуск в интерактивном режиме:
+
+```bash
+./e2e/scripts/setup.sh
+cd e2e && npx playwright install chromium
+npx playwright test --ui
+```
+
+</details>
+
 ---
 
 ## 🤖 Для ИИ-агентов

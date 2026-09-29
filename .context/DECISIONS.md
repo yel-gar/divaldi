@@ -322,6 +322,37 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   will hard-fail with a message about unsupported browsers. This is a constraint to remember
   before adopting a browser runner.
 
+## End-to-end tests
+
+- **The e2e suite drives the real Compose stack with `SBER_API_KEY=mock`.** Playwright in
+  `e2e/` runs against a full deployment: the Angular build behind nginx, FastAPI, both
+  TaskIQ worker pools, PostgreSQL, Redis and MinIO. Only the LLM is replaced, by the same
+  `MockProvider` the unit suite uses, so a request still walks the router, the worker, the
+  spreadsheet calculator and a real S3 round trip. This is what makes the suite trustworthy:
+  it fails if any of that pipeline breaks.
+- **The stack runs on a separate port (18080) and a separate override file**
+  (`docker-compose.override.yml.e2e`), copied to the gitignored
+  `docker-compose.override.yml` by `e2e/scripts/setup.sh`. The previous override is backed
+  up so a developer's dev stack is not silently lost. Only the frontend port and the
+  provider env vars are changed; every real service is still the real service.
+- **Tests run serially (`workers: 1`) and the `ratelimit:*` counters are cleared before
+  each test.** Both are load-bearing, and the reason is non-obvious: `app/routes/chat.py`
+  limits chat creation *and* message sending to 5 per minute per user
+  (`chats:post`). A single e2e run creates several chats as one shared user, so the suite
+  trips its own limiter. The symptom is misleading — the chat is created with 202 but the
+  send is rejected with 429, so the create page never navigates and the test fails with
+  "expected URL /chats/.+" rather than anything mentioning a rate limit. This cost the most
+  debugging time in the e2e work.
+- **The mock provider names every chat identically** (`Расчёт КП (mock)`), because
+  `chat_name` is part of the generated payload. E2E specs must therefore identify a session
+  by the id in the URL, not by its visible title.
+- **Playwright runs one worker in the harness and needs its own npm project.** The global
+  npm on this machine breaks on this repository (arborist crash, then `EALLOWREMOTE` on the
+  remote-tarball `xlsx` dependency), so `e2e/scripts/run.sh` installs with the pinned
+  `npm@10.9.2`.
+- **The native `window.confirm` in the admin delete flow is handled with a Playwright
+  `dialog` handler**, not a DOM locator, because it is not a DOM element.
+
 ## Backend test coverage
 
 - **Coverage is measured and enforced at 90%.** `pytest-cov` is a `dev` dependency added
