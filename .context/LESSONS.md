@@ -1,0 +1,167 @@
+# Lessons
+
+Traps, gotchas and non-obvious behaviours discovered the hard way.
+Flat bullet list, append at the bottom. One bullet, one lesson.
+
+---
+
+## Environment and tooling
+
+- In CI workflows use `poetry install --no-root`, not `poetry install --with dev`. The
+  `dev` group is installed by default, and the FastAPI project root must not be installed
+  into its own venv. Production images use `poetry install --only main --no-root`.
+- The pre-commit Python hooks **cannot fail your commit**: `scripts/precommit-black.py` and
+  `scripts/precommit-ruff.py` pass `check=False` to `subprocess.run`. A clean-looking hook
+  run proves nothing, so always run `black --check` and `ruff check` explicitly.
+- `.pre-commit-config.yaml` is the single source of truth for all hooks, but
+  `.github/workflows/pre-commit.yml` only runs the *generic* hooks (yaml, json, toml, eof,
+  whitespace). Real lint and test coverage comes from `backend-ci.yml` and
+  `processing-ci.yml`.
+- `frontend-ci.yml` runs `ng lint` and `ng build` but **not** `ng test`. Vitest failures only
+  ever surface locally, so run `npm --prefix frontend test` yourself.
+- `pre-commit` hooks invoke a `python` executable. On systems where it is `python3` or `py`,
+  the hook silently does nothing useful until you alias it.
+
+## Docker and environment
+
+- `docker-compose.override.yml` is **gitignored**. A fresh clone has no override, so Alembic
+  cannot reach PostgreSQL because it is not published by default. Copy
+  `docker-compose.override.yml.dev` to `docker-compose.override.yml`; that override publishes
+  the DB on host port **5431**, which is what `backend/makemigrations.sh` expects.
+- `backend/makemigrations.sh` starts the `db` service itself if it is not running, waits for
+  its healthcheck, exports `POSTGRES_HOST=localhost POSTGRES_PORT=5431`, sources `.env`, and
+  runs alembic. It **stops `db` on exit only if it started it** (`trap cleanup EXIT`). If it
+  hangs, the healthcheck is failing: check `docker compose ps`.
+- The app must run with CWD == `backend/`. `providers/sber.py` opens `res/gigachat-ca.cer` by
+  **relative** path, so a different working directory raises at request time, or worse, only
+  under the PERS-scope code path. `tasks/api.py` gets this right by anchoring on
+  `Path(__file__).parent.parent.parent / "res/calc.xlsx"`.
+- Service hostnames (`redis`, `rabbitmq`, `minio`, `taskiq_dashboard`) are hardcoded literals
+  in the source. That is why the project cannot be run outside Compose; do not "improve" them
+  into env vars without also changing the run model.
+- Redis database **0 is general** (cache, locks, rate limits, statuses) and **1 is TaskIQ
+  result storage only**. Writing task results to `/0` silently breaks every result read.
+
+## Python and backend
+
+- `app/providers/containers.py` builds a module-level `SberProvider(...)` **at import time**
+  from `os.environ["SBER_API_KEY"]` and `os.environ["SBER_API_SCOPE"]`. Therefore *importing
+  any route or task module* requires both env vars to exist. This is why
+  `tests/conftest.py` has an autouse `env` fixture monkeypatching them to mock values:
+  without it, every test errors on import rather than on assertion.
+- **Redis `.get()` and `db.execute(...).scalar()` return `Any` or untyped values**, so type
+  narrowing needs `# type: ignore` or an explicit cast. Do not "clean up" these by adding
+  asserts that change runtime behaviour.
+- Model files start with `from __future__ import annotations` and use
+  `if typing.TYPE_CHECKING:` for circular imports. Removing the future import makes
+  SQLAlchemy's `Mapped[]` resolution fail on string annotations.
+- `app/models/__init__.py` uses `pkgutil.iter_modules` plus `importlib.import_module` to
+  auto-register every model. **Do not add manual imports**: a new model file in the same
+  package is picked up automatically, and manual entries are how duplicates creep in.
+- `alembic/versions/` is excluded from both black and ruff. Reformatting generated migrations
+  produces a noisy diff on every regeneration and is explicitly not wanted.
+- `alembic/env.py` reads the URL from `get_database_url()` and does `.replace("%", "%%")`. The
+  doubling is required because `alembic.ini` uses `ConfigParser` interpolation, and a raw
+  password containing `%` otherwise crashes the interpreter.
+- `tests/test_migrations.py` runs `alembic upgrade head`, `downgrade base` **and
+  `alembic check`** in a subprocess. It is a real drift gate: change a model, forget the
+  migration, and the suite fails with the exact command to run. There is currently only one
+  revision (`58cdf8dfcbba`, `down_revision=None`).
+- Backend tests require a **Docker daemon** because `postgres_container` and
+  `redis_container` are `testcontainers` fixtures scoped to the session. A test run without
+  Docker fails at fixture setup, not at an assertion, so read the error before debugging code.
+- `conftest.py` builds the schema with `Base.metadata.create_all`, **not** migrations. Only
+  `test_migrations.py` exercises the Alembic path.
+- The `httpx.AsyncClient` in tests carries cookies between requests, mirroring a browser. A
+  test that logs in and then calls an admin route without re-logging in *will* pass auth. This
+  is intentional, but it means "logged out" assertions need a fresh client.
+- `@pytest.mark.asyncio` is still written explicitly even though `asyncio_mode = "auto"`.
+  Both work; match the surrounding file rather than "fixing" the inconsistency.
+
+## The GigaChat harness
+
+- **`MATERIALS` order is a data contract.** The `material` in every generated position is an
+  **integer index** into that list. Inserting a grade in the middle silently reinterprets
+  every already-persisted position. Append only, and note it in `DECISIONS.md`.
+- **An empty `positions` list means "ask clarifying questions"**, not "generation failed". The
+  prose in `message` is the question. Distinguishing the two in the UI, for example by showing
+  an error, is a bug.
+- The prompt-injection guard is a *model-level* control in `SYSTEM_REMINDER`, not a parser
+  check. It can be talked around, so do not describe it in docs as a security boundary.
+- GigaChat PERS-scope calls take a **global Redis lock** (`api:global:lock`). Concurrent
+  requests queue for up to 60 s and then raise, so a burst of generation requests looks like
+  failures even though nothing is broken.
+
+## Processing library
+
+- **Two copies of `calc.xlsx` exist on purpose**: `backend/res/calc.xlsx` (read by
+  `tasks/api.py`) and `processing/src/processing/calculator/res/calc.xlsx` (packaged with the
+  library). Editing only one produces a mismatch between what the library ships and what the
+  backend renders.
+- `processing/tests/conftest.py` inserts `processing/src` into `sys.path` so the tests run
+  **without installing the package**. A test that only passes after `poetry install` is
+  testing something other than the library.
+- The DXF parser is hand-rolled. New entity types need explicit handling in the group-code
+  walk; adding `ezdxf` "just for this" would change the dependency profile and the error types
+  (`DXFStructureError`) that callers already catch.
+- `SUPPORTED_ENCODINGS = ["utf-8", "cp1251", "latin-1"]` reflects real customer files.
+  Removing `cp1251` because it looks legacy breaks Russian-locale DXFs.
+
+## Frontend
+
+- **Never hardcode a backend URL.** `environment.prod.ts` holds the placeholder
+  `apiUrl: '__BACKEND_URL__/api/v1'`, rewritten at image build time by
+  `docker/rewrite-env.mjs` from the `BACKEND_URL` build arg. A literal URL in a service works
+  locally and breaks the moment the deployment moves.
+- The build arg reaches the frontend through `docker-compose.yaml` (`args.BACKEND_URL`), and
+  in dev through the bind-mounted `ng serve` in `docker-compose.override.yml.dev`. If dev and
+  prod disagree about the API URL, check both.
+- **`docx-preview`, `xlsx` and `hyperformula` are lazily `import()`ed.** Promoting any of them
+  to a static top-level import bloats the eager bundle for every user, including those who
+  never open a preview.
+- The `.xlsx` preview evaluates formulas **across sheets** with HyperFormula, because the
+  generated `kp.xlsx` prices rows using workbook formulas. Rendering cells without the formula
+  engine shows blanks where prices should be.
+- Component **class naming is inconsistent by history**: `CalculationChatComponent` versus
+  `HistoryPage`, `Layout`, `Sidebar`, `Textarea`, `Select`. Files are always
+  `<kebab-name>.component.ts`. Follow the file you are editing; do not mass-rename.
+- Angular schematics have `skipTests: true`, so `ng generate component` **does not create a
+  spec file**. If you add a component with logic, write the spec by hand.
+- Component tests use two idioms: `HttpTestingController` for services, and hand-rolled fakes
+  (`class FakeUploader`) plus inline `TestHost` components for components. Match the
+  neighbouring spec rather than mixing the two in one file.
+- ESLint lints `src/**/*.ts` and `src/**/*.html` but **not `.scss`**. Prettier formats styles,
+  but there is no stylelint, so a bad SCSS rule will not be caught by any gate.
+- The `app-` selector prefix is enforced by `@angular-eslint/component-selector` (kebab-case)
+  and `directive-selector` (camelCase). Renaming a selector without updating the prefix fails
+  `ng lint`.
+- Colours must come from CSS custom properties; light and dark is `html[data-theme='dark']`
+  plus `localStorage['theme']`. A hardcoded hex in a component is invisible to the theme
+  toggle.
+
+## Cross-cutting
+
+- **The root `parser/` directory is dead**: only `__pycache__` from the pre-`processing/` era,
+  with Python 3.13 bytecode. Nothing in the build, pre-commit or CI references it. If a file
+  you need seems to be "missing" from `processing/`, search the git history
+  (`git log --all --diff-filter=D -- 'parser/*'`) rather than writing it into `parser/`.
+- Read `backend/app/harness.py` before changing anything about generation output. The
+  structured schema and the prompt are a single coupled contract; a prompt edit without a
+  schema edit, or the reverse, is how the model starts returning unparseable JSON.
+- **`except ValueError, TypeError:` is valid Python 3.14 here, not Python 2 syntax.** PEP 758
+  allows `except` and `except*` to omit parentheses for multiple exception types. It appears in
+  `processing/src/processing/calculator/calc.py` and six times in
+  `processing/src/processing/parser/dxf_parser.py`, and black with
+  `target-version = ["py314"]` **formats it without parentheses**. `requires-python = ">=3.14,<4"`
+  in both `pyproject.toml` files makes this safe. It looks exactly like Python 2 syntax to a
+  reader, an older linter, or an automated review, and has been misreported as a critical bug
+  more than once. Do not "fix" it by adding parentheses; doing so produces a diff against the
+  project's own formatter and will be reverted by the next `black` run.
+- **Check `target-version` before judging unusual syntax in either language.** This project
+  pins `py314` for black and ruff and Angular 21 / ES2022 for the frontend, so modern-only
+  constructs are expected rather than suspicious.
+- **Verify claims against the source before reporting them, and verify your own corrections.**
+  The misdiagnosis above was first rejected with the wrong reason ("the review misread a
+  wrapped tuple") and only later traced to PEP 758. Confirming *that* a file parses is not the
+  same as confirming *why* it parses, and a confident wrong explanation is worse than the
+  original false positive.

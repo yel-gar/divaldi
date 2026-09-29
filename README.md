@@ -1,81 +1,361 @@
-# Divaldi
-## Setup Instruction
-1. Clone our repo
-```bash
-$ git clone https://github.com/yel-gar/divaldi.git
-```
+<div align="center">
 
-2. Copy the `.env.example` to `.env`
-```bash
-# Linux
-$ cp .env{.example,}
-```
-```powershell
-# Windows
-PS> Copy-Item .env.example .env
-```
+# 🎼 Divaldi
 
-3. Edit the `.env` file with actual variables according to [this table](#environment-variables)
-4. Launch the project
-```bash
-$ docker compose up -d --build
-```
+**AI‑assisted quotation engine for sheet‑metal fabrication**
 
-5. Verify everything started up successfully
-```bash
-$ docker compose logs -f
-```
+*Upload a drawing. Get a priced commercial offer.*
 
-6. Create superuser
-```bash
-# Linux
-$ chmod +x createsuperuser.sh
-$ ./createsuperuser.sh
-```
+[![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Angular](https://img.shields.io/badge/frontend-Angular%2021-DD0031?logo=angular&logoColor=white)](https://angular.dev)
+[![Python](https://img.shields.io/badge/python-3.14-3776AB?logo=python&logoColor=white)](https://www.python.org)
+[![PostgreSQL](https://img.shields.io/badge/db-PostgreSQL%2018-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org)
+[![RabbitMQ](https://img.shields.io/badge/broker-RabbitMQ%204-FF6600?logo=rabbitmq&logoColor=white)](https://www.rabbitmq.com)
+[![Redis](https://img.shields.io/badge/cache-Redis%208-DC382D?logo=redis&logoColor=white)](https://redis.io)
+[![MinIO](https://img.shields.io/badge/storage-MinIO-C04748?logo=minio&logoColor=white)](https://min.io)
+[![TaskIQ](https://img.shields.io/badge/queue-TaskIQ-FFD34E?logoColor=black)](https://taskiq-python.github.io)
+[![License](https://img.shields.io/badge/license-proprietary-lightgrey)]()
 
-```powershell
-# Windows
-PS> .\createsuperuser.ps1
-```
+[🇬🇧 English](README.md) · [🇷🇺 Русский](README.ru.md)
 
-7. You're all set 🤙
-
-(Optional) if you'd like to, you can configure and fine-tune memory limits by copying `docker-compose.override.yml.memlim` to `docker-compose.override.yml` and adjusting. By default there are no memory limits.
+</div>
 
 ---
 
-## Developers setup
-1. Install dev dependencies and pre-commit (this repo uses it for all linting/formatting hooks *and* commit message checks — no Node tooling required just for hooks)
-```bash
-$ npm install
-$ pip install pre-commit
+## 🎯 What is Divaldi?
+
+Divaldi is an internal web application for **ООО НПО «Энергон»**, a metal‑working
+fabrication company. It turns a customer's **drawings** into a **priced commercial offer**
+(commercial proposal, *КП*) as an Excel file — automatically.
+
+An engineer uploads a PDF/DXF drawing, adds a short description, and chats with an
+AI technologist that reads the drawing, identifies the material, extracts geometry,
+asks clarifying questions when data is missing, and finally produces a costed
+`.xlsx` offer based on the shop's real production norms.
+
+```
+   📐 Drawing (PDF / DXF / PNG / JPEG)
+              │
+              ▼
+   ┌──────────────────────────┐
+   │  Preprocessing workers   │  PDF → 150 DPI PNG pages · DXF → measurement report
+   └──────────────────────────┘
+              │
+              ▼
+   ┌──────────────────────────┐
+   │   GigaChat (Sber) LLM    │  reads images + DXF text + user message
+   │   structured JSON output │  material · area · bends · welds · hours
+   └──────────────────────────┘
+              │
+              ▼
+   ┌──────────────────────────┐
+   │  processing.calculator   │  fills res/calc.xlsx with production norms
+   └──────────────────────────┘
+              │
+              ▼
+        📊 kp.xlsx  (offer)
 ```
 
-2. Install the git hooks
-```bash
-$ pre-commit install --hook-type pre-commit --hook-type commit-msg
-```
-This registers two things: a `pre-commit` hook that lints/formats only the files you've staged, and a `commit-msg` hook that checks your commit message against [Conventional Commits](https://www.conventionalcommits.org/). Both are defined in the single root [`.pre-commit-config.yaml`](.pre-commit-config.yaml).
-> **IMPORTANT**: in the hooks we use `python` executable, if you have `python3` or `py`, please set up an alias for the environment.
+---
 
-3. Configure environment vars
-```bash
-$ cp .env{.example,}
+## ✨ Features
+
+### 👷 For engineers
+
+| | Feature | Details |
+|---|---|---|
+| 💬 | **AI chat with a technologist** | Asynchronous generation, live status indicator, Markdown + syntax highlighting |
+| 📎 | **Drawing upload** | Drag‑and‑drop, PDF · DXF · PNG · JPEG, up to **30 MB**, max 3 concurrent uploads |
+| 🔍 | **Automatic file parsing** | PDF pages rasterised at 150 DPI; DXF entities parsed into a measurement report |
+| ❓ | **Clarification loop** | When dimensions or material are missing, the agent asks targeted questions and recomputes |
+| 📊 | **Commercial offer (КП)** | Priced `.xlsx` generated from the shop's production norms (laser / welding / bending / painting) |
+| 📄 | **File preview** | Inline preview of PDF, images, `.docx`, and `.xlsx` (with live formula evaluation) |
+| 🕘 | **Request history** | Sortable, most‑recently‑active first, with skeleton and empty states |
+| 🔁 | **Retry failed generations** | One click to regenerate after an error |
+| 🌗 | **Light / dark theme** | Persisted in `localStorage` |
+| 👤 | **Profile & avatar** | PNG/JPEG/WebP, normalised to WebP |
+
+### 🛡️ For administrators
+
+| | Feature | Details |
+|---|---|---|
+| 👥 | **User management** | Search, create, edit, delete |
+| 📅 | **Account expiry** | `expires_at` with active / expiring / expired badges |
+| 🔑 | **Password reset** | Superuser‑only; fully disabled under `TEST_INSTANCE_MODE` |
+| 🚦 | **Test‑instance mode** | `TEST_INSTANCE_MODE=true` blocks destructive admin actions with HTTP `450` |
+
+### ⚙️ For operators
+
+| | Feature | Details |
+|---|---|---|
+| 📈 | **TaskIQ dashboard** | Task history, results, failures |
+| 🐇 | **RabbitMQ management** | Queue depth and worker health |
+| 🗄️ | **MinIO console** | Bucket browsing, lifecycle rules |
+| ♻️ | **Self‑cleaning storage** | ILM rules expire unprocessed avatars (1 d), attachments (7 d), artifacts (1 d) |
+| 🧹 | **Scheduled cleanup** | Hourly jobs purge stale results, orphan attachments and expired sessions |
+
+---
+
+## 🏗️ Architecture
+
 ```
+divaldi/
+├── backend/          FastAPI + SQLAlchemy 2.0 (async) + Alembic + TaskIQ
+│   ├── app/
+│   │   ├── routes/       HTTP layer — one APIRouter per domain
+│   │   ├── schemas/      Pydantic v2 request/response models
+│   │   ├── models/       SQLAlchemy ORM models
+│   │   ├── tasks/        TaskIQ background jobs (default + network queues)
+│   │   ├── providers/    GigaChat (Sber) AI client
+│   │   ├── cache.py      Redis client + every cache-key builder
+│   │   ├── storage.py    MinIO/S3 object storage
+│   │   ├── deps.py       Annotated dependency aliases
+│   │   └── harness.py    LLM system prompt + structured output schema
+│   ├── alembic/          Migrations (single `initial` revision so far)
+│   ├── res/              calc.xlsx template, GigaChat CA certificate
+│   └── tests/            pytest + testcontainers
+├── processing/        Shared library: PDF rasteriser, DXF parser, Excel calculator
+├── frontend/          Angular 21 standalone + signals + SCSS
+├── conf/              Infra config: redis.conf, minio-init.sh, ILM rules, pg init
+├── scripts/           pre-commit shims for per-package Poetry tools
+└── docker-compose.yaml
+```
+
+### 🔁 Request lifecycle
+
+1. `POST /api/v1/chats` creates a session, returns `202`.
+2. The message is enqueued on the **`network`** queue (`generate_chat_message`).
+3. The worker uploads attachments to GigaChat and requests a structured JSON completion.
+4. If the agent returns positions → `res/calc.xlsx` is filled → `kp.xlsx` lands in MinIO.
+5. If it returns an empty `positions` list → it asked clarifying questions instead.
+6. The frontend polls `GET /chats/{id}/result` every 2 s (5 min timeout) — there are no WebSockets.
+
+### 🧾 Two task queues
+
+| Queue | Purpose | Tasks |
+|---|---|---|
+| `default` | Local / CPU‑bound work | DXF parsing, PDF rasterising, avatar normalisation, result processing, cleanup crons |
+| `network` | Outbound calls to GigaChat | `generate_chat_message`, `upload_pdf_image` |
+
+Splitting them means a slow external API never blocks the local pipeline.
+
+---
+
+## 🧰 Tech stack
+
+**Backend** — Python 3.14 · FastAPI · SQLAlchemy 2.0 (async) · asyncpg · Alembic · Pydantic v2 · TaskIQ · structlog · argon2‑cffi · aioboto3 · Pillow · uvicorn
+
+**Processing** — PyMuPDF · Pillow · openpyxl (pure‑Python DXF parser, no `ezdxf`)
+
+**Frontend** — Angular 21 (standalone, signals) · TypeScript 5.9 · SCSS (BEM + CSS custom properties) · RxJS · Vitest · ESLint · Prettier
+
+**Infrastructure** — Docker Compose · PostgreSQL 18 · Redis 8 · RabbitMQ 4 · MinIO
+
+---
+
+## 🚀 Quick start
+
+### 📋 Prerequisites
+
+- 🐳 **Docker** with **Docker Compose v2**
+- 📝 A `.env` file with the secrets marked required in the [table below](#-environment-variables)
+
+> ⚠️ **The full project runs only via Docker Compose.** The backend expects service
+> hostnames (`db`, `redis`, `rabbitmq`, `minio`) and two paths resolved relative to
+> `backend/` as the working directory. There is no supported local run of the app.
+> Running individual services locally is fine for editing, but *running* means Compose.
+
+### 1️⃣ Clone
+
+```bash
+git clone https://github.com/yel-gar/divaldi.git
+cd divaldi
+```
+
+### 2️⃣ Configure
+
+```bash
+# Linux / macOS
+cp .env{.example,}
+```
+
 ```powershell
+# Windows PowerShell
 PS> Copy-Item .env.example .env
 ```
 
-4. Open compose database port via override (required for migrations)
+Then fill in the required values — at minimum `POSTGRES_PASSWORD`, `RABBITMQ_PASS`,
+`TASKIQ_API_TOKEN`, `MINIO_ROOT_PASSWORD`, `SBER_API_KEY`, `SBER_API_SCOPE`.
+
+Generate secrets with:
+
 ```bash
-$ cp docker-compose.override.yml{.dev,}
+openssl rand -hex 48
+```
+
+### 3️⃣ Launch
+
+```bash
+docker compose up -d --build
+docker compose logs -f
+```
+
+### 4️⃣ Create an administrator
+
+There is **no registration** — the first account is created interactively:
+
+```bash
+# Linux / macOS
+chmod +x createsuperuser.sh
+./createsuperuser.sh
 ```
 
 ```powershell
+# Windows PowerShell
+PS> .\createsuperuser.ps1
+```
+
+### 5️⃣ Sign in
+
+Open **http://localhost:8080** and log in with the account you just created. 🎉
+
+---
+
+## 🔌 Services & ports
+
+| Service | URL | Notes |
+|---|---|---|
+| 🌐 **Frontend** | http://localhost:8080 | nginx, proxies `/api` to the backend |
+| ⚡ **Backend API** | http://localhost:3000 | docs at `/api/v1/docs` — **only when `DEBUG` is on** |
+| 📈 **TaskIQ dashboard** | http://localhost:8000 | needs `TASKIQ_API_TOKEN` |
+| 🐇 **RabbitMQ** | http://localhost:15672 | user `RABBITMQ_USER` / `RABBITMQ_PASS` |
+| 🗄️ **MinIO console** | http://localhost:9001 | user `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` |
+| 🗃️ **MinIO S3 API** | http://localhost:9000 | |
+| 🐘 **PostgreSQL** | `localhost:5432` | `5431` in the dev override |
+
+### Compose services
+
+| Service | Role |
+|---|---|
+| `frontend` | Angular bundle served by nginx |
+| `backend` | FastAPI + uvicorn |
+| `migrate` | one‑shot `alembic upgrade head`, others wait for it |
+| `scheduler` | TaskIQ scheduler (periodic jobs) |
+| `worker_default` | ×2 replicas on the `default` queue |
+| `worker_network` | ×2 replicas on the `network` queue |
+| `taskiq_dashboard` | task observability |
+| `db` | PostgreSQL 18 (`shm_size: 512mb`) |
+| `redis` | cache + locks + rate limits |
+| `rabbitmq` | task broker, vhost `taskiq` |
+| `minio` / `minio-init` | S3 storage; init creates buckets and imports ILM rules |
+
+---
+
+## 👨‍💻 Developer setup
+
+<details>
+<summary><b>🔧 Hot‑reload dev stack</b></summary>
+
+The committed `.dev` override bind‑mounts the source into the containers and adds
+polling watchers. It also publishes PostgreSQL on `5431` — **required for migrations**.
+
+```bash
+# Linux / macOS
+cp docker-compose.override.yml{.dev,}
+```
+
+```powershell
+# Windows PowerShell
 PS> Copy-Item docker-compose.override.yml.dev docker-compose.override.yml
 ```
 
-## Environment Variables
+```bash
+docker compose up -d --build
+```
+
+Then edit `backend/` or `frontend/` and just wait for the reload.
+
+</details>
+
+<details>
+<summary><b>🪢 Git hooks (linting, formatting, commit messages)</b></summary>
+
+All hooks live in the single root `.pre-commit-config.yaml`.
+
+```bash
+npm install                  # commitlint, used by the commit-msg hook
+pip install pre-commit
+pre-commit install --hook-type pre-commit --hook-type commit-msg
+```
+
+| Hook | Scope |
+|---|---|
+| `check-yaml`, `check-json`, `check-toml`, `end-of-file-fixer`, `trailing-whitespace` | repo‑wide |
+| `black`, `ruff`, `pytest` | `backend/**.py` |
+| `black`, `ruff`, `pytest` | `processing/**.py` |
+| `eslint --fix`, `prettier --write` | `frontend/**` |
+
+> ⚠️ The Python hooks invoke a `python` executable. If yours is `python3` or `py`,
+> set up an alias.
+
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/) and are
+validated by `commitlint.config.js`.
+
+</details>
+
+<details>
+<summary><b>🐍 Running tests & checks locally</b></summary>
+
+Tests may be run locally. Backend tests use **testcontainers**, so a Docker *daemon*
+must be running (they spin up throwaway PostgreSQL and Redis).
+
+```bash
+# backend
+poetry -C backend install
+poetry -C backend run pytest
+poetry -C backend run black --check .
+poetry -C backend run ruff check .
+
+# processing
+poetry -C processing install
+poetry -C processing run pytest -v
+poetry -C processing run black --check src tests
+poetry -C processing run ruff check src tests
+
+# frontend
+npm --prefix frontend ci
+npm --prefix frontend test
+npm --prefix frontend run lint
+npm --prefix frontend run format
+```
+
+</details>
+
+<details>
+<summary><b>🗄️ Alembic migrations</b></summary>
+
+```bash
+# with the .dev override in place (PostgreSQL published on 5431)
+./backend/makemigrations.sh "add foo column"
+```
+
+`test_migrations.py` runs `alembic upgrade head`, `downgrade base` and `alembic check`,
+so **a model change without a migration fails the test suite**.
+
+</details>
+
+<details>
+<summary><b>🐳 Memory limits</b></summary>
+
+There are no limits by default. To cap them, copy `docker-compose.override.yml.memlim`
+to `docker-compose.override.yml` and tune the values.
+
+</details>
+
+---
+
+## 🔐 Environment variables
+
 You should generally only touch variables marked as **Required**.
 
 | **Variable**                  | **Description**                                                                                                                             | **Required** | **Default**             |
@@ -86,6 +366,7 @@ You should generally only touch variables marked as **Required**.
 | `FRONTEND_URL`                | Deployed frontend URL used by the backend (e.g. for CORS / redirects).                                                                      | ✅           | `http://localhost:8080` |
 | `BACKEND_PORT`                | Port on which backend runs.                                                                                                                 | ❌           | `3000`                  |
 | `FRONTEND_PORT`               | Port on which frontend runs.                                                                                                                | ❌           | `8080`                  |
+| `TEST_INSTANCE_MODE`          | Safety switch. When truthy (`true`, `yes`, `1`), destructive admin/user mutations return HTTP `450` instead of running.                       | ❌           | `false`                 |
 | **Database (PostgreSQL)**     |                                                                                                                                             |              |                         |
 | `POSTGRES_PASSWORD`           | Database password. Set to something secure; generate with `openssl rand -hex 48`.                                                           | ✅           |                         |
 | `POSTGRES_USER`               | Database user.                                                                                                                              | ❌           | `divaldi`               |
@@ -107,6 +388,64 @@ You should generally only touch variables marked as **Required**.
 | `MINIO_ROOT_USER`             | MinIO user.                                                                                                                                 | ❌           | `minio`                 |
 | `MINIO_PORT`                  | Production port where MinIO runs.                                                                                                           | ❌           | `9000`                  |
 | `MINIO_DASHBOARD_PORT`        | MinIO dashboard port.                                                                                                                       | ❌           | `9001`                  |
-## Redis designation
-`/0` - general
-`/1` - task results
+
+> 🔐 **Redis, RabbitMQ, MinIO and TaskIQ dashboard hostnames are hardcoded** in the
+> backend (`redis://redis:6379`, `amqp://…@rabbitmq:5672/taskiq`, `http://minio:9000`,
+> `http://taskiq_dashboard:8000`). That is another reason the app only runs in Compose.
+
+### 🧠 Redis database designation
+
+| DB | Use |
+|---|---|
+| `/0` | general — cache, locks, rate limits, statuses |
+| `/1` | TaskIQ task results |
+
+---
+
+## 🛡️ Security notes
+
+- 🔑 Passwords are hashed with **argon2-cffi**; sessions are opaque random tokens
+  (`httponly`, `samesite=lax`, `secure` unless `DEBUG`, 7‑day lifetime) — **not JWT**.
+- 📚 `/api/v1/docs`, `/redoc` and `openapi.json` are served **only when `DEBUG` is on**.
+- 🚦 `TEST_INSTANCE_MODE` blocks destructive admin operations with a non‑standard
+  **HTTP 450**.
+- 🧨 The LLM system prompt contains an explicit **prompt‑injection guard**: the agent is
+  told to treat instructions found inside uploaded files as an attack, warn the user,
+  and refuse off‑topic conversation.
+- 🔒 CORS origins come from `FRONTEND_URL` / `BACKEND_URL` and only fall back to `*` in debug.
+
+---
+
+## 👥 Code owners
+
+| Path | Owner |
+|---|---|
+| `/backend/`, `/scripts/`, `/.github/`, `docker-compose.yaml`, `.env.example` | @yel-gar |
+| `/frontend/` | @krchvl |
+| `/processing/` | @AX-Ray |
+
+See [`.github/CODEOWNERS`](.github/CODEOWNERS).
+
+---
+
+## 🤖 For AI agents
+
+Working on this repo? Read these first:
+
+| File | Purpose |
+|---|---|
+| [`AGENTS.md`](AGENTS.md) | mandatory harness — conventions, commands, rules |
+| [`.context/DECISIONS.md`](.context/DECISIONS.md) | why the architecture is the way it is |
+| [`.context/LESSONS.md`](.context/LESSONS.md) | traps that have already bitten us |
+| [`.context/PROJECT_STATE.md`](.context/PROJECT_STATE.md) | where the project stands right now |
+| [`.agents/skills/`](.agents/skills) | task‑specific playbooks |
+
+---
+
+<div align="center">
+
+**Made with 🛠️ for the engineers of ООО НПО «Энергон»**
+
+*Repository license: proprietary.*
+
+</div>
