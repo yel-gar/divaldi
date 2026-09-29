@@ -139,6 +139,34 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   plus `localStorage['theme']`. A hardcoded hex in a component is invisible to the theme
   toggle.
 
+## Agent skills and documentation
+
+- **Do not hand-write a skill for a framework you can install.** `openai/skills` (curated)
+  and `anthropics/skills` have no FastAPI/Angular/Docker/Python-testing entries, but
+  `samuelpkg/skills`, `xfstudio/skills` and `github/awesome-copilot` do. Install with
+  `~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py --repo
+  <owner>/<repo> --path <dir> --dest <dest>`. A hand-written flat `SKILL.md` cannot carry
+  real framework depth, and guessing at framework APIs is where an agent invents things.
+- **An installed vendor skill silently contradicts a project-specific one.** The Angular
+  skill assumes SSR, hydration and zoneless change detection; this app has none of them. The
+  FastAPI skill shows `db: AsyncSession = Depends(get_db)`, while `deps.py` mandates
+  `Annotated` aliases used as parameter types. Installing without an override file makes the
+  harness actively wrong.
+- **A `references/` file nothing links to will never be read.** An agent loads `SKILL.md` and
+  stops. Point at the overrides from the frontmatter `description` *and* a callout at the
+  top of the body, or it is dead documentation.
+- **A skill's own `metadata` can misdescribe the project.** `xfstudio/skills:angular`
+  declares `organization: "Antigravity Awesome Skills"` while living in a repo by a
+  different author. Verify provenance from the source repo, not the payload.
+- **`websearch` returned HTTP 403 in this environment; the Code Mode `search` tool returned
+  nothing.** Use `curl` against `api.github.com`, or the authenticated `gh api`, instead.
+  `gh` is logged in, which also unlocks code search (`gh api "search/code?q=..."`) that
+  unauthenticated curl cannot do.
+- **Document new tooling in README, not just AGENTS.** The old README had no
+  architecture, feature, port, test or contribution documentation at all, which is why the
+  project had three unrunnable-looking parts (`parser/`, no `.env.example` entry for
+  `TEST_INSTANCE_MODE`, no LICENSE).
+
 ## Cross-cutting
 
 - **The root `parser/` directory is dead**: only `__pycache__` from the pre-`processing/` era,

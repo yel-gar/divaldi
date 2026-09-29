@@ -1,134 +1,832 @@
 ---
 name: angular
-description: Conventions for Angular 21 components, signals, services, templates and SCSS in the divaldi frontend. Use when writing or changing anything under frontend/src/app/.
+description: >-
+  Modern Angular (v20+) expert with deep knowledge of Signals, Standalone
+  Components, Zoneless applications, SSR/Hydration, and reactive patterns.
+  Use PROACTIVELY for Angular development, component architecture, state
+  management, performance optimization, and migration to modern patterns.
+  In the divaldi repo, read references/divaldi-overrides.md FIRST: the app is
+  Angular 21.2, client-side only (no SSR, no hydration, no zoneless migration),
+  signals without NgRx, and SCSS with CSS custom properties.
+risk: safe
+source: self
 ---
 
-# Angular — divaldi conventions
+> **Working in the divaldi repository? Read
+> [`references/divaldi-overrides.md`](references/divaldi-overrides.md) before applying
+> anything below.** Several sections of this generic guide do not apply: divaldi is
+> **Angular 21.2**, renders **client-side only** (no SSR, no hydration, no prerendering),
+> uses **signals without NgRx**, and styles with **SCSS plus CSS custom properties** rather
+> than any utility framework. Do not migrate to zoneless change detection as incidental work.
+> The project conventions in the overrides file win.
 
-Angular 21.2 standalone, signals, TypeScript 5.9 strict, SCSS, Vitest 4.
+# Angular Expert
 
-## Folder tiers
+Master modern Angular development with Signals, Standalone Components, Zoneless applications, SSR/Hydration, and the latest reactive patterns.
 
-| Folder | Holds |
-|---|---|
-| `core/` | singletons: `services/`, `guards/`, `interceptors/`, `models/` |
-| `features/` | route-level feature areas (`calculation-chat/`, `order-create/`) |
-| `pages/` | routed pages (`login-page/`, `history-page/`, `profile-page/`, `admin/`) |
-| `shared/` | reusable components and utils |
+## When to Use This Skill
 
-## Component shape
+- Building new Angular applications (v20+)
+- Implementing Signals-based reactive patterns
+- Creating Standalone Components and migrating from NgModules
+- Configuring Zoneless Angular applications
+- Implementing SSR, prerendering, and hydration
+- Optimizing Angular performance
+- Adopting modern Angular patterns and best practices
+
+## Do Not Use This Skill When
+
+- Migrating from AngularJS (1.x) → use `angular-migration` skill
+- Working with legacy Angular apps that cannot upgrade
+- General TypeScript issues → use `typescript-expert` skill
+
+## Instructions
+
+1. Assess the Angular version and project structure
+2. Apply modern patterns (Signals, Standalone, Zoneless)
+3. Implement with proper typing and reactivity
+4. Validate with build and tests
+
+## Safety
+
+- Always test changes in development before production
+- Gradual migration for existing apps (don't big-bang refactor)
+- Keep backward compatibility during transitions
+
+---
+
+## Angular Version Timeline
+
+| Version        | Release | Key Features                                           |
+| -------------- | ------- | ------------------------------------------------------ |
+| **Angular 20** | Q2 2025 | Signals stable, Zoneless stable, Incremental hydration |
+| **Angular 21** | Q4 2025 | Signals-first default, Enhanced SSR                    |
+| **Angular 22** | Q2 2026 | Signal Forms, Selectorless components                  |
+
+---
+
+## 1. Signals: The New Reactive Primitive
+
+Signals are Angular's fine-grained reactivity system, replacing zone.js-based change detection.
+
+### Core Concepts
 
 ```typescript
+import { signal, computed, effect } from "@angular/core";
+
+// Writable signal
+const count = signal(0);
+
+// Read value
+console.log(count()); // 0
+
+// Update value
+count.set(5); // Direct set
+count.update((v) => v + 1); // Functional update
+
+// Computed (derived) signal
+const doubled = computed(() => count() * 2);
+
+// Effect (side effects)
+effect(() => {
+  console.log(`Count changed to: ${count()}`);
+});
+```
+
+### Signal-Based Inputs and Outputs
+
+```typescript
+import { Component, input, output, model } from "@angular/core";
+
 @Component({
-  selector: 'app-thing',
-  imports: [],
-  templateUrl: './thing.component.html',
-  styleUrl: './thing.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  selector: "app-user-card",
+  standalone: true,
+  template: `
+    <div class="card">
+      <h3>{{ name() }}</h3>
+      <span>{{ role() }}</span>
+      <button (click)="select.emit(id())">Select</button>
+    </div>
+  `,
 })
-export class ThingComponent {
-  readonly id = input.required<string>();
-  readonly label = computed(() => `Thing ${this.id()}`);
+export class UserCardComponent {
+  // Signal inputs (read-only)
+  id = input.required<string>();
+  name = input.required<string>();
+  role = input<string>("User"); // With default
+
+  // Output
+  select = output<string>();
+
+  // Two-way binding (model)
+  isSelected = model(false);
+}
+
+// Usage:
+// <app-user-card [id]="'123'" [name]="'John'" [(isSelected)]="selected" />
+```
+
+### Signal Queries (ViewChild/ContentChild)
+
+```typescript
+import {
+  Component,
+  viewChild,
+  viewChildren,
+  contentChild,
+} from "@angular/core";
+
+@Component({
+  selector: "app-container",
+  standalone: true,
+  template: `
+    <input #searchInput />
+    <app-item *ngFor="let item of items()" />
+  `,
+})
+export class ContainerComponent {
+  // Signal-based queries
+  searchInput = viewChild<ElementRef>("searchInput");
+  items = viewChildren(ItemComponent);
+  projectedContent = contentChild(HeaderDirective);
+
+  focusSearch() {
+    this.searchInput()?.nativeElement.focus();
+  }
 }
 ```
 
-- Selector prefix **`app-`**, kebab-case, enforced by ESLint. Directives use `app` camelCase.
-- `styleUrl` is singular, referencing one `.component.scss` beside the template.
-- Files are always `<kebab-name>.component.ts`.
-- Class naming is inconsistent by history: some classes end in `Component`, some do not
-  (`HistoryPage`, `Layout`, `Sidebar`). Follow the file you are editing; prefer the
-  `Component` suffix for new classes.
+### When to Use Signals vs RxJS
 
-## State: signals only
+| Use Case                | Signals         | RxJS                             |
+| ----------------------- | --------------- | -------------------------------- |
+| Local component state   | ✅ Preferred    | Overkill                         |
+| Derived/computed values | ✅ `computed()` | `combineLatest` works            |
+| Side effects            | ✅ `effect()`   | `tap` operator                   |
+| HTTP requests           | ❌              | ✅ HttpClient returns Observable |
+| Event streams           | ❌              | ✅ `fromEvent`, operators        |
+| Complex async flows     | ❌              | ✅ `switchMap`, `mergeMap`       |
 
-No NgRx or Redux. Use `signal()`, `computed()`, `effect()`, `afterRenderEffect()`,
-`toSignal()` and `takeUntilDestroyed()`. Services are `@Injectable({ providedIn: 'root' })`.
+---
 
-- **List refresh uses a version signal**, not an event bus:
-  `ChatService.historyVersion = signal(0)`, bumped by the service and read by the sidebar to
-  re-fetch.
-- **Cross-component handoff uses one-shot state services** with `set()` / `consume()`, for
-  example `InitialChatStateService` passing an order description from the create page into the
-  chat.
-- `withComponentInputBinding()` is enabled, so route params arrive as `input()` signals.
+## 2. Standalone Components
 
-## API layer
+Standalone components are self-contained and don't require NgModule declarations.
+
+### Creating Standalone Components
 
 ```typescript
-const url = `${environment.apiUrl}/chats`;
+import { Component } from "@angular/core";
+import { CommonModule } from "@angular/common";
+import { RouterLink } from "@angular/router";
+
+@Component({
+  selector: "app-header",
+  standalone: true,
+  imports: [CommonModule, RouterLink], // Direct imports
+  template: `
+    <header>
+      <a routerLink="/">Home</a>
+      <a routerLink="/about">About</a>
+    </header>
+  `,
+})
+export class HeaderComponent {}
 ```
 
-- **Never hardcode a backend URL.** `apiUrl` comes from `src/environments/environment*.ts`;
-  `docker/rewrite-env.mjs` rewrites the `__BACKEND_URL__` placeholder at image build time.
-- Auth is cookie-based; `credentialsInterceptor` sets `withCredentials: true` on every request.
-- The backend API contract is mirrored manually in `core/models/models.ts`. There is **no
-  generated OpenAPI client**, so update both sides together.
+### Bootstrapping Without NgModule
 
-## Polling, not WebSockets
+```typescript
+// main.ts
+import { bootstrapApplication } from "@angular/platform-browser";
+import { provideRouter } from "@angular/router";
+import { provideHttpClient } from "@angular/common/http";
+import { AppComponent } from "./app/app.component";
+import { routes } from "./app/app.routes";
 
-Chat results poll `GET /chats/{id}/result` every 2 s with a 5 min timeout
-(`POLL_INTERVAL_MS`, `POLL_TIMEOUT_MS`). Upload status polls every 2 s up to 150 attempts
-(`AttachmentUploadService`, `STATUS_POLL_INTERVAL_MS`, `STATUS_POLL_LIMIT`). Respect these
-constants rather than inventing new intervals.
+bootstrapApplication(AppComponent, {
+  providers: [provideRouter(routes), provideHttpClient()],
+});
+```
 
-## Forms
+### Lazy Loading Standalone Components
 
-Reactive forms only, via `FormBuilder` / `NonNullableFormBuilder` with `Validators`. Custom
-controls implement `ControlValueAccessor`: see `InputComponent`, `Textarea`, `Select`,
-`CheckboxComponent`, `ToggleComponent`.
+```typescript
+// app.routes.ts
+import { Routes } from "@angular/router";
 
-## Styling
+export const routes: Routes = [
+  {
+    path: "dashboard",
+    loadComponent: () =>
+      import("./dashboard/dashboard.component").then(
+        (m) => m.DashboardComponent,
+      ),
+  },
+  {
+    path: "admin",
+    loadChildren: () =>
+      import("./admin/admin.routes").then((m) => m.ADMIN_ROUTES),
+  },
+];
+```
 
-- **CSS custom properties only** for colours. Light theme in `:root`, dark theme in
-  `html[data-theme='dark']`; `ThemeService` sets the attribute and persists
-  `localStorage['theme']`.
-- BEM-style modifiers: `.button--main`, `.card--shadow`, `.input--error`.
-- Global partials are `@use`d from `src/app/styles.scss`: `_fonts`, `_buttons`, `_forms`,
-  `_markdown`, `_skeletons`, `_mixins as *`.
-- `@use '...' as *` with relative paths and **no file extension**.
-- Global utility classes: `.h1` to `.h5`, `.section`, `.card`, `.photo`, `.active-link`,
-  `.visually-hidden`, `.required`.
+---
 
-## Icons
+## 3. Zoneless Angular
 
-`@lucide/angular`. Import icons individually (`LucideDynamicIcon`, `LucideIcon`,
-`LucideIconData`). The product logo is a custom SVG at `public/assets/svgs/logo.svg`.
+Zoneless applications don't use zone.js, improving performance and debugging.
 
-## Language
+### Enabling Zoneless Mode
 
-All user-facing strings are **Russian**: labels, aria-labels, route `data.title`,
-notifications. Code identifiers stay English.
+```typescript
+// main.ts
+import { bootstrapApplication } from "@angular/platform-browser";
+import { provideZonelessChangeDetection } from "@angular/core";
+import { AppComponent } from "./app/app.component";
 
-## Tests
+bootstrapApplication(AppComponent, {
+  providers: [provideZonelessChangeDetection()],
+});
+```
 
-- Colocated `*.spec.ts`, using Vitest globals (`describe`, `it`, `expect`) with
-  `import { vi } from 'vit'` where needed.
-- `tsconfig.app.json` excludes `src/**/*.spec.ts`; `tsconfig.spec.json` includes them and sets
-  `types: ["vitest/globals"]`.
-- Services: `TestBed` with `provideRouter([])`, `provideHttpClient()`,
-  `provideHttpClientTesting()`, plus `afterEach(() => http.verify())`.
-- Components: `ComponentFixture`, `By` queries, inline `TestHost` components, hand-rolled
-  fakes instead of HTTP mocks.
-- **Angular schematics set `skipTests: true`**, so `ng generate component` will not create a
-  spec. Write it by hand when the component has logic.
+### Zoneless Component Patterns
 
-## Gotchas
+```typescript
+import { Component, signal, ChangeDetectionStrategy } from "@angular/core";
 
-- ESLint lints `src/**/*.ts` and `src/**/*.html` but **not `.scss`**, and there is no
-  stylelint. A bad SCSS rule is caught by no gate.
-- `npm test` is **not** run in CI; CI runs only `ng lint` and `ng build`. Run the tests
-  yourself before claiming they pass.
-- The dev override bind-mounts `./frontend` over `/app`. A stale or partially populated
-  `node_modules` there makes `ng serve` fail in ways that look like source errors.
+@Component({
+  selector: "app-counter",
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <div>Count: {{ count() }}</div>
+    <button (click)="increment()">+</button>
+  `,
+})
+export class CounterComponent {
+  count = signal(0);
 
-## Verify
+  increment() {
+    this.count.update((v) => v + 1);
+    // No zone.js needed - Signal triggers change detection
+  }
+}
+```
+
+### Key Zoneless Benefits
+
+- **Performance**: No zone.js patches on async APIs
+- **Debugging**: Clean stack traces without zone wrappers
+- **Bundle size**: Smaller without zone.js (~15KB savings)
+- **Interoperability**: Better with Web Components and micro-frontends
+
+---
+
+## 4. Server-Side Rendering & Hydration
+
+### SSR Setup with Angular CLI
 
 ```bash
-npm --prefix frontend run lint
-npm --prefix frontend run format
-npm --prefix frontend test
-npm --prefix frontend run build      # also typechecks; strictTemplates is on
+ng add @angular/ssr
 ```
 
-Add dependencies with `npm install <pkg>` or `npm install -D <pkg>` from `frontend/`, and
-commit `frontend/package-lock.json`.
+### Hydration Configuration
+
+```typescript
+// app.config.ts
+import { ApplicationConfig } from "@angular/core";
+import {
+  provideClientHydration,
+  withEventReplay,
+} from "@angular/platform-browser";
+
+export const appConfig: ApplicationConfig = {
+  providers: [provideClientHydration(withEventReplay())],
+};
+```
+
+### Incremental Hydration (v20+)
+
+```typescript
+import { Component } from "@angular/core";
+
+@Component({
+  selector: "app-page",
+  standalone: true,
+  template: `
+    <app-hero />
+
+    @defer (hydrate on viewport) {
+      <app-comments />
+    }
+
+    @defer (hydrate on interaction) {
+      <app-chat-widget />
+    }
+  `,
+})
+export class PageComponent {}
+```
+
+### Hydration Triggers
+
+| Trigger          | When to Use                             |
+| ---------------- | --------------------------------------- |
+| `on idle`        | Low-priority, hydrate when browser idle |
+| `on viewport`    | Hydrate when element enters viewport    |
+| `on interaction` | Hydrate on first user interaction       |
+| `on hover`       | Hydrate when user hovers                |
+| `on timer(ms)`   | Hydrate after specified delay           |
+
+---
+
+## 5. Modern Routing Patterns
+
+### Functional Route Guards
+
+```typescript
+// auth.guard.ts
+import { inject } from "@angular/core";
+import { Router, CanActivateFn } from "@angular/router";
+import { AuthService } from "./auth.service";
+
+export const authGuard: CanActivateFn = (route, state) => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+
+  if (auth.isAuthenticated()) {
+    return true;
+  }
+
+  return router.createUrlTree(["/login"], {
+    queryParams: { returnUrl: state.url },
+  });
+};
+
+// Usage in routes
+export const routes: Routes = [
+  {
+    path: "dashboard",
+    loadComponent: () => import("./dashboard.component"),
+    canActivate: [authGuard],
+  },
+];
+```
+
+### Route-Level Data Resolvers
+
+```typescript
+import { inject } from '@angular/core';
+import { ResolveFn } from '@angular/router';
+import { UserService } from './user.service';
+import { User } from './user.model';
+
+export const userResolver: ResolveFn<User> = (route) => {
+  const userService = inject(UserService);
+  return userService.getUser(route.paramMap.get('id')!);
+};
+
+// In routes
+{
+  path: 'user/:id',
+  loadComponent: () => import('./user.component'),
+  resolve: { user: userResolver }
+}
+
+// In component
+export class UserComponent {
+  private route = inject(ActivatedRoute);
+  user = toSignal(this.route.data.pipe(map(d => d['user'])));
+}
+```
+
+---
+
+## 6. Dependency Injection Patterns
+
+### Modern inject() Function
+
+```typescript
+import { Component, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { UserService } from './user.service';
+
+@Component({...})
+export class UserComponent {
+  // Modern inject() - no constructor needed
+  private http = inject(HttpClient);
+  private userService = inject(UserService);
+
+  // Works in any injection context
+  users = toSignal(this.userService.getUsers());
+}
+```
+
+### Injection Tokens for Configuration
+
+```typescript
+import { InjectionToken, inject } from "@angular/core";
+
+// Define token
+export const API_BASE_URL = new InjectionToken<string>("API_BASE_URL");
+
+// Provide in config
+bootstrapApplication(AppComponent, {
+  providers: [{ provide: API_BASE_URL, useValue: "https://api.example.com" }],
+});
+
+// Inject in service
+@Injectable({ providedIn: "root" })
+export class ApiService {
+  private baseUrl = inject(API_BASE_URL);
+
+  get(endpoint: string) {
+    return this.http.get(`${this.baseUrl}/${endpoint}`);
+  }
+}
+```
+
+---
+
+## 7. Component Composition & Reusability
+
+### Content Projection (Slots)
+
+```typescript
+@Component({
+  selector: 'app-card',
+  template: `
+    <div class="card">
+      <div class="header">
+        <!-- Select by attribute -->
+        <ng-content select="[card-header]"></ng-content>
+      </div>
+      <div class="body">
+        <!-- Default slot -->
+        <ng-content></ng-content>
+      </div>
+    </div>
+  `
+})
+export class CardComponent {}
+
+// Usage
+<app-card>
+  <h3 card-header>Title</h3>
+  <p>Body content</p>
+</app-card>
+```
+
+### Host Directives (Composition)
+
+```typescript
+// Reusable behaviors without inheritance
+@Directive({
+  standalone: true,
+  selector: '[appTooltip]',
+  inputs: ['tooltip'] // Signal input alias
+})
+export class TooltipDirective { ... }
+
+@Component({
+  selector: 'app-button',
+  standalone: true,
+  hostDirectives: [
+    {
+      directive: TooltipDirective,
+      inputs: ['tooltip: title'] // Map input
+    }
+  ],
+  template: `<ng-content />`
+})
+export class ButtonComponent {}
+```
+
+---
+
+## 8. State Management Patterns
+
+### Signal-Based State Service
+
+```typescript
+import { Injectable, signal, computed } from "@angular/core";
+
+interface AppState {
+  user: User | null;
+  theme: "light" | "dark";
+  notifications: Notification[];
+}
+
+@Injectable({ providedIn: "root" })
+export class StateService {
+  // Private writable signals
+  private _user = signal<User | null>(null);
+  private _theme = signal<"light" | "dark">("light");
+  private _notifications = signal<Notification[]>([]);
+
+  // Public read-only computed
+  readonly user = computed(() => this._user());
+  readonly theme = computed(() => this._theme());
+  readonly notifications = computed(() => this._notifications());
+  readonly unreadCount = computed(
+    () => this._notifications().filter((n) => !n.read).length,
+  );
+
+  // Actions
+  setUser(user: User | null) {
+    this._user.set(user);
+  }
+
+  toggleTheme() {
+    this._theme.update((t) => (t === "light" ? "dark" : "light"));
+  }
+
+  addNotification(notification: Notification) {
+    this._notifications.update((n) => [...n, notification]);
+  }
+}
+```
+
+### Component Store Pattern with Signals
+
+```typescript
+import { Injectable, signal, computed, inject } from "@angular/core";
+import { HttpClient } from "@angular/common/http";
+import { toSignal } from "@angular/core/rxjs-interop";
+
+@Injectable()
+export class ProductStore {
+  private http = inject(HttpClient);
+
+  // State
+  private _products = signal<Product[]>([]);
+  private _loading = signal(false);
+  private _filter = signal("");
+
+  // Selectors
+  readonly products = computed(() => this._products());
+  readonly loading = computed(() => this._loading());
+  readonly filteredProducts = computed(() => {
+    const filter = this._filter().toLowerCase();
+    return this._products().filter((p) =>
+      p.name.toLowerCase().includes(filter),
+    );
+  });
+
+  // Actions
+  loadProducts() {
+    this._loading.set(true);
+    this.http.get<Product[]>("/api/products").subscribe({
+      next: (products) => {
+        this._products.set(products);
+        this._loading.set(false);
+      },
+      error: () => this._loading.set(false),
+    });
+  }
+
+  setFilter(filter: string) {
+    this._filter.set(filter);
+  }
+}
+```
+
+---
+
+## 9. Forms with Signals (Coming in v22+)
+
+### Current Reactive Forms
+
+```typescript
+import { Component, inject } from "@angular/core";
+import { FormBuilder, Validators, ReactiveFormsModule } from "@angular/forms";
+
+@Component({
+  selector: "app-user-form",
+  standalone: true,
+  imports: [ReactiveFormsModule],
+  template: `
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+      <input formControlName="name" placeholder="Name" />
+      <input formControlName="email" type="email" placeholder="Email" />
+      <button [disabled]="form.invalid">Submit</button>
+    </form>
+  `,
+})
+export class UserFormComponent {
+  private fb = inject(FormBuilder);
+
+  form = this.fb.group({
+    name: ["", Validators.required],
+    email: ["", [Validators.required, Validators.email]],
+  });
+
+  onSubmit() {
+    if (this.form.valid) {
+      console.log(this.form.value);
+    }
+  }
+}
+```
+
+### Signal-Aware Form Patterns (Preview)
+
+```typescript
+// Future Signal Forms API (experimental)
+import { Component, signal } from '@angular/core';
+
+@Component({...})
+export class SignalFormComponent {
+  name = signal('');
+  email = signal('');
+
+  // Computed validation
+  isValid = computed(() =>
+    this.name().length > 0 &&
+    this.email().includes('@')
+  );
+
+  submit() {
+    if (this.isValid()) {
+      console.log({ name: this.name(), email: this.email() });
+    }
+  }
+}
+```
+
+---
+
+## 10. Performance Optimization
+
+### Change Detection Strategies
+
+```typescript
+@Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  // Only checks when:
+  // 1. Input signal/reference changes
+  // 2. Event handler runs
+  // 3. Async pipe emits
+  // 4. Signal value changes
+})
+```
+
+### Defer Blocks for Lazy Loading
+
+```typescript
+@Component({
+  template: `
+    <!-- Immediate loading -->
+    <app-header />
+
+    <!-- Lazy load when visible -->
+    @defer (on viewport) {
+      <app-heavy-chart />
+    } @placeholder {
+      <div class="skeleton" />
+    } @loading (minimum 200ms) {
+      <app-spinner />
+    } @error {
+      <p>Failed to load chart</p>
+    }
+  `
+})
+```
+
+### NgOptimizedImage
+
+```typescript
+import { NgOptimizedImage } from '@angular/common';
+
+@Component({
+  imports: [NgOptimizedImage],
+  template: `
+    <img
+      ngSrc="hero.jpg"
+      width="800"
+      height="600"
+      priority
+    />
+
+    <img
+      ngSrc="thumbnail.jpg"
+      width="200"
+      height="150"
+      loading="lazy"
+      placeholder="blur"
+    />
+  `
+})
+```
+
+---
+
+## 11. Testing Modern Angular
+
+### Testing Signal Components
+
+```typescript
+import { ComponentFixture, TestBed } from "@angular/core/testing";
+import { CounterComponent } from "./counter.component";
+
+describe("CounterComponent", () => {
+  let component: CounterComponent;
+  let fixture: ComponentFixture<CounterComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [CounterComponent], // Standalone import
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(CounterComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it("should increment count", () => {
+    expect(component.count()).toBe(0);
+
+    component.increment();
+
+    expect(component.count()).toBe(1);
+  });
+
+  it("should update DOM on signal change", () => {
+    component.count.set(5);
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement.querySelector(".count");
+    expect(el.textContent).toContain("5");
+  });
+});
+```
+
+### Testing with Signal Inputs
+
+```typescript
+import { ComponentFixture, TestBed } from "@angular/core/testing";
+import { ComponentRef } from "@angular/core";
+import { UserCardComponent } from "./user-card.component";
+
+describe("UserCardComponent", () => {
+  let fixture: ComponentFixture<UserCardComponent>;
+  let componentRef: ComponentRef<UserCardComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [UserCardComponent],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(UserCardComponent);
+    componentRef = fixture.componentRef;
+
+    // Set signal inputs via setInput
+    componentRef.setInput("id", "123");
+    componentRef.setInput("name", "John Doe");
+
+    fixture.detectChanges();
+  });
+
+  it("should display user name", () => {
+    const el = fixture.nativeElement.querySelector("h3");
+    expect(el.textContent).toContain("John Doe");
+  });
+});
+```
+
+---
+
+## Best Practices Summary
+
+| Pattern              | ✅ Do                          | ❌ Don't                        |
+| -------------------- | ------------------------------ | ------------------------------- |
+| **State**            | Use Signals for local state    | Overuse RxJS for simple state   |
+| **Components**       | Standalone with direct imports | Bloated SharedModules           |
+| **Change Detection** | OnPush + Signals               | Default CD everywhere           |
+| **Lazy Loading**     | `@defer` and `loadComponent`   | Eager load everything           |
+| **DI**               | `inject()` function            | Constructor injection (verbose) |
+| **Inputs**           | `input()` signal function      | `@Input()` decorator (legacy)   |
+| **Zoneless**         | Enable for new projects        | Force on legacy without testing |
+
+---
+
+## Resources
+
+- [Angular.dev Documentation](https://angular.dev)
+- [Angular Signals Guide](https://angular.dev/guide/signals)
+- [Angular SSR Guide](https://angular.dev/guide/ssr)
+- [Angular Update Guide](https://angular.dev/update-guide)
+- [Angular Blog](https://blog.angular.dev)
+
+---
+
+## Common Troubleshooting
+
+| Issue                          | Solution                                            |
+| ------------------------------ | --------------------------------------------------- |
+| Signal not updating UI         | Ensure `OnPush` + call signal as function `count()` |
+| Hydration mismatch             | Check server/client content consistency             |
+| Circular dependency            | Use `inject()` with `forwardRef`                    |
+| Zoneless not detecting changes | Trigger via signal updates, not mutations           |
+| SSR fetch fails                | Use `TransferState` or `withFetch()`                |

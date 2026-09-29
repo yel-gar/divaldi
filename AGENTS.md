@@ -314,16 +314,45 @@ Task-specific playbooks live in `.agents/skills/<skill-name>/SKILL.md`, each wit
 frontmatter (`name`, `description`) and progressive disclosure through a `references/`
 subfolder for detail that is only sometimes needed.
 
-| Skill | When to load it |
-|---|---|
-| `fastapi` | Writing or changing routes, dependencies, schemas, response models |
-| `sqlalchemy-async` | Touching ORM models, sessions, queries, or migrations |
-| `taskiq-workers` | Adding or changing a background job, queue assignment, or schedule |
-| `python-testing` | Writing tests or fixtures, or debugging test failures |
-| `angular` | Writing components, services, signals, templates, or styles |
-| `frontend-file-preview` | Working on the docx/xlsx/pdf/image preview and its lazy dependencies |
-| `docker-compose` | Changing services, Dockerfiles, env plumbing, or the dev overrides |
-| `conventional-commits` | Writing a commit message or naming a branch |
+### Provenance and precedence
+
+Six skills are project-specific and were written from this repository's source:
+`sqlalchemy-async`, `taskiq-workers`, `python-testing`, `frontend-file-preview`,
+`docker-compose`, `conventional-commits`. They encode divaldi's actual conventions.
+
+Two are **third-party** and installed from public registries:
+
+| Skill | Source | License |
+|---|---|---|
+| `fastapi` | [`samuelpkg/skills`](https://github.com/samuelpkg/skills) | MIT |
+| `angular` | [`xfstudio/skills`](https://github.com/xfstudio/skills) | see `metadata.json` |
+
+Each third-party skill ships a **`references/divaldi-overrides.md`** that states where the
+generic guide conflicts with this project. **Precedence, highest first:**
+
+1. `AGENTS.md` and `.context/DECISIONS.md` — this project's rules
+2. `references/divaldi-overrides.md` inside a skill — project-specific divergences
+3. The skill's own `SKILL.md` — generic framework guidance
+4. Your own general knowledge
+
+Where a generic guide and this project disagree, the project wins. Read the overrides file
+before writing code against `fastapi` or `angular`.
+
+**Exception to the no-emoji rule:** the upstream `SKILL.md` bodies of the two third-party
+skills are kept **verbatim** so they can be re-installed or diffed against their source
+repos. The Angular guide contains a few checkmark and cross marks. Everything authored for
+this repository, including both `divaldi-overrides.md` files, is emoji-free.
+
+| Skill | Origin | When to load it |
+|---|---|---|
+| `fastapi` | third-party | Writing or changing routes, dependencies, schemas, response models |
+| `sqlalchemy-async` | project | Touching ORM models, sessions, queries, or migrations |
+| `taskiq-workers` | project | Adding or changing a background job, queue assignment, or schedule |
+| `python-testing` | project | Writing tests or fixtures, or debugging test failures |
+| `angular` | third-party | Writing components, services, signals, templates, or styles |
+| `frontend-file-preview` | project | Working on the docx/xlsx/pdf/image preview and its lazy dependencies |
+| `docker-compose` | project | Changing services, Dockerfiles, env plumbing, or the dev overrides |
+| `conventional-commits` | project | Writing a commit message or naming a branch |
 
 **Load the relevant skill before doing the work it covers.** If a skill is missing or
 inaccurate, fixing it as part of your change is expected, not out of scope.

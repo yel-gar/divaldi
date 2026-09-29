@@ -239,6 +239,38 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   pre-commit's own re-staged-file detection. Run `black --check` and `ruff check` explicitly
   before claiming work is clean.
 
+## Agent skills
+
+- **`.agents/skills/` mixes two origins on purpose.** Six skills (`sqlalchemy-async`,
+  `taskiq-workers`, `python-testing`, `frontend-file-preview`, `docker-compose`,
+  `conventional-commits`) are project-specific and were written from this repository's
+  source. Two (`fastapi` from `samuelpkg/skills`, MIT; `angular` from `xfstudio/skills`) are
+  third-party and installed with the standard skill installer.
+- **Why install anything:** a hand-written flat `SKILL.md` cannot carry genuine framework
+  depth. The FastAPI skill is 497 lines plus a `references/patterns.md`, and the Angular one
+  is 821 lines covering signals, standalone components and change detection. Those are not
+  reproducible from memory, and guessing at framework best practices is exactly where an
+  agent invents APIs.
+- **Why not install everything:** generic framework guides assume a different stack. The
+  Angular skill spends significant space on SSR, hydration and zoneless change detection,
+  none of which this app uses. The 37-line and 28-line "python testing" candidates were
+  too thin to be worth installing.
+- **Both official registries were checked and came up empty for this stack.**
+  `openai/skills` (the `openai/skills` curated list) has no FastAPI, Angular, Docker or
+  Python-testing skill, and `anthropics/skills` has no framework skills either. The
+  community collections `samuelpkg/skills`, `xfstudio/skills` and `github/awesome-copilot`
+  do.
+- **Every third-party skill carries a `references/divaldi-overrides.md`** listing exactly
+  where the generic guide conflicts with this project, plus a pointer block at the top of
+  the `SKILL.md` itself. **Precedence: `AGENTS.md` and `DECISIONS.md` > the overrides file >
+  the vendor `SKILL.md` > the agent's own priors.** Without the top-of-file pointer the
+  overrides would never be read, since an agent loads `SKILL.md` and stops.
+- **Known provenance gap:** a richer FastAPI skill exists in a sibling repository
+  (`portals-be/.agents/skills/fastapi`, 321 lines plus six reference files). It could not be
+  traced to any public repo despite searching for its distinctive `Asyncer`, `SQLModel`,
+  `ty` and `uv` vocabulary. It was deliberately **not** copied, because it recommends
+  SQLModel over SQLAlchemy and `uv` over Poetry, both of which contradict this project.
+
 ## Documentation
 
 - **`README.md` is English, `README.ru.md` is Russian**, cross-linked in the header. The
