@@ -54,20 +54,24 @@ instance, created by `conf/postgres-init/01-taskiq-dashboard.sql`.
 | Backend | `poetry -C backend run pytest` | 308 tests; needs a Docker daemon |
 | Backend coverage | `poetry -C backend run pytest --cov` | **98.79%**, gated at 90% by `fail_under` |
 | Processing | `poetry -C processing run pytest -v` | DXF, PDF, calculator; pure, no Docker |
-| Frontend | `npm --prefix frontend test` | Vitest, 154 tests; runs in `frontend-ci.yml` |
-| Frontend coverage | `npx ng test --coverage` | 67.6% stmts, 68.71% branches, 62.81% funcs |
+| Frontend | `npm --prefix frontend test` | Vitest, 305 tests; runs in `frontend-ci.yml` |
+| Frontend coverage | `npx ng test --coverage` | 90.24% stmts, 84.93% branches, 90.13% funcs; gated at 90% |
 
-**Coverage is enforced at 90%** via `fail_under` in `backend/pyproject.toml`, currently
-reading **98.79%** across 308 tests with branch coverage. Enforced by the `pre-push` hook
-and by `.github/workflows/backend-coverage.yml`, neither of which names a percentage.
+**Backend coverage is enforced at 90%** via `fail_under` in `backend/pyproject.toml`,
+reading **98.79%** across 308 tests with branch coverage. The `pre-push` hook and
+`.github/workflows/backend-coverage.yml` enforce it and neither names a percentage.
 
-PostgreSQL, Redis and MinIO are real testcontainers. The LLM is faked by
+**Frontend coverage is enforced at 90%** via `coverageThresholds` on the `test` target in
+`frontend/angular.json`, reading **90.24%** statements across 305 tests. That is only just
+above the line; branches (84.93%) are deliberately not gated.
+
+PostgreSQL, Redis and MinIO are real testcontainers on the backend. The LLM is faked by
 `app/providers/mock.py`, selected with `SBER_API_KEY=mock` and switchable via
 `MOCK_PROVIDER_MODE`; the real GigaChat is only reachable through `@pytest.mark.live`
 tests, which are deselected by default.
 
-**The frontend suite is GREEN.** 154 of 154 tests pass across 20 spec files. It was red
-before this change: 14 tests in `sidebar.component.spec.ts` failed because the jsdom test
+**The frontend suite is GREEN.** 305 of 305 tests pass across 33 spec files, up from 154.
+It was red on `main`: 14 tests in `sidebar.component.spec.ts` failed because the jsdom test
 environment exposes no `localStorage`, and `ThemeService` reads it in a field initializer.
 Fixed by `src/test-setup.ts`, registered through the builder's `setupFiles` option. The
 `vitest-coverage` pre-push hook now passes for everyone.
@@ -117,12 +121,15 @@ backend and frontend coverage pipelines:
   native `coverage` options on the `test` target in `angular.json`, a `vitest-coverage`
   pre-push hook, and `.github/workflows/frontend-coverage.yml`. Reporting only; the gate
   will be `coverageThresholds` in `angular.json`.
+- Frontend coverage raised from 67.6% to **90.24%** and gated at 90%
+  (`coverageThresholds` in `angular.json`). Added 151 tests: login page, order create,
+  upload/download services, error interceptor, the checkbox, toggle, input and select
+  ControlValueAccessor controls, the notification components, layout, and the chat view's
+  send, polling, retry, delete and attachment behaviour. Suite is now 305 tests in 33 files.
+
 - Frontend test fix: `src/test-setup.ts` added and registered via `setupFiles`, supplying
   the `localStorage` / `sessionStorage` the jsdom test environment lacks. This unblocked
   14 red tests in `sidebar.component.spec.ts` and took the suite to 154/154 green.
-
-No runtime code was touched. The only non-documentation changes are the added coverage
-dependency, its config, and the test-only setup file.
 
 ---
 
@@ -150,10 +157,9 @@ Ordered by value, not by commitment:
 
 ## Known issues
 
-- Frontend specs exist (20 files) but **never run in CI**, so a regression can merge green.
 - `TEST_INSTANCE_MODE` is absent from `.env.example`, so a developer must read the compose
   file or the backend source to learn it exists.
-- Backend test coverage is limited to auth, admin and migrations; the chat and file pipelines
-  are exercised only manually.
 - The frontend dev override bind-mounts `./frontend` over `/app`. If `node_modules` inside it
   is stale or partially populated, `ng serve` fails in ways that look like source errors.
+- Frontend statement coverage (90.24%) sits almost exactly on the 90% gate. Any new
+  uncovered component will fail CI, and branches at 84.93% have no headroom.

@@ -329,12 +329,13 @@ Config lives in the `test` target of `frontend/angular.json` (`coverage`,
 `json-summary` and `html`; output lands in `frontend/coverage/frontend/`, which is already
 gitignored.
 
-**To make 90% the gate:** add a `coverageThresholds` object to the `test` target in
-`frontend/angular.json`. The builder enforces it and exits non-zero. Nothing else changes,
-and no percentage is hardcoded in the hook or the workflow.
+**To make 90% the gate:** the threshold is a `coverageThresholds` object on the `test`
+target in `frontend/angular.json`. The builder enforces it and exits non-zero, so no
+percentage is hardcoded in the hook or the workflow. Verified to bite: at `statements: 90`
+the run exits 0, at `95` it exits 1.
 
-Current baseline is **67.6% statements / 68.71% branches / 62.81% functions** across
-154 passing tests. Note that `coverageInclude` counts untested files at 0%, so the number is
+Current coverage is **90.24% statements / 84.93% branches / 90.13% functions** across
+305 tests. Note that `coverageInclude` counts untested files at 0%, so the number is
 honest rather than flattering.
 
 > **Test setup:** `src/test-setup.ts` is registered through the builder's `setupFiles`
@@ -521,7 +522,7 @@ follow.
 - [ ] `pytest` green in every touched Python package (backend gate: 90% coverage)
 - [ ] `poetry -C backend run pytest --cov` run if backend code changed; still at or above 90%
 - [ ] `ng lint`, `ng build` and `vitest` green if the frontend was touched
-- [ ] `npx ng test --coverage` run if frontend code changed; coverage did not drop
+- [ ] `npx ng test --coverage` run if frontend code changed; still at or above 90%
 - [ ] Migration added if any ORM model changed (`alembic check` proves it)
 - [ ] If backend behaviour changed: did the offline mock provider still model it? (`MOCK_PROVIDER_MODE`)
 - [ ] No secrets, no committed `.env`, no committed `docker-compose.override.yml`

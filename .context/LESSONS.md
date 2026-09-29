@@ -224,6 +224,26 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
 - **`RUF003` rejects Cyrillic in comments** but not in string literals, so refer to Russian
   sheet and material names without quoting them in a comment.
 
+## Frontend test environment
+
+- **jsdom implements neither `window.matchMedia` nor `Element.prototype.scrollTo`**, and
+  the chat component's `afterRenderEffect` uses both, so every spec that renders it must
+  stub them or the render throws. This was masked as an unrelated `TypeError`.
+- **`fixture.destroy()` before `TestBed.resetTestingModule()` is mandatory for components
+  that own a timer.** `DestroyRef.onDestroy` is what clears the poll interval, so a
+  fake-timer test that skips teardown leaves hundreds of queued HTTP requests. Flushing
+  them is also wrong: the subscription is already unsubscribed, so it throws
+  `Cannot flush a cancelled request`.
+- **jsdom exposes no `localStorage` at all**, which broke every spec touching `ThemeService`
+  (the sidebar's 14 tests). Fixed in `src/test-setup.ts` via the builder's `setupFiles`,
+  not by guarding application code.
+- **`extractApiErrorMessage` collapses every 5xx to `Ошибка сервера`**, so a test asserting
+  the backend's `detail` string on a 500 fails. Assert the normalised message, or use a 4xx
+  where `detail` is passed through.
+- **`rm -rf coverage` while a test run is in flight intermittently breaks the run** with
+  "Something removed the coverage directory". Just run the coverage command; do not clean it
+  first.
+
 ## Agent skills and documentation
 
 - **Do not hand-write a skill for a framework you can install.** `openai/skills` (curated)

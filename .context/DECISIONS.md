@@ -300,10 +300,23 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   application is not broken, `localStorage` always exists in a browser, and such a guard
   would be permanent defensive code on the theme hot path. The shim installs only when
   storage is missing, so it self-disables if a future Angular or Vitest release supplies it.
-- **The threshold will live in one place: `coverageThresholds` in `frontend/angular.json`.**
-  The builder enforces it and exits non-zero, so no percentage is hardcoded in the hook or the
-  workflow. Reporters are `text-summary`, `json-summary` and `html`; output nests under
-  `frontend/coverage/frontend/`.
+- **The threshold lives in one place: `coverageThresholds` on the `test` target in
+  `frontend/angular.json`.** The builder enforces it and exits non-zero, so no percentage is
+  hardcoded in the hook or the workflow. Verified to bite: at `statements: 90` the run exits
+  0, at `95` it exits 1. Reporters are `text-summary`, `json-summary` and `html`; output
+  nests under `frontend/coverage/frontend/`.
+- **The gate was raised from 67.6% to 90.24% on 2026-09-29** by adding specs for the
+  previously untested pages and services: login (0% to 100%), order-create (0% to 100%),
+  the upload and download services, the error interceptor, the ControlValueAccessor
+  controls (checkbox, toggle, input, select), the notification components, layout, and the
+  chat view's send / poll / retry / delete behaviour. The suite went from 154 to 305 tests.
+- **Testing the chat view's polling needed three workarounds**, recorded because none is
+  obvious. `window.matchMedia` and `Element.prototype.scrollTo` must both be stubbed: jsdom
+  implements neither and the component's `afterRenderEffect` calls both. The loop must be
+  driven with `vi.useFakeTimers()` and `advanceTimersByTimeAsync`. Teardown must
+  `fixture.destroy()` before `TestBed.resetTestingModule()`, because `onDestroy` is what
+  clears the interval; skipping that leaves hundreds of unconsumed requests, and flushing
+  them instead throws `Cannot flush a cancelled request`.
 - **V8 coverage requires Chromium, which is satisfied here only because tests run in jsdom.**
   If the project ever switches to `@vitest/browser-*` with a non-Chromium browser, coverage
   will hard-fail with a message about unsupported browsers. This is a constraint to remember
