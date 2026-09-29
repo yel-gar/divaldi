@@ -108,9 +108,10 @@ notifications. Code identifiers stay English.
 
 - ESLint lints `src/**/*.ts` and `src/**/*.html` but **not `.scss`**, and there is no
   stylelint. A bad SCSS rule is caught by no gate.
-- **`npm test` is not run in CI**; CI runs only `ng lint` and `ng build`. Run the tests
-  yourself before claiming they pass. The suite is green (154 tests) but nothing in CI
-  enforces it.
+- **The suite runs in CI** via `npx ng test --watch=false` in `frontend-ci.yml`, alongside
+  `ng lint` and `ng build`. Pass `--watch=false` explicitly: the builder defaults watch mode
+  to `true` in TTY environments, so an interactive run would otherwise hang. The suite is
+  154 tests across 20 files.
 - **`src/test-setup.ts` supplies Web Storage.** The jsdom test environment exposes no
   `localStorage` or `sessionStorage`, and `ThemeService` reads `localStorage` in a field
   initializer, so specs touching the sidebar fail without it. The shim is registered via the

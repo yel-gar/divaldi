@@ -54,7 +54,7 @@ instance, created by `conf/postgres-init/01-taskiq-dashboard.sql`.
 | Backend | `poetry -C backend run pytest` | auth, admin, migrations; needs a Docker daemon |
 | Backend coverage | `poetry -C backend run pytest --cov` | 33 tests, **49.55%** (branch coverage on) |
 | Processing | `poetry -C processing run pytest -v` | DXF, PDF, calculator; pure, no Docker |
-| Frontend | `npm --prefix frontend test` | Vitest; **not run in CI** |
+| Frontend | `npm --prefix frontend test` | Vitest, 154 tests; runs in `frontend-ci.yml` |
 | Frontend coverage | `npx ng test --coverage` | 67.6% stmts, 68.71% branches, 62.81% funcs |
 
 **Coverage is reported, not enforced.** `fail_under = 0` in `backend/pyproject.toml`.
@@ -82,7 +82,7 @@ Fixed by `src/test-setup.ts`, registered through the builder's `setupFiles` opti
 | `backend-ci.yml` | black, ruff, pytest (Python 3.14) |
 | `backend-coverage.yml` | pytest with coverage, uploads `coverage.json` (reporting only) |
 | `processing-ci.yml` | black, ruff, pytest |
-| `frontend-ci.yml` | `ng lint`, `ng build --configuration production` (Node 22) |
+| `frontend-ci.yml` | `ng lint`, `npx ng test --watch=false`, `ng build --configuration production` (Node 22) |
 | `commitlint.yml` | Conventional Commits on push and PR |
 | `pre-commit.yml` | generic yaml, json, toml, eof and whitespace checks |
 
@@ -125,21 +125,22 @@ dependency, its config, and the test-only setup file.
 
 Ordered by value, not by commitment:
 
-1. **Get `npm test` into CI.** `frontend-ci.yml` runs only `ng lint` and `ng build`, which is
-   exactly why 14 red tests sat unnoticed until a coverage run was added. This is now the
-   single highest-value fix: the suite is green and nothing checks it automatically.
-2. **Cover the chat and file flow.** The async generation path, the upload confirm
+1. **Cover the chat and file flow.** The async generation path, the upload confirm
    handshake, `TEST_INSTANCE_MODE` guarding and at least one worker have no tests. This is
-   also the work that moves backend coverage from 49.55% toward a 90% gate.
-3. **Fill the placeholder sections:** profile, settings, and the admin action log
+   the work that moves backend coverage from 49.55% toward a 90% gate.
+2. **Fill the placeholder sections:** profile, settings, and the admin action log
    (`Журнал действий`) and system info.
-4. **Action log.** The admin nav links to it but nothing backs it; the database has no audit
+3. **Action log.** The admin nav links to it but nothing backs it; the database has no audit
    table yet.
-5. **Sweep the dead root `parser/` directory.** Only `__pycache__` remains. This needs a
+4. **Sweep the dead root `parser/` directory.** Only `__pycache__` remains. This needs a
    maintainer decision, not an agent's.
-6. **Add a LICENSE file**, currently absent.
-7. **Document `TEST_INSTANCE_MODE` in `.env.example`.** It exists in compose and in the code,
+5. **Add a LICENSE file**, currently absent.
+6. **Document `TEST_INSTANCE_MODE` in `.env.example`.** It exists in compose and in the code,
    but not in the example env file.
+7. **Consolidate the two frontend CI workflows.** `frontend-ci.yml` and
+   `frontend-coverage.yml` each run the full suite, so a PR touching the frontend pays for
+   it twice. Merging them, or making the coverage job depend on the CI job, would halve
+   that. Not urgent while the suite is fast.
 
 ---
 

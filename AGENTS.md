@@ -476,8 +476,9 @@ follow.
    will look like a typo in any frontend `switch`. It is intentional.
 5. **The root `parser/` directory is dead.** It contains only `__pycache__`. The real code
    is in `processing/`. Do not add anything there and do not import from it.
-6. **Frontend `npm test` is not in CI.** CI runs only `ng lint` and `ng build`. Run the
-   Vitest suite yourself before claiming tests pass.
+6. **The frontend suite runs in CI** via `npx ng test --watch=false` in
+   `frontend-ci.yml`. `--watch=false` is passed explicitly because the builder defaults watch
+   mode to `true` in TTY environments; without it an interactive run hangs.
 7. **Pre-commit Python hooks never fail the commit.** `scripts/precommit-*.py` call
    `subprocess.run(..., check=False)`. Rely on the explicit `black --check` and
    `ruff check` commands instead.
