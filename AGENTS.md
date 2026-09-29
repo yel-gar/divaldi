@@ -308,15 +308,15 @@ gitignored.
 `frontend/angular.json`. The builder enforces it and exits non-zero. Nothing else changes,
 and no percentage is hardcoded in the hook or the workflow.
 
-Current baseline is **62.77% statements / 65.39% branches / 57.64% functions**. Note that
-`coverageInclude` counts untested files at 0%, so the number is honest rather than
-flattering.
+Current baseline is **67.6% statements / 68.71% branches / 62.81% functions** across
+154 passing tests. Note that `coverageInclude` counts untested files at 0%, so the number is
+honest rather than flattering.
 
-> **The frontend suite is currently red on `main`.** 14 tests in
-> `sidebar.component.spec.ts` fail with `Cannot configure the test module when the test
-> module has already been instantiated`. This is pre-existing and unrelated to coverage.
-> Because the `vitest-coverage` pre-push hook runs the real suite, it will fail for everyone
-> until that spec is fixed. See `.context/PROJECT_STATE.md`.
+> **Test setup:** `src/test-setup.ts` is registered through the builder's `setupFiles`
+> option. It installs an in-memory `localStorage` / `sessionStorage` because the jsdom test
+> environment exposes neither, which `ThemeService` needs at construction time. Without it
+> every spec touching the sidebar fails. Do not add defensive `typeof localStorage` checks
+> to application code to work around this.
 
 
 ### Migrations are mandatory

@@ -274,7 +274,8 @@ Append new entries at the bottom, one `##` section per topic, chronological.
 ## Frontend test coverage
 
 - **Coverage is measured and reported, not enforced**, mirroring the backend decision.
-  Baseline is **62.77% statements, 65.39% branches, 57.64% functions** over 51 files.
+  Baseline is **67.6% statements, 68.71% branches, 62.81% functions** over 2022 statements,
+  measured with the full 154-test suite green.
 - **The coverage engine is `@vitest/coverage-v8`, but the config is not a `vitest.config.ts`.**
   This project has no Vitest config file, and adding one would be wrong: the
   `@angular/build:unit-test` builder owns the Vitest configuration, exposes native
@@ -290,7 +291,15 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   reports only files that were actually loaded by a test, which inflates the figure by
   omitting untouched files entirely. With `src/app/**/*.ts` and `src/environments/**/*.ts`
   included, never-imported files count as 0%. The same run reads 78.15% with implicit
-  include-all and 62.77% with the explicit honest include; the second is the real number.
+  include-all and 67.6% with the explicit honest include; the second is the real number.
+- **The missing-storage problem is fixed in test infrastructure, never in application code.**
+  `src/test-setup.ts`, registered through the builder's `setupFiles` option, installs an
+  in-memory `localStorage` and `sessionStorage`, because the jsdom test environment provides
+  neither while `ThemeService` reads `localStorage` in a field initializer. Guarding
+  `ThemeService` with a `typeof localStorage === 'undefined'` check was rejected: the
+  application is not broken, `localStorage` always exists in a browser, and such a guard
+  would be permanent defensive code on the theme hot path. The shim installs only when
+  storage is missing, so it self-disables if a future Angular or Vitest release supplies it.
 - **The threshold will live in one place: `coverageThresholds` in `frontend/angular.json`.**
   The builder enforces it and exits non-zero, so no percentage is hardcoded in the hook or the
   workflow. Reporters are `text-summary`, `json-summary` and `html`; output nests under

@@ -127,19 +127,37 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   find nothing. Already gitignored by `frontend/.gitignore`'s `/coverage`.
 - **Omitting `coverageInclude` inflates the number.** V8 then reports only files a test
   actually imported, so untouched files vanish from the denominator. The same suite reads
-  78.15% implicitly and 62.77% with an explicit include; the lower figure is the honest one.
-- **A failing suite suppresses the coverage report entirely.** With 14 pre-existing failures
-  in `sidebar.component.spec.ts`, `ng test --coverage` writes an empty `coverage/` directory
-  and prints no summary. To measure a red suite, exclude the broken spec with
+  78.15% implicitly and 67.6% with an explicit include; the lower figure is the honest one.
+- **A failing suite suppresses the coverage report entirely.** With 14 failures in
+  `sidebar.component.spec.ts`, `ng test --coverage` wrote an empty `coverage/` directory and
+  printed no summary. To measure a red suite, exclude the broken spec with
   `--exclude "**/<name>.spec.ts"` and treat the result as provisional.
-- **`sidebar.component.spec.ts` is red on `main`, pre-existing and unrelated to coverage.**
-  14 of its tests fail with `Cannot configure the test module when the test module has
-  already been instantiated`, then `Cannot read properties of undefined (reading 'match')`
-  from the `afterEach` avatar flush. The file is unmodified on this branch, and
-  `ng test` without `--coverage` fails identically, so it is not a coverage artifact. The
-  file has three `describe` blocks and relies on automatic `TestBed` reset without any
-  explicit `resetTestingModule()`; the second block's `beforeEach` tries to reconfigure a
-  module that the first block already instantiated.
+- **`sidebar.component.spec.ts` was red on `main`: the jsdom test environment has no
+  `localStorage` at all.** The visible error was misleading. The reported failure was
+  `Cannot configure the test module when the test module has already been instantiated`,
+  but the real first error was
+  `Cannot read properties of undefined (reading 'getItem')` thrown from
+  `_ThemeService.restoreTheme` during **field initialization**; the 13 other errors were a
+  cascade from the `afterEach` avatar flush hitting an unassigned `http`.
+- **Diagnose from the FIRST error in the file, not the summary.** The `TestBed` message
+  looked like a test-structure problem and would have sent you to `resetTestingModule()`. A
+  throwaway probe spec printed `typeof window === 'object'`, `document.URL ===
+  'http://localhost:3000/'`, and `typeof localStorage === 'undefined'`, which located the
+  real cause in one run. jsdom sets `window._localStorage` unconditionally in its
+  constructor, so a *bare* `new JSDOM(url)` returns a working `Storage`; the gap comes
+  from how the environment is built for Vitest, not from jsdom.
+- **Fix an environment gap in the environment, not in production code.** The shim lives in
+  `src/test-setup.ts`, registered via the builder's `setupFiles` option, and only installs
+  when storage is missing so it self-disables if a future upgrade fixes it. Guarding
+  `ThemeService` with `typeof localStorage === 'undefined'` would have been the wrong fix:
+  the app is not broken, and it would add defensive branches to every caller forever.
+- **`Sidebar` is the only consumer of `localStorage` in the app**, which is why exactly one
+  spec file failed and the other 19 passed. A failure isolated to a single spec is often a
+  clue about which service it pulls in, not about that spec.
+- **Verify a test fix with a mutation, not just green output.** After the shim made 14 tests
+  pass, the assertions could have been vacuous. Renaming the history title in the sidebar
+  template to `MUTANT` correctly failed 1 test, proving the spec really exercises the
+  component. Reverted after checking.
 
 ## Frontend
 

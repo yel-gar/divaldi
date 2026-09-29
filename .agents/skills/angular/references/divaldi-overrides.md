@@ -109,10 +109,13 @@ notifications. Code identifiers stay English.
 - ESLint lints `src/**/*.ts` and `src/**/*.html` but **not `.scss`**, and there is no
   stylelint. A bad SCSS rule is caught by no gate.
 - **`npm test` is not run in CI**; CI runs only `ng lint` and `ng build`. Run the tests
-  yourself before claiming they pass. **The suite is currently red on `main`**: 14 tests in
-  `src/app/shared/components/sidebar/sidebar.component.spec.ts` fail, so any coverage run
-  must be scoped with `--exclude "**/sidebar.component.spec.ts"` to produce a number, and
-  the report is otherwise suppressed.
+  yourself before claiming they pass. The suite is green (154 tests) but nothing in CI
+  enforces it.
+- **`src/test-setup.ts` supplies Web Storage.** The jsdom test environment exposes no
+  `localStorage` or `sessionStorage`, and `ThemeService` reads `localStorage` in a field
+  initializer, so specs touching the sidebar fail without it. The shim is registered via the
+  builder's `setupFiles` option and only installs when storage is missing. Do not add
+  `typeof localStorage` guards to application code to work around this.
 - Prettier: single quotes, `printWidth` 100, `trailingComma` none.
 - **Use the pinned npm, not the global one.** `package.json` pins
   `packageManager: npm@10.9.2`. Newer global npm versions fail on this project, once with an

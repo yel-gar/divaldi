@@ -55,7 +55,7 @@ instance, created by `conf/postgres-init/01-taskiq-dashboard.sql`.
 | Backend coverage | `poetry -C backend run pytest --cov` | 33 tests, **49.55%** (branch coverage on) |
 | Processing | `poetry -C processing run pytest -v` | DXF, PDF, calculator; pure, no Docker |
 | Frontend | `npm --prefix frontend test` | Vitest; **not run in CI** |
-| Frontend coverage | `npx ng test --coverage` | 62.77% stmts, 65.39% branches, 57.64% funcs |
+| Frontend coverage | `npx ng test --coverage` | 67.6% stmts, 68.71% branches, 62.81% funcs |
 
 **Coverage is reported, not enforced.** `fail_under = 0` in `backend/pyproject.toml`.
 Reported by a `pre-push` hook and by `.github/workflows/backend-coverage.yml`. Raising
@@ -67,17 +67,11 @@ TaskIQ worker. The coverage report quantifies it: `routes/chat.py` 24%, `tasks/f
 15%, `tasks/api.py` 17%, `routes/users.py` 34%, `providers/sber.py` 28%. Those are the
 highest-risk areas and the natural place to add coverage next.
 
-**The frontend suite is RED and has been since before this branch.** 14 of 154 tests fail,
-all in `src/app/shared/components/sidebar/sidebar.component.spec.ts` (the "Sidebar history
-section" block). The suite reports 140 passed / 14 failed, and `ng test` fails identically
-with or without `--coverage`, so this is not a coverage artifact. Failure mode:
-`Cannot configure the test module when the test module has already been instantiated`,
-followed by `Cannot read properties of undefined (reading 'match')` from the `afterEach`
-avatar flush.
-
-Consequences: `npm test` is not in CI so it went unnoticed, and the new
-`vitest-coverage` pre-push hook fails for everyone until the spec is fixed. Fixing it is
-tracked as the first item below.
+**The frontend suite is GREEN.** 154 of 154 tests pass across 20 spec files. It was red
+before this change: 14 tests in `sidebar.component.spec.ts` failed because the jsdom test
+environment exposes no `localStorage`, and `ThemeService` reads it in a field initializer.
+Fixed by `src/test-setup.ts`, registered through the builder's `setupFiles` option. The
+`vitest-coverage` pre-push hook now passes for everyone.
 
 ---
 
@@ -118,9 +112,12 @@ backend and frontend coverage pipelines:
   native `coverage` options on the `test` target in `angular.json`, a `vitest-coverage`
   pre-push hook, and `.github/workflows/frontend-coverage.yml`. Reporting only; the gate
   will be `coverageThresholds` in `angular.json`.
+- Frontend test fix: `src/test-setup.ts` added and registered via `setupFiles`, supplying
+  the `localStorage` / `sessionStorage` the jsdom test environment lacks. This unblocked
+  14 red tests in `sidebar.component.spec.ts` and took the suite to 154/154 green.
 
-No runtime code was touched. The only non-documentation change is the added coverage
-dependency and its config.
+No runtime code was touched. The only non-documentation changes are the added coverage
+dependency, its config, and the test-only setup file.
 
 ---
 
@@ -128,18 +125,15 @@ dependency and its config.
 
 Ordered by value, not by commitment:
 
-1. **Fix `sidebar.component.spec.ts`.** 14 tests are red on `main`, which blocks the
-   `vitest-coverage` pre-push hook for the whole team. The file has three `describe` blocks
-   and leans on automatic `TestBed` reset; the second block reconfigures a module the first
-   already instantiated. Add explicit `TestBed.resetTestingModule()` or split the file.
-2. **Get `npm test` into CI.** `frontend-ci.yml` runs only `ng lint` and `ng build`, which is
-   exactly why a red suite sat unnoticed. Adding `npx ng test` is the durable fix.
-3. **Cover the chat and file flow.** The async generation path, the upload confirm
+1. **Get `npm test` into CI.** `frontend-ci.yml` runs only `ng lint` and `ng build`, which is
+   exactly why 14 red tests sat unnoticed until a coverage run was added. This is now the
+   single highest-value fix: the suite is green and nothing checks it automatically.
+2. **Cover the chat and file flow.** The async generation path, the upload confirm
    handshake, `TEST_INSTANCE_MODE` guarding and at least one worker have no tests. This is
    also the work that moves backend coverage from 49.55% toward a 90% gate.
-2. **Fill the placeholder sections:** profile, settings, and the admin action log
+3. **Fill the placeholder sections:** profile, settings, and the admin action log
    (`Журнал действий`) and system info.
-3. **Action log.** The admin nav links to it but nothing backs it; the database has no audit
+4. **Action log.** The admin nav links to it but nothing backs it; the database has no audit
    table yet.
 5. **Sweep the dead root `parser/` directory.** Only `__pycache__` remains. This needs a
    maintainer decision, not an agent's.
