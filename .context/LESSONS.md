@@ -107,6 +107,40 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
 - `SUPPORTED_ENCODINGS = ["utf-8", "cp1251", "latin-1"]` reflects real customer files.
   Removing `cp1251` because it looks legacy breaks Russian-locale DXFs.
 
+- **The global npm is newer than the pinned one and breaks installs two different ways.**
+  `package.json` pins `packageManager: npm@10.9.2` but the machine has npm 12, which fails
+  with `Cannot read properties of null (reading 'children')` (an arborist crash), and then,
+  with an explicit version, with `EALLOWREMOTE` because it refuses the remote tarball
+  dependency `xlsx@https://cdn.sheetjs.com/...`. **Use the pinned version:
+  `npx --yes npm@10.9.2 install ...` from `frontend/`.** Do not "upgrade" the lockfile with
+  a newer npm as a side effect.
+- **A bare `npm install -D @vitest/coverage-v8` installs the wrong major version.** The
+  registry's latest is the v5 line, which does not match the project's Vitest `4.1.11`.
+  Pin it: `@vitest/coverage-v8@4.1.11`. The coverage provider and the runner must share a
+  major version, and nothing warns you about the mismatch.
+- **Angular's unit-test builder owns the Vitest config; do not add `vitest.config.ts`.**
+  `@angular/build:unit-test` exposes `coverage`, `coverageReporters`, `coverageInclude`,
+  `coverageExclude`, `coverageThresholds` and `coverageWatermarks` directly, and requires
+  `@vitest/coverage-v8` by name. Settings belong in the `test` target of `angular.json`.
+- **Coverage output nests under the project name**: `frontend/coverage/frontend/`, not
+  `frontend/coverage/`. A CI upload path pointing at `coverage/coverage-summary.json` will
+  find nothing. Already gitignored by `frontend/.gitignore`'s `/coverage`.
+- **Omitting `coverageInclude` inflates the number.** V8 then reports only files a test
+  actually imported, so untouched files vanish from the denominator. The same suite reads
+  78.15% implicitly and 62.77% with an explicit include; the lower figure is the honest one.
+- **A failing suite suppresses the coverage report entirely.** With 14 pre-existing failures
+  in `sidebar.component.spec.ts`, `ng test --coverage` writes an empty `coverage/` directory
+  and prints no summary. To measure a red suite, exclude the broken spec with
+  `--exclude "**/<name>.spec.ts"` and treat the result as provisional.
+- **`sidebar.component.spec.ts` is red on `main`, pre-existing and unrelated to coverage.**
+  14 of its tests fail with `Cannot configure the test module when the test module has
+  already been instantiated`, then `Cannot read properties of undefined (reading 'match')`
+  from the `afterEach` avatar flush. The file is unmodified on this branch, and
+  `ng test` without `--coverage` fails identically, so it is not a coverage artifact. The
+  file has three `describe` blocks and relies on automatic `TestBed` reset without any
+  explicit `resetTestingModule()`; the second block's `beforeEach` tries to reconfigure a
+  module that the first block already instantiated.
+
 ## Frontend
 
 - **Never hardcode a backend URL.** `environment.prod.ts` holds the placeholder

@@ -271,6 +271,35 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   `ty` and `uv` vocabulary. It was deliberately **not** copied, because it recommends
   SQLModel over SQLAlchemy and `uv` over Poetry, both of which contradict this project.
 
+## Frontend test coverage
+
+- **Coverage is measured and reported, not enforced**, mirroring the backend decision.
+  Baseline is **62.77% statements, 65.39% branches, 57.64% functions** over 51 files.
+- **The coverage engine is `@vitest/coverage-v8`, but the config is not a `vitest.config.ts`.**
+  This project has no Vitest config file, and adding one would be wrong: the
+  `@angular/build:unit-test` builder owns the Vitest configuration, exposes native
+  `coverage`, `coverageReporters`, `coverageInclude`, `coverageExclude`, `coverageThresholds`
+  and `coverageWatermarks` options, and **hard-requires `@vitest/coverage-v8`** when coverage
+  is enabled (`runners/vitest/index.js`). Configuration therefore lives in the `test` target
+  of `frontend/angular.json`.
+- **The provider must be version-matched to the installed Vitest.** The project is on Vitest
+  `4.1.11`, so the dependency is pinned to `@vitest/coverage-v8@^4.1.11`. A bare
+  `npm install -D @vitest/coverage-v8` resolves to the v5 line, which is a major-version
+  mismatch against the v4 runner and would break at runtime.
+- **`coverageInclude` is set on purpose even though it lowers the number.** Without it, V8
+  reports only files that were actually loaded by a test, which inflates the figure by
+  omitting untouched files entirely. With `src/app/**/*.ts` and `src/environments/**/*.ts`
+  included, never-imported files count as 0%. The same run reads 78.15% with implicit
+  include-all and 62.77% with the explicit honest include; the second is the real number.
+- **The threshold will live in one place: `coverageThresholds` in `frontend/angular.json`.**
+  The builder enforces it and exits non-zero, so no percentage is hardcoded in the hook or the
+  workflow. Reporters are `text-summary`, `json-summary` and `html`; output nests under
+  `frontend/coverage/frontend/`.
+- **V8 coverage requires Chromium, which is satisfied here only because tests run in jsdom.**
+  If the project ever switches to `@vitest/browser-*` with a non-Chromium browser, coverage
+  will hard-fail with a message about unsupported browsers. This is a constraint to remember
+  before adopting a browser runner.
+
 ## Backend test coverage
 
 - **Coverage is measured and reported, not enforced.** `pytest-cov` was added to the

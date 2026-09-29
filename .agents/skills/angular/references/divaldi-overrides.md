@@ -109,8 +109,20 @@ notifications. Code identifiers stay English.
 - ESLint lints `src/**/*.ts` and `src/**/*.html` but **not `.scss`**, and there is no
   stylelint. A bad SCSS rule is caught by no gate.
 - **`npm test` is not run in CI**; CI runs only `ng lint` and `ng build`. Run the tests
-  yourself before claiming they pass.
+  yourself before claiming they pass. **The suite is currently red on `main`**: 14 tests in
+  `src/app/shared/components/sidebar/sidebar.component.spec.ts` fail, so any coverage run
+  must be scoped with `--exclude "**/sidebar.component.spec.ts"` to produce a number, and
+  the report is otherwise suppressed.
 - Prettier: single quotes, `printWidth` 100, `trailingComma` none.
+- **Use the pinned npm, not the global one.** `package.json` pins
+  `packageManager: npm@10.9.2`. Newer global npm versions fail on this project, once with an
+  arborist crash and once with `EALLOWREMOTE` because of the remote-tarball `xlsx`
+  dependency. Install with `npx --yes npm@10.9.2 install <pkg>`.
+- **Coverage is configured on the `test` target in `angular.json`,** via the builder's
+  native `coverage` options. Do not add a `vitest.config.ts`: the
+  `@angular/build:unit-test` builder owns the Vitest configuration. The provider
+  `@vitest/coverage-v8` must match the installed Vitest major version, currently `4.1.11`,
+  so a bare install pulling the v5 line is wrong.
 - Add dependencies with **`npm install <pkg>`** from `frontend/`, then commit
   `frontend/package-lock.json`.
 

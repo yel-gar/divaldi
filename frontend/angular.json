@@ -87,7 +87,19 @@
           "defaultConfiguration": "development"
         },
         "test": {
-          "builder": "@angular/build:unit-test"
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "tsconfig.spec.json",
+            "buildTarget": "::development",
+            "coverage": true,
+            "coverageReporters": ["text-summary", "json-summary", "html"],
+            "coverageInclude": ["src/app/**/*.ts", "src/environments/**/*.ts"],
+            "coverageExclude": [
+              "**/*.spec.ts",
+              "**/environments/environment.prod.ts",
+              "**/section-placeholder/**"
+            ]
+          }
         },
         "lint": {
           "builder": "@angular-eslint/builder:lint",

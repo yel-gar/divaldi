@@ -87,3 +87,12 @@ repos:
         files: ^backend/.*\.py$
         pass_filenames: false
         always_run: true
+
+      - id: vitest-coverage
+        name: vitest coverage report (frontend)
+        entry: npx --prefix frontend ng test --coverage --watch=false
+        language: system
+        stages: [pre-push]
+        files: ^frontend/.*\.(ts|html|json)$
+        pass_filenames: false
+        always_run: true

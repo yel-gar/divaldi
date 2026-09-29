@@ -55,6 +55,7 @@ instance, created by `conf/postgres-init/01-taskiq-dashboard.sql`.
 | Backend coverage | `poetry -C backend run pytest --cov` | 33 tests, **49.55%** (branch coverage on) |
 | Processing | `poetry -C processing run pytest -v` | DXF, PDF, calculator; pure, no Docker |
 | Frontend | `npm --prefix frontend test` | Vitest; **not run in CI** |
+| Frontend coverage | `npx ng test --coverage` | 62.77% stmts, 65.39% branches, 57.64% funcs |
 
 **Coverage is reported, not enforced.** `fail_under = 0` in `backend/pyproject.toml`.
 Reported by a `pre-push` hook and by `.github/workflows/backend-coverage.yml`. Raising
@@ -65,6 +66,18 @@ exit 1 when set that way.
 TaskIQ worker. The coverage report quantifies it: `routes/chat.py` 24%, `tasks/files.py`
 15%, `tasks/api.py` 17%, `routes/users.py` 34%, `providers/sber.py` 28%. Those are the
 highest-risk areas and the natural place to add coverage next.
+
+**The frontend suite is RED and has been since before this branch.** 14 of 154 tests fail,
+all in `src/app/shared/components/sidebar/sidebar.component.spec.ts` (the "Sidebar history
+section" block). The suite reports 140 passed / 14 failed, and `ng test` fails identically
+with or without `--coverage`, so this is not a coverage artifact. Failure mode:
+`Cannot configure the test module when the test module has already been instantiated`,
+followed by `Cannot read properties of undefined (reading 'match')` from the `afterEach`
+avatar flush.
+
+Consequences: `npm test` is not in CI so it went unnoticed, and the new
+`vitest-coverage` pre-push hook fails for everyone until the spec is fixed. Fixing it is
+tracked as the first item below.
 
 ---
 
@@ -86,7 +99,7 @@ There is no deploy workflow; CI only.
 ## Current work
 
 **Branch `docs/agent-harness` (from `main`)** — documentation, agent harness, and the
-backend coverage pipeline:
+backend and frontend coverage pipelines:
 
 - `README.md` rewritten with a product description, features, an architecture diagram, the
   request lifecycle, the stack, ports, quick start, dev setup, security notes and code
@@ -101,8 +114,13 @@ backend coverage pipeline:
 - Backend coverage pipeline: `pytest-cov` added to the `dev` group, `[tool.coverage.*]`
   config in `backend/pyproject.toml`, a `pre-push` pre-commit hook, and
   `.github/workflows/backend-coverage.yml`. Reporting only, `fail_under = 0`.
+- Frontend coverage pipeline: `@vitest/coverage-v8@4.1.11` added as a dev dependency,
+  native `coverage` options on the `test` target in `angular.json`, a `vitest-coverage`
+  pre-push hook, and `.github/workflows/frontend-coverage.yml`. Reporting only; the gate
+  will be `coverageThresholds` in `angular.json`.
 
-No runtime code was touched.
+No runtime code was touched. The only non-documentation change is the added coverage
+dependency and its config.
 
 ---
 
@@ -110,17 +128,23 @@ No runtime code was touched.
 
 Ordered by value, not by commitment:
 
-1. **Cover the chat and file flow.** The async generation path, the upload confirm
+1. **Fix `sidebar.component.spec.ts`.** 14 tests are red on `main`, which blocks the
+   `vitest-coverage` pre-push hook for the whole team. The file has three `describe` blocks
+   and leans on automatic `TestBed` reset; the second block reconfigures a module the first
+   already instantiated. Add explicit `TestBed.resetTestingModule()` or split the file.
+2. **Get `npm test` into CI.** `frontend-ci.yml` runs only `ng lint` and `ng build`, which is
+   exactly why a red suite sat unnoticed. Adding `npx ng test` is the durable fix.
+3. **Cover the chat and file flow.** The async generation path, the upload confirm
    handshake, `TEST_INSTANCE_MODE` guarding and at least one worker have no tests. This is
-   also the work that moves coverage from 49.55% toward a 90% gate.
+   also the work that moves backend coverage from 49.55% toward a 90% gate.
 2. **Fill the placeholder sections:** profile, settings, and the admin action log
    (`Журнал действий`) and system info.
 3. **Action log.** The admin nav links to it but nothing backs it; the database has no audit
    table yet.
-4. **Sweep the dead root `parser/` directory.** Only `__pycache__` remains. This needs a
+5. **Sweep the dead root `parser/` directory.** Only `__pycache__` remains. This needs a
    maintainer decision, not an agent's.
-5. **Add a LICENSE file**, currently absent.
-6. **Document `TEST_INSTANCE_MODE` in `.env.example`.** It exists in compose and in the code,
+6. **Add a LICENSE file**, currently absent.
+7. **Document `TEST_INSTANCE_MODE` in `.env.example`.** It exists in compose and in the code,
    but not in the example env file.
 
 ---

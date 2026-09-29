@@ -288,6 +288,37 @@ npm --prefix frontend test                 # vitest via @angular/build:unit-test
 npm --prefix frontend run build            # prod build; also typechecks
 ```
 
+### Frontend coverage
+
+Coverage uses `@vitest/coverage-v8`, driven by the `@angular/build:unit-test` builder's
+**native** `coverage` options. There is no `vitest.config.ts` in this project and there
+should not be one: the builder owns the Vitest configuration and hard-requires
+`@vitest/coverage-v8` when `coverage` is enabled.
+
+```bash
+npx ng test --coverage --watch=false      # or: npx --prefix frontend ng test --coverage
+```
+
+Config lives in the `test` target of `frontend/angular.json` (`coverage`,
+`coverageReporters`, `coverageInclude`, `coverageExclude`). Reporters are `text-summary`,
+`json-summary` and `html`; output lands in `frontend/coverage/frontend/`, which is already
+gitignored.
+
+**To make 90% the gate:** add a `coverageThresholds` object to the `test` target in
+`frontend/angular.json`. The builder enforces it and exits non-zero. Nothing else changes,
+and no percentage is hardcoded in the hook or the workflow.
+
+Current baseline is **62.77% statements / 65.39% branches / 57.64% functions**. Note that
+`coverageInclude` counts untested files at 0%, so the number is honest rather than
+flattering.
+
+> **The frontend suite is currently red on `main`.** 14 tests in
+> `sidebar.component.spec.ts` fail with `Cannot configure the test module when the test
+> module has already been instantiated`. This is pre-existing and unrelated to coverage.
+> Because the `vitest-coverage` pre-push hook runs the real suite, it will fail for everyone
+> until that spec is fixed. See `.context/PROJECT_STATE.md`.
+
+
 ### Migrations are mandatory
 
 Any change to `app/models/` **must** ship a migration. `tests/test_migrations.py` runs
@@ -461,6 +492,7 @@ follow.
 - [ ] `pytest` green in every touched Python package
 - [ ] `poetry -C backend run pytest --cov` run if backend code changed; coverage did not drop
 - [ ] `ng lint`, `ng build` and `vitest` green if the frontend was touched
+- [ ] `npx ng test --coverage` run if frontend code changed; coverage did not drop
 - [ ] Migration added if any ORM model changed (`alembic check` proves it)
 - [ ] No secrets, no committed `.env`, no committed `docker-compose.override.yml`
 - [ ] `.context/DECISIONS.md`, `LESSONS.md` and `PROJECT_STATE.md` updated as warranted
