@@ -106,6 +106,22 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   (`DXFStructureError`) that callers already catch.
 - `SUPPORTED_ENCODINGS = ["utf-8", "cp1251", "latin-1"]` reflects real customer files.
   Removing `cp1251` because it looks legacy breaks Russian-locale DXFs.
+- **`float("1500,50")` raises, so a comma-decimal price is silently dropped.**
+  `_load_material_prices` skips it like any other unparseable value, which means the material
+  vanishes from the price map rather than being priced at zero. Worth knowing if a template
+  ever arrives from a Russian-locale Excel.
+- **`dxf_parser.py` can never reach 100% and that is not a testing failure.** The
+  `UnicodeDecodeError` fallback after the encoding loop is unreachable because `latin-1`
+  decodes any byte sequence, and the six `except ValueError, TypeError: continue` blocks
+  around `_get_float` calls are unreachable because `_get_float` swallows those errors and
+  returns `0.0`. Both verified by script. Do not write tests to chase them.
+- **`get_measurements_data` and `extract_measurements` are separate walkers over the same
+  entities**, with their own copies of every ARC and LWPOLYLINE branch. A test for one tells
+  you nothing about the other, which is how `dxf_parser.py` sat at 77% while looking well
+  covered.
+- **A dangling group code at the end of a DXF is dropped, not stored empty.** The parser
+  breaks before consuming the value, so `{10: []}` never appears; asserting on that shape
+  will fail.
 
 - **The global npm is newer than the pinned one and breaks installs two different ways.**
   `package.json` pins `packageManager: npm@10.9.2` but the machine has npm 12, which fails

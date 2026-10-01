@@ -302,7 +302,18 @@ SBER_API_KEY=<real-key> SBER_API_SCOPE=PERS poetry -C backend run pytest -m live
 poetry -C processing run black --check src tests
 poetry -C processing run ruff check src tests
 poetry -C processing run pytest -v
+poetry -C processing run pytest --cov        # with a branch-coverage report
 ```
+
+Processing coverage is measured with `pytest-cov` and **enforced at 90%**, single-sourced the
+same way as the backend: `fail_under` in `processing/pyproject.toml`, read by pytest-cov, so
+neither the `pytest-coverage-processing` pre-push hook nor
+`.github/workflows/processing-coverage.yml` names a percentage. Verified to bite: at 90 the run
+exits 0, at 99 it exits 1.
+
+Current coverage is **95.73%** with branch coverage across 85 tests. It will not reach 100%,
+and that is deliberate: 15 statements in `dxf_parser.py` are provably unreachable (see
+`.context/DECISIONS.md`). Do not write tests to chase them.
 
 ### End-to-end (Playwright)
 
@@ -503,6 +514,19 @@ refactor!: drop the legacy parser shim
 Observed scopes: `backend`, `frontend`, `processing`, `ci`. Branch prefixes in use: `jut/`,
 `feat/`, `fix/`, `docs/`, `feature/`.
 
+### Keep commit messages short
+
+**A commit message is a log entry, not a report.** The subject is one line under ~72
+characters; subject plus body should fit in roughly **15 lines**. If it needs more, the
+detail belongs in the pull request description, or in `.context/` when it is a decision or a
+lesson.
+
+Do not re-narrate the diff, list the tests you added, or recount your own reasoning
+("I first tried X, then switched to Y"). A body earns its place only for a non-obvious
+constraint that forced the design, a deliberate omission, or a gotcha not already recorded in
+`.context/LESSONS.md`. Keep it to three or four lines and point at the record instead of
+duplicating it.
+
 ### No commit metadata beyond the message
 
 The commit message is the **only** metadata allowed. Never add these, and never accept them
@@ -555,12 +579,14 @@ follow.
 - [ ] `black --check` and `ruff check` clean in every touched Python package
 - [ ] `pytest` green in every touched Python package (backend gate: 90% coverage)
 - [ ] `poetry -C backend run pytest --cov` run if backend code changed; still at or above 90%
+- [ ] `poetry -C processing run pytest --cov` run if processing code changed; still at or above 90%
 - [ ] `ng lint`, `ng build` and `vitest` green if the frontend was touched
 - [ ] `npx ng test --coverage` run if frontend code changed; still at or above 90%
 - [ ] Migration added if any ORM model changed (`alembic check` proves it)
 - [ ] If backend behaviour changed: did the offline mock provider still model it? (`MOCK_PROVIDER_MODE`)
 - [ ] No secrets, no committed `.env`, no committed `docker-compose.override.yml`
 - [ ] `.context/DECISIONS.md`, `LESSONS.md` and `PROJECT_STATE.md` updated as warranted
-- [ ] Commit message follows Conventional Commits
+- [ ] Commit message follows Conventional Commits, and is **under ~15 lines**: no re-narration
+      of the diff, no list of added tests, no account of your own reasoning
 - [ ] No commit metadata beyond the message (no `Co-Authored-By`, no generated-with footer)
 - [ ] Any new skill or convention recorded in `AGENTS.md` or `.agents/skills/`

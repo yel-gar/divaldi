@@ -53,7 +53,8 @@ instance, created by `conf/postgres-init/01-taskiq-dashboard.sql`.
 |---|---|---|
 | Backend | `poetry -C backend run pytest` | 308 tests; needs a Docker daemon |
 | Backend coverage | `poetry -C backend run pytest --cov` | **98.79%**, gated at 90% by `fail_under` |
-| Processing | `poetry -C processing run pytest -v` | DXF, PDF, calculator; pure, no Docker |
+| Processing | `poetry -C processing run pytest -v` | 85 tests; DXF, PDF, calculator; pure, no Docker |
+| Processing coverage | `poetry -C processing run pytest --cov` | **95.73%**, gated at 90% by `fail_under` |
 | Frontend | `npm --prefix frontend test` | Vitest, 305 tests; runs in `frontend-ci.yml` |
 | Frontend coverage | `npx ng test --coverage` | 90.24% stmts, 84.93% branches, 90.13% funcs; gated at 90% |
 
@@ -64,6 +65,11 @@ reading **98.79%** across 308 tests with branch coverage. The `pre-push` hook an
 **Frontend coverage is enforced at 90%** via `coverageThresholds` on the `test` target in
 `frontend/angular.json`, reading **90.24%** statements across 305 tests. That is only just
 above the line; branches (84.93%) are deliberately not gated.
+
+**All three Python and TypeScript suites are now gated at 90%**, each with its threshold in
+exactly one place. Processing reads **95.73%** across 85 tests with branch coverage; the 15
+uncovered statements in `dxf_parser.py` are provably unreachable and documented as such in
+`processing/pyproject.toml`, so that figure will not creep upward without a real change.
 
 PostgreSQL, Redis and MinIO are real testcontainers on the backend. The LLM is faked by
 `app/providers/mock.py`, selected with `SBER_API_KEY=mock` and switchable via
@@ -83,6 +89,7 @@ Fixed by `src/test-setup.ts`, registered through the builder's `setupFiles` opti
 | Workflow | Runs |
 |---|---|
 | `e2e.yml` | Playwright against the Compose stack, `SBER_API_KEY=mock` (10 tests) |
+| `processing-coverage.yml` | processing `pytest --cov`, enforces `fail_under` |
 | `backend-ci.yml` | black, ruff, pytest (Python 3.14) |
 | `backend-coverage.yml` | pytest with coverage, uploads `coverage.json` (reporting only) |
 | `processing-ci.yml` | black, ruff, pytest |
@@ -120,8 +127,18 @@ backend and frontend coverage pipelines:
   default via `addopts = "-m 'not live'"`.
 - Frontend coverage pipeline: `@vitest/coverage-v8@4.1.11` added as a dev dependency,
   native `coverage` options on the `test` target in `angular.json`, a `vitest-coverage`
-  pre-push hook, and `.github/workflows/frontend-coverage.yml`. Reporting only; the gate
-  will be `coverageThresholds` in `angular.json`.
+  pre-push hook, and `.github/workflows/frontend-coverage.yml`. The gate is
+  `coverageThresholds` on that same target.
+- **Processing coverage gated**: `pytest-cov` added to the `dev` group, `fail_under = 90`
+  plus `[tool.coverage.*]` in `processing/pyproject.toml`, a `pytest-coverage-processing`
+  pre-push hook, and `.github/workflows/processing-coverage.yml`. Coverage went from 86% to
+  **95.73%** with branch coverage, tests from 50 to 85. The three new specs target
+  `get_measurements_data`'s ARC and LWPOLYLINE branches (a second walker over the same
+  entities that `extract_measurements` tests never touched), `_load_material_prices`'s
+  unparseable-value and uncached-formula paths, and the PDF converter's zero-page document.
+- **Commit message length capped at ~15 lines** in `AGENTS.md` and the
+  `conventional-commits` skill, with a worked too-long example, after three commits in this
+  branch ran twenty lines of body each.
 - **End-to-end suite added**: Playwright in `e2e/`, driving the real Compose stack with
   `SBER_API_KEY=mock`. 10 specs covering authentication, the request-to-offer journey
   (including the generated `kp.xlsx` in the results panel), a follow-up message, the
@@ -158,10 +175,11 @@ Ordered by value, not by commitment:
 5. **Add a LICENSE file**, currently absent.
 6. **Document `TEST_INSTANCE_MODE` in `.env.example`.** It exists in compose and in the code,
    but not in the example env file.
-7. **Consolidate the two frontend CI workflows.** `frontend-ci.yml` and
-   `frontend-coverage.yml` each run the full suite, so a PR touching the frontend pays for
-   it twice. Merging them, or making the coverage job depend on the CI job, would halve
-   that. Not urgent while the suite is fast.
+7. **Consolidate the coverage CI workflows.** `frontend-coverage.yml`,
+   `backend-coverage.yml` and `processing-coverage.yml` each run their package's full suite,
+   and each package also has a plain `*-ci.yml` that runs the same tests. A PR touching the
+   frontend therefore pays for the Vitest suite twice. Making each coverage job depend on its
+   CI job would halve that. Not urgent while the suites are fast.
 8. **Add a per-test e2e user.** The suite currently shares one seeded user and works
    around the 5-per-minute rate limit by clearing Redis between tests. Giving each worker
    its own user would be cleaner, at the cost of a provisioning step per test.

@@ -91,6 +91,63 @@ feat/attachment-preview
 docs/agent-harness
 ```
 
+## Length: a log entry, not a blog post
+
+The subject is one line, under about 72 characters. The whole message, subject plus body,
+should fit in roughly **15 lines**. Past that you are writing a document and putting it in the
+wrong place.
+
+**The diff already records what changed.** Do not narrate it file by file, do not list which
+tests were added, and do not recount your own reasoning process ("I first tried X, but that
+failed, so I switched to Y"). Nobody reads that when scanning `git log`, and it is pure noise
+in a bisect.
+
+What genuinely earns body space, at most three or four lines:
+
+- **A non-obvious constraint that forced the design**, which the code cannot explain.
+- **A deliberate omission or a known gap**, so a future reader does not assume it is an oversight.
+- **A gotcha that cost real time**, if it is not already in `.context/LESSONS.md`.
+
+Anything longer belongs in the pull request description, or in
+`.context/DECISIONS.md` when it is a decision, or in `.context/LESSONS.md` when it is a trap.
+The commit points at that record; it does not duplicate it.
+
+```
+# too long -- a changelog, and mostly a re-narration of the diff
+test(frontend): raise coverage to 90.24% and enforce a 90% gate
+
+Frontend coverage goes from 67.6% to 90.24% statements across 305 tests,
+and coverageThresholds is set to 90 for statements, functions and lines
+on the test target in angular.json. The builder enforces it, so no
+percentage is hardcoded in the hook or the workflow. Verified to bite: at
+statements 90 the run exits 0, at 95 it exits 1. Branches are deliberately
+not gated at 84.93%, since the branch figure counts defensive null checks
+that carry little signal. The work went into the files with no tests at
+all: login page 0% to 100%, order create 0% to 100%, layout 0% to 100%, the
+error interceptor 0% to 100%, the attachment upload and download services,
+the notification service and both notification components, and the
+ControlValueAccessor controls (checkbox, toggle, input, select). The chat
+view, previously 42% covered, gained specs for sending, the 2 s polling
+loop, its 5-minute timeout, retry, session deletion and the attachment
+actions. Three jsdom gaps had to be worked around and are recorded in
+LESSONS.md: matchMedia and Element.prototype.scrollTo do not exist and are
+both used by the chat component's afterRenderEffect; the polling loop needs
+fake timers; and teardown must destroy the fixture before resetting the
+TestBed, because onDestroy is what clears the interval. Skipping that
+leaves hundreds of queued requests, and flushing them instead throws "Cannot
+flush a cancelled request". No production code changed.
+
+# right -- one line of why, and a pointer to where the rest is recorded
+test(frontend): enforce a 90% coverage gate in angular.json
+
+The threshold now lives in one place and the builder reads it, so the
+hook and workflow name no percentage. The jsdom workarounds needed to test
+the chat polling loop are recorded in .context/LESSONS.md.
+```
+
+Two more things a commit message is not for: an emoji-led status report, and a summary aimed at
+a reviewer who has not opened the diff yet. If the change needs a narrative, open a pull request.
+
 ## No commit metadata beyond the message
 
 The message is the only metadata allowed. Do not add these, and do not let a tool add them on

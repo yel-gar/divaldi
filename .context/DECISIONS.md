@@ -398,6 +398,45 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   `pytest -m live` and a real key. Every other provider test uses `httpx.MockTransport`, so
   nothing reaches the network by accident.
 
+## Processing test coverage
+
+- **`fail_under = 90` in `processing/pyproject.toml` is the gate**, single-sourced the same
+  way the backend's is. The pre-push hook and `processing-coverage.yml` run
+  `pytest --cov` and name no percentage, so they cannot disagree with the config. Verified
+  to bite: at 90 the run exits 0, at 99 it exits 1. Coverage reads **95.73%** with branch
+  coverage across 85 tests, up from 86% without branch coverage across 50.
+- **The gap was concentrated in `get_measurements_data`, not in `parse_dxf`.** Both
+  `extract_measurements` and `get_measurements_data` walk the same entity list but build
+  different results, so each has its own ARC and LWPOLYLINE branches. Tests for the string
+  renderer left the dictionary builder's equivalents entirely uncovered, which is why the
+  file read 77% while its public API looked well tested.
+- **15 statements in `dxf_parser.py` are provably unreachable and were left uncovered.**
+  Both claims were verified by script rather than by inspection:
+  - `SUPPORTED_ENCODINGS` ends in `latin-1`, which maps every byte value, so the
+    `UnicodeDecodeError` fallback after the decode loop can never be reached.
+  - `_get_float` catches `ValueError` and `TypeError` itself and returns `0.0`, and
+    `math.hypot` on floats does not raise, so the six per-entity
+    `except ValueError, TypeError: continue` blocks can never be entered.
+  Removing the defensive handlers would reach 100% but makes the helpers fragile if a
+  future change lets `_get_float` raise. The number is documented in `pyproject.toml` so a
+  future agent does not write tests chasing it.
+- **A PDF that opens but reports zero pages is unreachable through PyMuPDF**, which rejects
+  an empty stream earlier. That path is covered by substituting the module's `fitz`
+  attribute with a stand-in document, which is the only honest way to reach it.
+
+## Commit message length
+
+- **Commit messages are capped at roughly 15 lines, subject plus body.** This was added
+  after observing the opposite: the three large commits in this branch each ran to twenty-odd
+  lines of body, and most of it re-narrated the diff or recounted the agent's own reasoning.
+  `git log` is scanned, not read, so a long message costs more than it gives.
+- **The rule is stated as what to leave out, not just a limit**, because a line count alone
+  still permits a 15-line re-narration. A body earns its place only for a non-obvious
+  constraint, a deliberate omission, or a gotcha not already in `LESSONS.md`; anything longer
+  belongs in the pull request or in `.context/`. The `conventional-commits` skill carries a
+  worked too-long/too-short example pair, since a rule with an example is followed and a bare
+  limit is not.
+
 ## Documentation
 
 - **`README.md` is English, `README.ru.md` is Russian**, cross-linked in the header. The

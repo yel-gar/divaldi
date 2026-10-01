@@ -74,17 +74,26 @@ repos:
         pass_filenames: false
 
       # --- coverage reporting ---
-      # Runs at pre-push, not pre-commit, because it needs the whole suite
-      # (a Docker daemon for testcontainers) and is a reporting gate rather
-      # than a formatting one. `fail_under` in backend/pyproject.toml is 0,
-      # so this reports without blocking; raise it to 90 (and add
-      # --cov-fail-under=90) once the chat routes and workers are covered.
+      # Runs at pre-push, not pre-commit, because each of these needs the whole
+      # suite rather than the changed files: the backend hook needs a Docker
+      # daemon for its testcontainers, and the others take long enough that
+      # running them on every commit would be rude. Each threshold lives in ONE
+      # place and is read by the tool, so no percentage is repeated here.
       - id: pytest-coverage
         name: pytest coverage report (backend)
         entry: poetry -C backend run pytest --cov --cov-report=term-missing
         language: system
         stages: [pre-push]
         files: ^backend/.*\.py$
+        pass_filenames: false
+        always_run: true
+
+      - id: pytest-coverage-processing
+        name: pytest coverage report (processing)
+        entry: poetry -C processing run pytest --cov --cov-report=term-missing
+        language: system
+        stages: [pre-push]
+        files: ^processing/.*\.py$
         pass_filenames: false
         always_run: true
 
