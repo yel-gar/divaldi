@@ -474,10 +474,10 @@ subfolder for detail that is only sometimes needed.
 
 ### Provenance and precedence
 
-Seven skills are project-specific and were written from this repository's source:
+Eight skills are project-specific and were written from this repository's source:
 `sqlalchemy-async`, `taskiq-workers`, `python-testing`, `frontend-file-preview`,
-`docker-compose`, `e2e-playwright`, `conventional-commits`. They encode divaldi's actual
-conventions.
+`docker-compose`, `e2e-playwright`, `parallel-issues`, `conventional-commits`. They encode
+divaldi's actual conventions.
 
 Two are **third-party** and installed from public registries:
 
@@ -512,6 +512,7 @@ this repository, including both `divaldi-overrides.md` files, is emoji-free.
 | `frontend-file-preview` | project | Working on the docx/xlsx/pdf/image preview and its lazy dependencies |
 | `docker-compose` | project | Changing services, Dockerfiles, env plumbing, or the dev overrides |
 | `e2e-playwright` | project | Writing or debugging an end-to-end spec, or changing the e2e stack override |
+| `parallel-issues` | project | Running several issues at once via worktrees and subagents |
 | `conventional-commits` | project | Writing a commit message or naming a branch |
 
 **Load the relevant skill before doing the work it covers.** If a skill is missing or
@@ -528,6 +529,31 @@ entry is needed; that file exists only for agents you define in JSONC.
 
 When you fix a defect, ask whether the reviewer should know about it: if the trap is new, add
 it, otherwise the reviewer keeps re-discovering the same thing.
+
+### Parallel issue workflow
+
+The orchestrator agent delegates issues to worker subagents that each work in a **separate
+`git worktree` on a separate branch**, then merges once they report ready. The point is to keep
+concurrent edits to different issues from colliding in one working tree.
+
+1. The orchestrator branches each worker off the integration branch and gives it a worktree
+   outside the main checkout.
+2. The worker implements the issue, runs the **full** test suites for every package it touched,
+   and ends its last commit message with `(closes #NN)`. That is what makes GitHub close the
+   issue on merge, so it must be in the **final** commit, not an earlier one.
+3. The worker launches the `reviewer` subagent and has it review the branch against the
+   integration branch — `git diff <integration-branch>...HEAD` from inside the worktree.
+4. If the review finds issues, the worker fixes them and reviews again. A second review whose
+   findings are **only nitpicks** may be dismissed; nitpicks are only worth fixing when they
+   arrive alongside something more serious.
+5. The worker reports ready for merge.
+6. The orchestrator waits for **all** workers to finish, then merges one at a time and resolves
+   conflicts. One at a time, because resolving two conflicting merges at once is how context gets
+   lost.
+
+Every agent, orchestrator included, runs the full test suites. See
+`.agents/skills/parallel-issues/SKILL.md` for the worktree commands, the conflict-resolution
+order, and the traps that this workflow has actually hit.
 
 ---
 
