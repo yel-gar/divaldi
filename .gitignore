@@ -9,7 +9,12 @@ docker-compose.override.yml.bak
 
 # remove unusual directory
 docs
+# OpenCode agents (including .opencode/agents/reviewer.md) and its project
+# config. Both are local tooling; nothing here should be shared, and a config
+# file can carry provider keys or per-machine paths.
 .opencode
+opencode.json
+opencode.jsonc
 .DS_Store
 
 .vscode

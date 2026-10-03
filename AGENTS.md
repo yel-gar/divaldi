@@ -517,10 +517,17 @@ this repository, including both `divaldi-overrides.md` files, is emoji-free.
 **Load the relevant skill before doing the work it covers.** If a skill is missing or
 inaccurate, fixing it as part of your change is expected, not out of scope.
 
-The reviewer agent, which assesses a change before it lands, is at `.opencode/agents/reviewer.md`.
-That path is **gitignored**, so the file is local-only and will not reach other developers or
-CI. When you fix a defect, ask whether the reviewer should know about it: if the trap is new,
-add it, otherwise the reviewer keeps re-discovering the same thing.
+The reviewer agent, which assesses a change before it lands, is at
+`.opencode/agents/reviewer.md`. It is `mode: subagent`, so it runs in a child session rather
+than as a main agent, and its permissions deny editing while allowing the project's own gates
+to be run. Both that path and `opencode.json` are **gitignored**, so the agent and any OpenCode
+config are local-only and reach neither other developers nor CI.
+
+Markdown agents in `.opencode/agents/` are discovered automatically, so no `opencode.json`
+entry is needed; that file exists only for agents you define in JSONC.
+
+When you fix a defect, ask whether the reviewer should know about it: if the trap is new, add
+it, otherwise the reviewer keeps re-discovering the same thing.
 
 ---
 
