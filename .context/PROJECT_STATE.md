@@ -3,7 +3,7 @@
 Rewritten in place on each update. Do not append. Keep it short and current; detail belongs
 in `DECISIONS.md` (rationale) or `AGENTS.md` (procedure).
 
-Last updated: **2026-09-29** (coverage pipeline added)
+Last updated: **2026-10-03** (retry history fix, issue #59)
 
 ---
 
@@ -51,15 +51,15 @@ instance, created by `conf/postgres-init/01-taskiq-dashboard.sql`.
 
 | Suite | Command | Notes |
 |---|---|---|
-| Backend | `poetry -C backend run pytest` | 308 tests; needs a Docker daemon |
-| Backend coverage | `poetry -C backend run pytest --cov` | **98.79%**, gated at 90% by `fail_under` |
+| Backend | `poetry -C backend run pytest` | 316 tests; needs a Docker daemon |
+| Backend coverage | `poetry -C backend run pytest --cov` | **98.80%**, gated at 90% by `fail_under` |
 | Processing | `poetry -C processing run pytest -v` | 85 tests; DXF, PDF, calculator; pure, no Docker |
 | Processing coverage | `poetry -C processing run pytest --cov` | **95.73%**, gated at 90% by `fail_under` |
 | Frontend | `npm --prefix frontend test` | Vitest, 305 tests; runs in `frontend-ci.yml` |
 | Frontend coverage | `npx ng test --coverage` | 90.24% stmts, 84.93% branches, 90.13% funcs; gated at 90% |
 
 **Backend coverage is enforced at 90%** via `fail_under` in `backend/pyproject.toml`,
-reading **98.79%** across 308 tests with branch coverage. The `pre-push` hook and
+reading **98.80%** across 316 tests with branch coverage. The `pre-push` hook and
 `.github/workflows/backend-coverage.yml` enforce it and neither names a percentage.
 
 **Frontend coverage is enforced at 90%** via `coverageThresholds` on the `test` target in
@@ -164,6 +164,15 @@ backend and frontend coverage pipelines:
 - Frontend test fix: `src/test-setup.ts` added and registered via `setupFiles`, supplying
   the `localStorage` / `sessionStorage` the jsdom test environment lacks. This unblocked
   14 red tests in `sidebar.component.spec.ts` and took the suite to 154/154 green.
+
+---
+
+## Bug fixes landed since the last rewrite
+
+- **#59, retry resent the assistant's own message.** `process_response` persists the reply as a
+  `ChatMessage`, so the session's last row after an error was the answer being retried, and it
+  went back to the provider. `generate_chat_message` now cuts the history after the last user
+  message. See `DECISIONS.md`, "Provider history ends at the last user message".
 
 ---
 

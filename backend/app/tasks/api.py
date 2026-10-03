@@ -64,6 +64,24 @@ def _generate_kp_job(positions: list[Position]) -> bytes:
     return process_calculation({"positions": [p.model_dump() for p in positions]}, template_sheet)
 
 
+def _history_up_to_last_user_message(rows: list[ChatMessage]) -> list[ChatMessage]:
+    """Cut the stored history right after the last user message.
+
+    A generation request has to end with something the user said, otherwise the
+    model has nothing to answer. When a turn is retried the assistant's own
+    previous answer is still the last row of the table, and passing it back makes
+    the provider continue that message instead of replying to the user.
+
+    Assistant turns before the last user message are kept on purpose: the harness
+    prompt tells the model what to do with the offers it already produced
+    (`gen_kp`), so its own history is context it needs.
+    """
+    for index in range(len(rows) - 1, -1, -1):
+        if rows[index].role == UserRole.USER:
+            return rows[: index + 1]
+    return []
+
+
 @broker.task(queue_name="default", schedule=[{"interval": timedelta(hours=1)}])
 async def cleanup_old_results():
     log.info("old_results_cleanup_start")
@@ -97,7 +115,8 @@ async def generate_chat_message(session: uuid.UUID):
             messages_data = await db.scalars(
                 select(ChatMessage).where(ChatMessage.chat_session_id == session).order_by(ChatMessage.id)
             )
-            messages = [Message.from_chat_message(msg) for msg in messages_data]
+            rows = list(messages_data)
+            messages = [Message.from_chat_message(msg) for msg in _history_up_to_last_user_message(rows)]
             if not messages:
                 log.error("no_messages_for_session", session=session)
                 await _add_error_result(db, session, "Invalid message session: no messages to send", user.uuid)

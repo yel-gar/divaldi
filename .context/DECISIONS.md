@@ -119,6 +119,28 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   decline off-topic conversation. The defence is therefore a soft model-level control, not
   a parser-level one, and should not be described as a security boundary.
 
+## Provider history ends at the last user message
+
+- **`generate_chat_message` cuts the stored `ChatMessage` history right after the last
+  `UserRole.USER` row** (`_history_up_to_last_user_message`) before building the
+  `list[Message]` it hands to the provider. Added 2026-10-03 for issue #59.
+- **Why:** `process_response` persists the assistant's reply as a `ChatMessage` with
+  `role=ASSISTANT`, so after an error that row is still the last one in the session. A
+  completion request must end with something the user said; ending on the model's own
+  previous answer makes the provider continue that message instead of replying. Issue #59
+  reported exactly this on retry.
+- **The trim lives in the worker, not in `retry_send`,** because both `send_message` and
+  `retry_send` enqueue the same `generate_chat_message` task with the same session id and the
+  task has no way to know which route triggered it. A fix in the route would leave the worker
+  still able to send a trailing assistant turn.
+- **Assistant turns before the last user message are kept.** The harness prompt tells the
+  model what to do with offers it already produced (`gen_kp` should be `false` unless the user
+  asked for a recalculation), so the model's own earlier output is context it needs. Trimming
+  the whole history would break that contract, so only the trailing turns go.
+- **A history with no user message is an error**, reported through the existing
+  `Invalid message session: no messages to send` result. It used to be sent to the provider
+  as-is.
+
 ## Commercial offer generation
 
 - **`processing.calculator.calc.process_calculation` fills a template instead of building a
