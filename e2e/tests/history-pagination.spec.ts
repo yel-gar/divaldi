@@ -22,8 +22,22 @@ import { expect, login, test } from "./helpers";
 const PAGE_SIZE = 20;
 const REPO_ROOT = process.env.E2E_REPO_ROOT ?? `${process.cwd()}/..`;
 
+// Must match the project `setup.sh` used. Compose prefixes named volumes with
+// the project name, so the wrong value here would seed the developer's database
+// instead of the throwaway e2e one.
+const E2E_PROJECT = process.env.E2E_PROJECT ?? "divaldi-e2e";
+
 /** Insert `count` sessions with one user message each, owned by `username`. */
 function seedChats(username: string, count: number): void {
+  // Fail loudly rather than write to the wrong database. Compose prefixes
+  // volumes with the project name, so a mismatch means the dev stack.
+  if (!E2E_PROJECT || E2E_PROJECT === "divaldi") {
+    throw new Error(
+      `Refusing to seed: E2E_PROJECT is "${E2E_PROJECT}", which is the development project. ` +
+        "The e2e suite must run under its own project name or it writes into the dev database.",
+    );
+  }
+
   const sql = `
     DO $$
     DECLARE
@@ -51,6 +65,14 @@ function seedChats(username: string, count: number): void {
     "docker",
     [
       "compose",
+      "-p",
+      E2E_PROJECT,
+      // Match setup.sh: name the override explicitly rather than relying on the
+      // developer's docker-compose.override.yml being the right one.
+      "-f",
+      "docker-compose.yaml",
+      "-f",
+      "docker-compose.override.yml.e2e",
       "exec",
       "-T",
       "db",

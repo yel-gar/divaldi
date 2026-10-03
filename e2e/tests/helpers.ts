@@ -20,11 +20,28 @@ const REPO_ROOT = process.env.E2E_REPO_ROOT ?? `${process.cwd()}/..`;
  * rather than a workaround.
  */
 function clearRateLimits(): void {
+  // Must match the project and files `setup.sh` used. Compose resolves named
+  // volumes, and the default project's Redis is the *developer's*: clearing that
+  // one leaves the e2e counters untouched, so the suite trips its own limiter
+  // and the create page never navigates.
+  const project = process.env.E2E_PROJECT ?? "divaldi-e2e";
+  if (!project || project === "divaldi") {
+    throw new Error(
+      `Refusing to run: E2E_PROJECT is "${project}", which is the development project. ` +
+        "The e2e suite must run under its own project name or it shares the developer's volumes.",
+    );
+  }
   try {
     execFileSync(
       "docker",
       [
         "compose",
+        "-p",
+        project,
+        "-f",
+        "docker-compose.yaml",
+        "-f",
+        "docker-compose.override.yml.e2e",
         "exec",
         "-T",
         "redis",

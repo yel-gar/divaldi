@@ -372,8 +372,13 @@ cd e2e && npx playwright test --ui
 | Seed + stack | `e2e/scripts/setup.sh` (creates the `e2e` superuser, clears rate limits) |
 | CI | `.github/workflows/e2e.yml` |
 
-`setup.sh` copies the override to the gitignored `docker-compose.override.yml`; copy
-`docker-compose.override.yml.bak` back if you had a development override in place.
+**The e2e stack runs under its own Compose project, `divaldi-e2e`,** and names its
+override with `-f` rather than copying it over `docker-compose.override.yml`. Both are
+load-bearing, see [`.context/LESSONS.md`](.context/LESSONS.md). In short: Compose prefixes
+named volumes with the project name, so sharing the project name would put the suite's
+seeded users and chats into the developer's own database; and copying the override meant a
+later `docker compose` command in the repo silently recreated the developer's containers
+with the e2e ports.
 
 Two constraints worth knowing before adding a spec:
 

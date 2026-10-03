@@ -18,10 +18,31 @@ walks the router, the worker, the spreadsheet calculator and a real S3 round tri
 cd e2e && npx playwright test --ui
 ```
 
-`setup.sh` copies `docker-compose.override.yml.e2e` to the gitignored
-`docker-compose.override.yml` and backs up whatever was there. The stack comes up on
-port **18080** so it never collides with a running dev stack. Override with
-`E2E_BASE_URL`.
+The stack comes up on port **18080** so it never collides with a running dev stack. Override
+with `E2E_BASE_URL`.
+
+## Isolation: the project name is load-bearing
+
+`setup.sh` runs `docker compose -p divaldi-e2e -f docker-compose.yaml -f
+docker-compose.override.yml.e2e`. Neither half is cosmetic:
+
+- **The project name isolates the volumes.** Compose prefixes named volumes with it, so
+  the default project name resolves to `divaldi_postgres_data` — the developer's own
+  database. Before this was fixed the suite had written 13 users and 278 seeded chat
+  sessions into it. Volume names cannot be overridden per service, so the project name is
+  the only lever.
+- **Naming the override with `-f` leaves the developer's `docker-compose.override.yml`
+  alone.** It used to be copied over that file, which meant any later `docker compose`
+  command in the repo picked up the e2e ports and recreated the developer's containers
+  with them. The dev frontend ended up holding both 8080 and 18080.
+
+Anything that shells out to Docker — `clearRateLimits` in `helpers.ts`, the SQL seeder in
+`history-pagination.spec.ts` — must repeat both `-p` and the two `-f` flags, or it silently
+operates on the dev stack. Both throw if `E2E_PROJECT` is `divaldi` or empty.
+
+The frontend port in `docker-compose.override.yml.e2e` uses `ports: !override`, not a plain
+list. Compose **merges** a service's ports across files, so a plain list leaves the base
+file's 8080 binding in place and the container cannot start whenever a dev stack holds it.
 
 ## The two rules that will break your test
 

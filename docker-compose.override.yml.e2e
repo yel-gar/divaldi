@@ -1,6 +1,10 @@
 services:
   frontend:
-    ports:
+    # `!override`, not a plain list. Compose MERGES a service's ports across files,
+    # so a plain list here leaves the base file's 8080 binding in place and the
+    # container fails to start whenever a dev stack already holds 8080. The tag
+    # replaces the list instead of extending it.
+    ports: !override
       # A distinct port so an e2e run never collides with a development stack.
       - "${E2E_FRONTEND_PORT:-18080}:80"
     build:

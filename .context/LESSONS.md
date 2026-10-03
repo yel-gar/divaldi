@@ -498,3 +498,29 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   attachments if the client passed it through; `redis.commands.core.mget` substitutes an
   `EMPTY_RESPONSE` option and answers `[]` locally. Convenient, but it is a client detail, so
   a route that relied on it is one redis-py rewrite away from a 500.
+
+- **A Compose override cannot isolate volumes; only the project name can.** Compose prefixes
+  named volumes with the project name, and volume names are not overridable per service. The
+  e2e suite therefore ran against the *developer's* `divaldi_postgres_data` and had written
+  13 users and 278 seeded chat sessions into it. Fixed with `-p divaldi-e2e`. Anything that
+  shells out to Docker from a test must repeat that `-p`, or it silently targets the dev
+  stack — which is exactly how `clearRateLimits` ended up clearing the developer's Redis
+  while the e2e counters went uncleared and the suite tripped its own rate limiter.
+
+- **Compose MERGES a service's `ports` across files; it does not replace them.** A plain
+  list in an override leaves the base file's binding in place, so `docker-compose.override
+  .yml.e2e` requesting 18080 still tried to bind the base file's 8080 and the container
+  refused to start whenever a dev stack held it. Use the `!override` tag when you mean to
+  replace. `ports: !reset []` is the same idea for clearing.
+
+- **Copying an override over `docker-compose.override.yml` corrupts unrelated stacks.** The
+  e2e setup used to `cp` the e2e override into place, so a later `docker compose` command in
+  the repo — a developer's — inherited the e2e ports and recreated their containers with
+  them. The dev frontend ended up publishing both 8080 and 18080. Name the file with `-f`
+  instead of copying it.
+
+- **A container left in a failed port-bind can come up with no network attached.** After a
+  bind collision, `divaldi-e2e-frontend-1` was stuck `restarting` with an empty
+  `NetworkSettings.Networks` map, and nginx reported `host not found in upstream "backend"`
+  even though the backend container was healthy and correctly aliased. `--force-recreate`
+  fixed it; a plain restart would not have.

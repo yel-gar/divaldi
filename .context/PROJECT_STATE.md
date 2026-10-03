@@ -89,6 +89,7 @@ Fixed by `src/test-setup.ts`, registered through the builder's `setupFiles` opti
 | Workflow | Runs |
 |---|---|
 | `e2e.yml` | Playwright against the Compose stack, `SBER_API_KEY=mock` (23 tests) |
+| Isolation | e2e runs under Compose project `divaldi-e2e`, so its volumes are `divaldi-e2e_*` and never the developer's |
 | `processing-coverage.yml` | processing `pytest --cov`, enforces `fail_under` |
 | `backend-ci.yml` | black, ruff, pytest (Python 3.14) |
 | `backend-coverage.yml` | pytest with coverage, uploads `coverage.json` (reporting only) |
