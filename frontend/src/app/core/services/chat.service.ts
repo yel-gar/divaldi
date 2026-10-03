@@ -1,17 +1,22 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   ChatAttachmentStatus,
   ChatAttachmentUrl,
   ChatCreated,
+  ChatListQuery,
   ChatMessageApi,
   ChatResult,
   ChatUploadParams,
   MessageResponse,
+  PaginatedResponse,
   UserChat
 } from '../models/models';
+
+/** Page size the chat list is requested with unless a caller asks for another. */
+export const CHATS_PAGE_SIZE = 20;
 
 @Injectable({
   providedIn: 'root'
@@ -26,8 +31,14 @@ export class ChatService {
     return this.http.post<ChatCreated>(`${this.baseUrl}/`, {}).pipe(tap(() => this.bumpHistory()));
   }
 
-  list(): Observable<UserChat[]> {
-    return this.http.get<UserChat[]>(`${this.baseUrl}/`);
+  list(query: ChatListQuery = {}): Observable<PaginatedResponse<UserChat>> {
+    const params = new HttpParams()
+      .set('page', query.page ?? 0)
+      .set('items_per_page', query.itemsPerPage ?? CHATS_PAGE_SIZE)
+      .set('sort', query.sort ?? 'date')
+      .set('order', query.order ?? 'desc');
+
+    return this.http.get<PaginatedResponse<UserChat>>(`${this.baseUrl}/`, { params });
   }
 
   messages(sessionId: string): Observable<ChatMessageApi[]> {

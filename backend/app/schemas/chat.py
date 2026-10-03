@@ -38,6 +38,19 @@ class UserChatSchema(BaseModel):
     name: str = Field(description="Chat title, may be auto-generated and updated as the conversation progresses")
 
 
+class UserChatPageSchema(BaseModel):
+    """One page of the session list, as returned by `GET /chats/`.
+
+    `items` holds at most `items_per_page` entries; `total` counts every matching
+    session, so a client can render page numbers without walking the rest.
+    """
+
+    items: list[UserChatSchema]
+    total: int = Field(description="Number of matching sessions across all pages")
+    page: int = Field(ge=0, description="Zero-based index of this page")
+    items_per_page: int = Field(ge=1, description="Page size that was applied")
+
+
 class ResultSchemaContent(BaseModel):
     """The latest generation outcome for a chat session: a completed assistant message or an error."""
 

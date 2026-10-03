@@ -451,3 +451,18 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   carrying `"filename": "dr\0awing.pdf"` used to get past every check in `upload_file` and blow
   up in the commit. `str.isprintable()` is False for NUL and for every other control character, so
   one call covers the whole class.
+- **`HttpTestingController.expectOne(url)` matches the full URL including the query
+  string.** Passing `` `${apiUrl}/chats/` `` to a request that now carries `?page=0&...`
+  fails to match with an unhelpful "Expected no open requests", and the error names the
+  URL it did find. Match with a predicate on `r.url` plus `r.params.get(...)`, and prefer
+  that when the params are the thing under test.
+- **Client-side sorting does not survive pagination.** The history page sorted the whole
+  array in a `computed()`, which is exactly what stops being possible once the server
+  returns one page: page 2 under one order has nothing to do with page 2 under another.
+  The same trap applies to any list that gains paging later, so "sort in the browser" in
+  this codebase is a decision with an expiry date.
+- **A loading flag that hides the table makes paging look like a crash.** With
+  `@if (loading())` around the whole list, clicking "next page" replaced the rows with a
+  skeleton and any assertion on the pager failed because the pager was gone. Gating the
+  skeleton on `loading() && sessions().length === 0` keeps the current page on screen
+  while the next one is in flight, which is also what the user expects.

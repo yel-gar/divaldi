@@ -10,17 +10,9 @@ import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { LucideChevronRight, LucideChevronsUpDown } from '@lucide/angular';
-import { ChatService } from '../../core/services/chat.service';
-import { UserChat } from '../../core/models/models';
+import { CHATS_PAGE_SIZE, ChatService } from '../../core/services/chat.service';
+import { ChatSortKey, SortOrder, UserChat } from '../../core/models/models';
 import { SkeletonHistoryTableComponent } from '../../shared/components/skeleton/skeleton-history-table/skeleton-history-table.component';
-
-type SortColumn = 'number' | 'date';
-type SortDirection = 'asc' | 'desc';
-
-function timestampMs(value: string): number {
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
 
 @Component({
   selector: 'app-history-page',
@@ -34,44 +26,88 @@ export class HistoryPage {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
+  readonly itemsPerPage = CHATS_PAGE_SIZE;
   readonly loading = signal(true);
   readonly sessions = signal<UserChat[]>([]);
-  readonly sortColumn = signal<SortColumn>('date');
-  readonly sortDirection = signal<SortDirection>('desc');
+  readonly total = signal(0);
+  readonly page = signal(0);
+  readonly sortColumn = signal<ChatSortKey>('date');
+  readonly sortDirection = signal<SortOrder>('desc');
 
-  readonly sortedSessions = computed(() => {
-    const chats = [...this.sessions()];
-    const direction = this.sortDirection() === 'asc' ? 1 : -1;
-    if (this.sortColumn() === 'date') {
-      return chats.sort(
-        (a, b) =>
-          direction *
-          (timestampMs(a.last_message.timestamp) - timestampMs(b.last_message.timestamp))
-      );
-    }
-    return chats.sort((a, b) => direction * a.session_id.localeCompare(b.session_id));
-  });
+  private lastRequestId = 0;
+
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.itemsPerPage)));
+  readonly canGoBack = computed(() => this.page() > 0);
+  readonly canGoForward = computed(() => this.page() + 1 < this.totalPages());
 
   constructor() {
+    this.loadPage();
+  }
+
+  private loadPage(): void {
+    // Two clicks in quick succession produce two in-flight requests, and the slower one
+    // must not overwrite the page the faster one already rendered.
+    const requestId = ++this.lastRequestId;
+    this.loading.set(true);
     this.chatService
-      .list()
+      .list({
+        page: this.page(),
+        itemsPerPage: this.itemsPerPage,
+        sort: this.sortColumn(),
+        order: this.sortDirection()
+      })
       .pipe(
-        finalize(() => this.loading.set(false)),
+        finalize(() => {
+          if (requestId === this.lastRequestId) {
+            this.loading.set(false);
+          }
+        }),
         takeUntilDestroyed(this.destroyRef)
       )
-      .subscribe((chats) => this.sessions.set(chats));
+      .subscribe({
+        next: (response) => {
+          if (requestId !== this.lastRequestId) {
+            return;
+          }
+          this.sessions.set(response.items);
+          this.total.set(response.total);
+          // Taken from the response rather than assumed, so a failed request cannot leave
+          // the pager claiming a page it never loaded.
+          this.page.set(response.page);
+        },
+        error: () => {
+          if (requestId !== this.lastRequestId) {
+            return;
+          }
+          this.sessions.set([]);
+          this.total.set(0);
+          this.page.set(0);
+        }
+      });
   }
 
-  toggleSort(column: SortColumn): void {
-    if (this.sortColumn() === column) {
-      this.sortDirection.update((direction) => (direction === 'asc' ? 'desc' : 'asc'));
-      return;
-    }
+  toggleSort(column: ChatSortKey): void {
+    const nextDirection: SortOrder =
+      this.sortColumn() === column && this.sortDirection() === 'asc' ? 'desc' : 'asc';
     this.sortColumn.set(column);
-    this.sortDirection.set(column === 'date' ? 'desc' : 'asc');
+    this.sortDirection.set(nextDirection);
+    // Sorting is a server-side query, so a new order means a new request from page one:
+    // page 2 of the old order has nothing to do with page 2 of the new one.
+    this.page.set(0);
+    this.loadPage();
   }
 
-  ariaSortFor(column: SortColumn): 'ascending' | 'descending' | 'none' {
+  previousPage(): void {
+    this.page.update((page) => page - 1);
+    this.loadPage();
+  }
+
+  nextPage(): void {
+    this.page.update((page) => page + 1);
+    this.loadPage();
+  }
+
+  ariaSortFor(column: ChatSortKey): 'ascending' | 'descending' | 'none' {
     if (this.sortColumn() !== column) {
       return 'none';
     }

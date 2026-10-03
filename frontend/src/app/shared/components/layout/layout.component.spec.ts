@@ -37,7 +37,9 @@ describe('Layout', () => {
   const createLayout = async (): Promise<void> => {
     fixture = TestBed.createComponent(TestHost);
     fixture.detectChanges();
-    http.expectOne(HISTORY_URL).flush([]);
+    http
+      .expectOne((r) => r.url === HISTORY_URL && r.method === 'GET')
+      .flush({ items: [], total: 0, page: 0, items_per_page: 10 });
     fixture.detectChanges();
   };
 

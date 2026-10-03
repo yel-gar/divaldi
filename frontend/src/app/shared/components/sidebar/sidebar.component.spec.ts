@@ -11,6 +11,24 @@ import { environment } from '../../../../environments/environment';
 
 const HISTORY_URL = `${environment.apiUrl}/chats/`;
 
+/** The sidebar only needs the most recent page, so it asks for a small one. */
+const HISTORY_PREVIEW_ITEMS = 10;
+
+const historyRequest = (http: HttpTestingController) =>
+  http.expectOne(
+    (r) =>
+      r.url === HISTORY_URL &&
+      r.method === 'GET' &&
+      r.params.get('items_per_page') === String(HISTORY_PREVIEW_ITEMS)
+  );
+
+const page = (items: unknown[], total = items.length) => ({
+  items,
+  total,
+  page: 0,
+  items_per_page: HISTORY_PREVIEW_ITEMS
+});
+
 @Component({
   selector: 'app-sidebar-test-host',
   imports: [Sidebar],
@@ -46,7 +64,7 @@ describe('Sidebar accessibility', () => {
     router = TestBed.inject(Router);
     http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
-    http.expectOne(HISTORY_URL).flush([]);
+    historyRequest(http).flush(page([]));
   });
 
   afterEach(() => {
@@ -130,7 +148,7 @@ describe('Sidebar tab navigation', () => {
     router = TestBed.inject(Router);
     http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
-    http.expectOne(HISTORY_URL).flush([]);
+    historyRequest(http).flush(page([]));
   });
 
   afterEach(() => {
@@ -183,13 +201,15 @@ describe('Sidebar history section', () => {
   const historyItems = () => fixture.debugElement.queryAll(By.css('.history__item'));
   const historySection = () => fixture.debugElement.query(By.css('.history'));
 
-  const createWithSessions = (response: object | null, status = 200): void => {
+  const createWithSessions = (items: object[] | null, status = 200): void => {
     fixture = TestBed.createComponent(TestHost);
     router = TestBed.inject(Router);
     fixture.detectChanges();
-    http
-      .expectOne(HISTORY_URL)
-      .flush(response, { status, statusText: status === 200 ? 'OK' : 'Server Error' });
+    const body = items === null ? null : page(items);
+    historyRequest(http).flush(body, {
+      status,
+      statusText: status === 200 ? 'OK' : 'Server Error'
+    });
     fixture.detectChanges();
   };
 
@@ -258,6 +278,6 @@ describe('Sidebar history section', () => {
     fixture.detectChanges();
 
     expect(historySection()).toBeNull();
-    http.expectNone(HISTORY_URL);
+    http.expectNone((r) => r.url === HISTORY_URL && r.method === 'GET');
   });
 });

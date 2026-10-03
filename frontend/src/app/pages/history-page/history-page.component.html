@@ -3,7 +3,7 @@
     <h1 class="h2">История заявок</h1>
     <p class="h4">Просматривайте статус и детали всех ваших заявок</p>
   </header>
-  @if (loading()) {
+  @if (loading() && sessions().length === 0) {
     <div class="history-state">
       <app-skeleton-history-table [rows]="3" />
     </div>
@@ -35,7 +35,7 @@
           </tr>
         </thead>
         <tbody>
-          @for (chat of sortedSessions(); track chat.session_id) {
+          @for (chat of sessions(); track chat.session_id) {
             <tr (click)="open(chat.session_id)">
               <td>{{ shortId(chat.session_id) }}</td>
               <td>{{ formatDate(chat.last_message.timestamp) }}</td>
@@ -57,5 +57,26 @@
         </tbody>
       </table>
     </div>
+    @if (total() > itemsPerPage) {
+      <nav class="pagination" aria-label="Постраничная навигация по истории заявок">
+        <button
+          type="button"
+          class="pagination__button"
+          [disabled]="!canGoBack()"
+          (click)="previousPage()"
+        >
+          Назад
+        </button>
+        <span class="pagination__status h4">Страница {{ page() + 1 }} из {{ totalPages() }}</span>
+        <button
+          type="button"
+          class="pagination__button"
+          [disabled]="!canGoForward()"
+          (click)="nextPage()"
+        >
+          Вперёд
+        </button>
+      </nav>
+    }
   }
 </section>
