@@ -30,15 +30,36 @@ git worktree add /tmp/divaldi-wt/issue-59 -b issue/59-fix-retry-history feat/ai-
 git worktree add /tmp/divaldi-wt/issue-46 -b issue/46-filename-filter feat/ai-refactor
 ```
 
+Then, per worktree, before any suite will run:
+
+```bash
+cd /tmp/divaldi-wt/issue-59
+pyenv local 3.14                                          # .python-version is gitignored
+poetry -C backend install --with dev --no-root
+npm --prefix frontend install                             # only if the frontend is touched
+mkdir -p .opencode/agents && cp <repo>/.opencode/agents/reviewer.md .opencode/agents/
+cp <repo>/.env .env                                      # only if Compose is started
+```
+
+Every one of those exists because the file it prepares is **gitignored** and therefore
+invisible to `git worktree`. See the traps below.
+
 ## Working inside a worktree
 
 Agents must `cd` into the worktree and stay there. Two traps:
 
 - **Python resolution.** `poetry -C backend` and the venv paths are relative to the CWD, so run
   every gate from inside the worktree. A test run from the main checkout tests the wrong code.
+- **`.python-version` is gitignored, so a new worktree has none.** pyenv then falls back to
+  whatever is globally selected, which on this machine is 3.13 — and Poetry will happily build a
+  venv on the wrong interpreter. Set it per worktree with `pyenv local 3.14`. The file is
+  ignored, so this is per-worktree setup and not something a commit can fix.
 - **Stale dependencies.** A fresh worktree has no `node_modules` and no installed venv. Run
-  `poetry -C backend install` and `npm --prefix frontend install` once per worktree before the
-  suites, or the run will fail in a way that looks like a code error.
+  `poetry -C backend install --with dev --no-root` and `npm --prefix frontend install` once per
+  worktree before the suites. The `--no-root` matters: the backend is consumed as a path
+  dependency by the compose build, so Poetry refuses to install it as a package and aborts
+  without it. Skipping this fails as `ModuleNotFoundError: No module named 'pytest_asyncio'`,
+  which reads like a code error rather than a setup gap.
 
 ## Reviewing against the integration branch
 
