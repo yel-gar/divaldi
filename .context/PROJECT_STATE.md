@@ -227,3 +227,27 @@ Ordered by value, not by commitment:
   one small project's Docker Hub namespace; MinIO died the same way. Mirroring the image into
   an organisation-controlled registry and pinning it by digest would make an upstream deletion
   a non-event. Not done: it needs write access to a registry this project does not own yet.
+
+---
+
+## In flight: issue #47, attachment listing and deletion (branch `issue/47`)
+
+Appended rather than folded into the sections above, because several branches are being
+merged in parallel and this file is normally rewritten in place.
+
+- `GET /chats/{session_id}/attachments` lists every attachment row of a session with its
+  Redis upload status, `ready` flag and `chat_message_id`, so a client can show the files a
+  session is currently holding rather than only the ones a message references.
+- `DELETE /chats/{session_id}/attachments/{attachment_id}` removes the row, the stored
+  object, the per-page artifacts of a PDF, and the cached status, URL, ownership and PDF-sync
+  keys. Best effort on storage: an object that already expired does not keep the row.
+- Frontend: `ChatService.attachments` / `deleteAttachment`, an `onAttachmentId` callback on
+  the upload observable, a real delete behind the trash button in the uploader list, and a
+  "Загруженные файлы" section in the results panel with a per-file status label plus preview,
+  download and delete. No new component, so no new file for the coverage gate to count at 0%.
+- 12 backend tests and 16 frontend tests added; backend is 345 tests at **98.83%**, frontend
+  is 321 tests at **90.43%** statements, 85.06% branches, 90.64% functions.
+- **Not fixed, reported instead:** `cleanup_orphan_attachments` in `app/tasks/files.py`
+  iterates an already exhausted `ScalarResult`, so it logs `count=0` and never deletes an S3
+  object. Rows are still deleted; the objects fall to the 7-day lifecycle rule. See
+  `LESSONS.md`.

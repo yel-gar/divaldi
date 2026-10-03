@@ -543,3 +543,47 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   extension — the Content-Type on the stored object is what selects the processor — so the
   pairing would add a rule with no consumer behind it. Deliberately left out; revisit if a
   consumer ever starts trusting the suffix.
+
+## Attachment listing and deletion (2026-10-03, issue #47)
+
+- **One listing endpoint reports upload state; no new state is invented.** `GET
+  /chats/{id}/attachments` returns every `Attachment` row of the session, with the Redis
+  `attachment:{id}:status` value in `status`. The statuses `upload_file`,
+  `pdf_upload_cleanup` and `_redis_error` already write (`uploading`, `processing`,
+  `completed`, `error`) are the whole vocabulary; a second, parallel notion of "what is
+  uploading" would have to be kept in step with the workers for no gain.
+- **`status` and `ready` are both in the response because they expire independently.** The
+  Redis key has a 600 s TTL while the row does not, so a file can be uploaded, complete and
+  still read as `unknown` later. `status` answers "what is happening now", `ready` answers
+  "may this be sent", and the client falls back to `ready` when the status is unknown.
+  An unrecognised Redis value maps to `unknown` instead of reaching the response schema,
+  which would raise on a `Literal` it does not expect and turn a cache oddity into a 500.
+- **The listing is not filtered to unattached files.** `chat_message_id` is returned instead,
+  so one request can drive a whole file view; the frontend filters. Server-side filtering
+  would make the endpoint useless for showing what a session holds.
+- **Deleting clears the ownership cache entry, which is what makes a repeat delete fail.**
+  `verify_attachment_id` caches `attachment:ownership:{session}:{id}` for 10 minutes, so
+  deleting the row alone would leave the dependency answering for an id that no longer
+  exists, and `GET .../attachments/{id}` would serve a presigned URL for a deleted file. The
+  handler therefore drops the status, URL, ownership and PDF-sync keys together with the row.
+- **Storage deletion is best-effort and never blocks the row deletion.** `_s3_try_delete`
+  from `app.tasks.files` logs and swallows a failure, which is what a delete wants: an object
+  that already expired must not leave the row behind. The 7-day lifecycle rule on the
+  `attachments/` prefix is the backstop for anything the best-effort path misses.
+- **The delete removes the PDF page artifacts too.** A PDF attachment owns
+  `ProcessingResultUploadable` rows, one per rasterised page, each pointing at its own object
+  under `artifacts/pdf/`. Deleting only `attachment.s3_key` would leave one object per page.
+- **The delete reuses `_s3_try_delete` across modules rather than growing a second copy.**
+  `app.routes.chat` imports it from `app.tasks.files` alongside `process_attachment`. The
+  underscore says "not part of that module's API", which is true and is the trade being made:
+  duplicating the helper would let the two drift on what a delete does about a failure.
+- **Deleting the generated offer also drops the generation result, and that is intended.**
+  `Attachment.generation_result` carries `cascade="all"`, so deleting the attachment the agent
+  produced takes the `GenerationResult` row with it. The alternative is a result that survives
+  and points at a file the download route answers 404 for. `GET /chats/{id}/result` then reports
+  `result: null`, which the frontend already handles.
+- **Known limitation: deleting an attachment mid-processing races the worker.** A worker that
+  already read the row can still write a status key for the deleted id. Nothing serves it,
+  because the ownership entry is gone and `verify_attachment_id` refuses the id, and the key
+  expires with its TTL. Making it airtight would mean a tombstone the workers consult; not
+  worth it for a file the user has just removed.

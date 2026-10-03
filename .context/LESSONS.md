@@ -451,3 +451,22 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   carrying `"filename": "dr\0awing.pdf"` used to get past every check in `upload_file` and blow
   up in the commit. `str.isprintable()` is False for NUL and for every other control character, so
   one call covers the whole class.
+
+- **`ScalarResult.all()` exhausts the result; a second iteration silently yields nothing.**
+  `cleanup_orphan_attachments` in `app/tasks/files.py` calls `orphans.all()` for the count and
+  then iterates `orphans` again to build the S3 delete tasks, so it always logs `count=0` and
+  never deletes an object. The bulk `delete(Attachment)` after it is a separate statement and
+  does still run, so rows disappear and the S3 objects are left to the lifecycle rules. Not
+  fixed here (issue #47 does not own it); collect into a list once instead of iterating twice.
+- **`Literal` in a response schema turns a stale cache value into a 500.** `list_attachments`
+  maps any Redis status it does not recognise to `unknown` rather than handing it to
+  `ChatSessionAttachmentSchema`, because a 500 for a cosmetic label is the wrong trade.
+- **A frontend "delete" that only forgets locally is a data leak.** `DragNDropComponent.removeItem`
+  dropped the row from its signal and nothing else, so the file stayed on the session and was
+  attached to the next message. The upload observable now reports the attachment id as soon as
+  the backend registers the file, which is what makes the delete reachable at all.
+- **`redis.mget([])` never reaches the server, and that is redis-py, not Redis.** `MGET` with
+  no keys is a protocol error, so `list_attachments` would have 500ed on a session with no
+  attachments if the client passed it through; `redis.commands.core.mget` substitutes an
+  `EMPTY_RESPONSE` option and answers `[]` locally. Convenient, but it is a client detail, so
+  a route that relied on it is one redis-py rewrite away from a 500.

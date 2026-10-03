@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
+import { By } from '@angular/platform-browser';
 import { vi } from 'vitest';
 
 import { CalculationChatComponent } from './calculation-chat.component';
@@ -14,6 +15,7 @@ const SESSION_ID = 'd0a3f1e2-0000-4000-8000-123456789abc';
 const HISTORY_URL = `${environment.apiUrl}/chats/${SESSION_ID}`;
 const RESULT_URL = `${environment.apiUrl}/chats/${SESSION_ID}/result`;
 const SEND_URL = `${environment.apiUrl}/chats/${SESSION_ID}`;
+const ATTACHMENTS_URL = `${environment.apiUrl}/chats/${SESSION_ID}/attachments`;
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
@@ -403,6 +405,188 @@ describe('CalculationChat behaviour', () => {
     expect(fixture.nativeElement.classList.contains('results-open')).toBe(true);
     component.handleResultsOpen();
     expect(component.isResultsOpen()).toBe(false);
+  });
+
+  // --- files being uploaded -------------------------------------------------
+
+  it('loads the files still being uploaded when the results panel opens', () => {
+    openSession();
+
+    component.handleResultsOpen();
+    const req = http.expectOne(ATTACHMENTS_URL);
+    expect(req.request.method).toBe('GET');
+    req.flush([
+      {
+        id: 7,
+        filename: 'деталь.pdf',
+        status: 'uploading',
+        ready: false,
+        chat_message_id: null,
+        timestamp: '2026-09-12T12:18:35.689095Z'
+      },
+      {
+        id: 8,
+        filename: 'sent.dxf',
+        status: 'completed',
+        ready: true,
+        chat_message_id: 1,
+        timestamp: '2026-09-12T12:18:36.689095Z'
+      }
+    ]);
+    fixture.detectChanges();
+
+    // Only the staged file belongs in this list; the other is already in the log.
+    expect(component.pendingAttachments().map((a) => a.filename)).toEqual(['деталь.pdf']);
+    expect(component.attachmentStatusLabel(component.pendingAttachments()[0])).toBe('Загружается');
+    expect(fixture.nativeElement.textContent).toContain('Загруженные файлы');
+    const pendingRows = fixture.debugElement.queryAll(By.css('.calculation-results__file'));
+    expect(pendingRows.length).toBe(1);
+    expect(pendingRows[0].nativeElement.textContent).toContain('деталь.pdf');
+  });
+
+  it('previews and downloads a staged file through the same actions', () => {
+    openSession();
+    component.handleResultsOpen();
+    http.expectOne(ATTACHMENTS_URL).flush([
+      {
+        id: 7,
+        filename: 'деталь.pdf',
+        status: 'completed',
+        ready: true,
+        chat_message_id: null,
+        timestamp: '2026-09-12T12:18:35.689095Z'
+      }
+    ]);
+    fixture.detectChanges();
+    const fetchFile = vi.fn().mockReturnValue({
+      subscribe: (o: { next: (f: File) => void }) => o.next(new File(['x'], 'x'))
+    });
+    (
+      component as unknown as { attachmentDownload: { fetchFile: typeof fetchFile } }
+    ).attachmentDownload.fetchFile = fetchFile;
+
+    const row = fixture.debugElement.queryAll(By.css('.calculation-results__file'))[0];
+    row.query(By.css('[aria-label="Предпросмотр"]')).nativeElement.click();
+    row.query(By.css('[aria-label="Скачать"]')).nativeElement.click();
+
+    expect(fetchFile).toHaveBeenCalledTimes(2);
+    expect(fetchFile).toHaveBeenCalledWith(SESSION_ID, 7);
+  });
+
+  it('does not re-fetch when the results panel is closed again', () => {
+    openSession();
+
+    component.handleResultsOpen();
+    http.expectOne(ATTACHMENTS_URL).flush([]);
+    component.handleResultsOpen();
+
+    expect(http.match((r) => r.url === ATTACHMENTS_URL)).toEqual([]);
+  });
+
+  it('maps every upload state to a label', () => {
+    openSession();
+    const attachment = {
+      id: 1,
+      filename: 'a.pdf',
+      ready: false,
+      chat_message_id: null,
+      timestamp: '2026-09-12T12:18:35.689095Z'
+    };
+
+    expect(component.attachmentStatusLabel({ ...attachment, status: 'uploading' })).toBe(
+      'Загружается'
+    );
+    expect(component.attachmentStatusLabel({ ...attachment, status: 'processing' })).toBe(
+      'Обрабатывается'
+    );
+    expect(component.attachmentStatusLabel({ ...attachment, status: 'error' })).toBe('Ошибка');
+    expect(component.attachmentStatusLabel({ ...attachment, status: 'completed' })).toBe('Готово');
+    // The Redis status key has a TTL; `ready` is what survives it.
+    expect(component.attachmentStatusLabel({ ...attachment, status: 'unknown' })).toBe(
+      'Статус неизвестен'
+    );
+    expect(component.attachmentStatusLabel({ ...attachment, status: 'unknown', ready: true })).toBe(
+      'Готово'
+    );
+  });
+
+  it('deletes a staged file from the panel', () => {
+    openSession();
+    component.handleResultsOpen();
+    http.expectOne(ATTACHMENTS_URL).flush([
+      {
+        id: 7,
+        filename: 'деталь.pdf',
+        status: 'completed',
+        ready: true,
+        chat_message_id: null,
+        timestamp: '2026-09-12T12:18:35.689095Z'
+      }
+    ]);
+    fixture.detectChanges();
+
+    const button = fixture.debugElement.query(By.css('[aria-label="Удалить файл"]'));
+    button.nativeElement.click();
+    const req = http.expectOne(`${ATTACHMENTS_URL}/7`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush({ deleted: true });
+    fixture.detectChanges();
+
+    expect(component.pendingAttachments()).toEqual([]);
+    expect(notifications.success).toHaveBeenCalledWith('Файл «деталь.pdf» удалён');
+    expect(fixture.debugElement.query(By.css('[aria-label="Удалить файл"]'))).toBeNull();
+  });
+
+  it('keeps the row and reports a failed delete', () => {
+    openSession();
+    component.handleResultsOpen();
+    http.expectOne(ATTACHMENTS_URL).flush([
+      {
+        id: 7,
+        filename: 'деталь.pdf',
+        status: 'uploading',
+        ready: false,
+        chat_message_id: null,
+        timestamp: '2026-09-12T12:18:35.689095Z'
+      }
+    ]);
+    fixture.detectChanges();
+
+    fixture.debugElement.query(By.css('[aria-label="Удалить файл"]')).nativeElement.click();
+    http
+      .expectOne(`${ATTACHMENTS_URL}/7`)
+      .flush({ detail: 'nope' }, { status: 500, statusText: 'Server Error' });
+
+    expect(component.pendingAttachments().length).toBe(1);
+    expect(notifications.error).toHaveBeenCalledWith('Не удалось удалить файл: Ошибка сервера');
+  });
+
+  it('reloads the staged files once an upload batch finishes', () => {
+    openSession();
+
+    component.onUploadingChange(true);
+    expect(component.isUploading()).toBe(true);
+    expect(http.match((r) => r.url === ATTACHMENTS_URL)).toEqual([]);
+
+    component.onUploadingChange(false);
+    const req = http.expectOne(ATTACHMENTS_URL);
+    req.flush([]);
+    expect(component.isUploading()).toBe(false);
+    expect(component.pendingAttachments()).toEqual([]);
+  });
+
+  it('reports a failed request for the staged files', () => {
+    openSession();
+
+    component.handleResultsOpen();
+    http
+      .expectOne(ATTACHMENTS_URL)
+      .flush({ detail: 'nope' }, { status: 500, statusText: 'Server Error' });
+
+    expect(notifications.error).toHaveBeenCalledWith(
+      'Не удалось загрузить список файлов: Ошибка сервера'
+    );
+    expect(component.pendingAttachments()).toEqual([]);
   });
 
   it('reports a history 403 as a missing request', () => {

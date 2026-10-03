@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -48,6 +49,33 @@ class S3ChatUploadParams(BaseModel):
 
 class S3AttachmentStatusResponse(BaseModel):
     status: Literal["uploading", "processing", "completed", "error"]
+
+
+#: Same values as `S3AttachmentStatusResponse.status`, plus `unknown` for the case where the
+#: Redis status key has already expired while the attachment row still exists.
+ChatSessionAttachmentStatus = Literal["uploading", "processing", "completed", "error", "unknown"]
+
+
+class ChatSessionAttachmentSchema(BaseModel):
+    """
+    A file currently on a chat session, whether or not a message references it yet.
+
+    `status` is read from the Redis upload state and is therefore ephemeral; `ready`
+    is the durable database flag and survives the status key's TTL.
+    """
+
+    id: int
+    filename: str
+    status: ChatSessionAttachmentStatus
+    ready: bool = Field(description="True once processing finished, so the file may be sent in a message")
+    chat_message_id: int | None = Field(
+        description="Message the file belongs to, null while it is still staged for the next message"
+    )
+    timestamp: datetime
+
+
+class AttachmentDeletedResponse(BaseModel):
+    deleted: bool = Field(description="Always true: an attachment that is already gone answers 404")
 
 
 class S3AvatarUrlSchema(BaseModel):

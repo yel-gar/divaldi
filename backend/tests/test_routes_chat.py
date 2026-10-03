@@ -30,6 +30,7 @@ from app.cache import (
     get_creation_key,
     get_deletion_key,
     get_generation_key,
+    get_pdf_sync_key,
 )
 from app.harness import FILE_ADDED_DESCRIPTION
 from app.models.auth import User
@@ -103,6 +104,18 @@ async def set_timestamp(db_session: AsyncSession, row, when: datetime):
 
 async def count(db_session: AsyncSession, model) -> int:
     return (await db_session.execute(select(func.count()).select_from(model))).scalar_one()
+
+
+async def s3_object_missing(key: str) -> bool:
+    """Whether the object is gone from the ``uploads`` bucket."""
+    from app.storage import storage
+
+    async with storage.internal_client() as client:
+        try:
+            await client.head_object(Bucket="uploads", Key=key)
+        except Exception:
+            return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -677,6 +690,91 @@ async def test_upload_file_forbidden_for_other_user(
 
 
 # ---------------------------------------------------------------------------
+# GET /chats/{session_id}/attachments
+# ---------------------------------------------------------------------------
+
+
+async def test_list_attachments_empty(auth_client: AsyncClient, chat, redis_session: None):
+    response = await auth_client.get(f"/chats/{chat.session_id}/attachments")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+async def test_list_attachments_reports_uploads_and_message_links(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    redis_client,
+    chat,
+    other_chat,
+    factories,
+    redis_session: None,
+):
+    """Files still being uploaded are listed too, and only those have no message yet."""
+    message = await factories.message(chat.session_id, content="вопрос")
+    uploading = await factories.attachment(chat.session_id, name="uploading.pdf", ready=False)
+    sent = await factories.attachment(chat.session_id, name="sent.dxf", ready=True, chat_message_id=message.id)
+    await redis_client.set(get_attachment_status_key(uploading.id), "uploading", ex=600)
+    await redis_client.set(get_attachment_status_key(sent.id), "completed", ex=600)
+    # Neither another session of the same user nor another user's file may leak in.
+    sibling = await make_chat(db_session, chat.user_id)
+    await factories.attachment(sibling.session_id, name="sibling.pdf")
+    await factories.attachment(other_chat.session_id, name="stranger.pdf")
+
+    response = await auth_client.get(f"/chats/{chat.session_id}/attachments")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert [entry["id"] for entry in data] == [uploading.id, sent.id]
+    assert [entry["filename"] for entry in data] == ["uploading.pdf", "sent.dxf"]
+    assert [entry["status"] for entry in data] == ["uploading", "completed"]
+    assert [entry["ready"] for entry in data] == [False, True]
+    assert [entry["chat_message_id"] for entry in data] == [None, message.id]
+    assert all(entry["timestamp"] for entry in data)
+
+
+async def test_list_attachments_reports_unknown_after_status_expiry(
+    auth_client: AsyncClient, redis_client, chat, factories, redis_session: None
+):
+    """The status key has a TTL while the row does not, so the two expire independently."""
+    attachment = await factories.attachment(chat.session_id, name="expired.pdf", ready=True)
+
+    response = await auth_client.get(f"/chats/{chat.session_id}/attachments")
+
+    assert response.status_code == 200
+    entry = response.json()[0]
+    assert entry["id"] == attachment.id
+    assert entry["status"] == "unknown"
+    # The durable flag still answers what matters: the file may be sent.
+    assert entry["ready"] is True
+    assert await redis_client.get(get_attachment_status_key(attachment.id)) is None
+
+
+async def test_list_attachments_ignores_unrecognised_status(
+    auth_client: AsyncClient, redis_client, chat, factories, redis_session: None
+):
+    """An unexpected value in Redis must not fail the request."""
+    attachment = await factories.attachment(chat.session_id, name="odd.pdf")
+    await redis_client.set(get_attachment_status_key(attachment.id), "half-done", ex=600)
+
+    response = await auth_client.get(f"/chats/{chat.session_id}/attachments")
+
+    assert response.status_code == 200
+    assert response.json()[0]["status"] == "unknown"
+
+
+async def test_list_attachments_forbidden_for_other_user(
+    auth_client: AsyncClient, other_chat, factories, redis_session: None
+):
+    await factories.attachment(other_chat.session_id)
+
+    response = await auth_client.get(f"/chats/{other_chat.session_id}/attachments")
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Invalid session"
+
+
+# ---------------------------------------------------------------------------
 # GET /chats/{session_id}/attachments/{attachment_id}
 # ---------------------------------------------------------------------------
 
@@ -749,6 +847,140 @@ async def test_get_attachment_forbidden_for_other_user(
 
     assert response.status_code == 403
     assert response.json()["detail"] == "Invalid session"
+
+
+# ---------------------------------------------------------------------------
+# DELETE /chats/{session_id}/attachments/{attachment_id}
+# ---------------------------------------------------------------------------
+
+
+async def test_delete_attachment(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    redis_client,
+    chat,
+    factories,
+    redis_session: None,
+    s3: None,
+    s3_put,
+):
+    """The row, the stored file and the cached state all go away together."""
+    attachment = await factories.attachment(chat.session_id, name="drawing.pdf", s3_key="chat/delete.pdf")
+    db_session.add(ProcessingResult(attachment_id=attachment.id, output="100x50"))
+    db_session.add(
+        ProcessingResultUploadable(attachment_id=attachment.id, s3_key="artifacts/pdf/delete.png", sber_id="file-1")
+    )
+    await db_session.commit()
+    await s3_put(b"%PDF-1.4", attachment.s3_key)
+    await s3_put(b"\x89PNG", "artifacts/pdf/delete.png")
+    await redis_client.set(get_attachment_status_key(attachment.id), "completed", ex=600)
+    await redis_client.set(get_attachment_url_key(attachment.id), '{"url": "x"}', ex=3600)
+    await redis_client.set(get_pdf_sync_key(attachment.id), "3", ex=600)
+
+    response = await auth_client.delete(f"/chats/{chat.session_id}/attachments/{attachment.id}")
+
+    assert response.status_code == 200
+    assert response.json() == {"deleted": True}
+    assert await count(db_session, Attachment) == 0
+    # Cascades through the ORM relationships.
+    assert await count(db_session, ProcessingResult) == 0
+    assert await count(db_session, ProcessingResultUploadable) == 0
+    assert await s3_object_missing("chat/delete.pdf") is True
+    assert await s3_object_missing("artifacts/pdf/delete.png") is True
+    assert await redis_client.get(get_attachment_status_key(attachment.id)) is None
+    assert await redis_client.get(get_attachment_url_key(attachment.id)) is None
+    assert await redis_client.get(get_attachment_ownership_key(chat.session_id, attachment.id)) is None
+    # The counter an in-flight PDF page upload decrements.
+    assert await redis_client.get(get_pdf_sync_key(attachment.id)) is None
+
+
+async def test_delete_attachment_keeps_other_files(
+    auth_client: AsyncClient, db_session: AsyncSession, chat, factories, redis_session: None, s3: None, s3_put
+):
+    kept = await factories.attachment(chat.session_id, name="kept.pdf", s3_key="chat/kept.pdf")
+    dropped = await factories.attachment(chat.session_id, name="dropped.pdf", s3_key="chat/dropped.pdf")
+    await s3_put(b"%PDF-1.4", kept.s3_key)
+    await s3_put(b"%PDF-1.4", dropped.s3_key)
+
+    response = await auth_client.delete(f"/chats/{chat.session_id}/attachments/{dropped.id}")
+
+    assert response.status_code == 200
+    assert (await db_session.scalars(select(Attachment.name))).all() == ["kept.pdf"]
+    assert await s3_object_missing("chat/kept.pdf") is False
+    assert await s3_object_missing("chat/dropped.pdf") is True
+
+
+async def test_delete_attachment_when_object_is_already_gone(
+    auth_client: AsyncClient, db_session: AsyncSession, chat, factories, redis_session: None, s3: None
+):
+    """An expired or never-uploaded object must not keep the row alive."""
+    attachment = await factories.attachment(chat.session_id, s3_key="chat/never-uploaded.pdf")
+
+    response = await auth_client.delete(f"/chats/{chat.session_id}/attachments/{attachment.id}")
+
+    assert response.status_code == 200
+    assert await count(db_session, Attachment) == 0
+
+
+async def test_delete_attachment_refuses_a_second_call(
+    auth_client: AsyncClient, db_session: AsyncSession, chat, factories, redis_session: None, s3: None
+):
+    """Clearing the ownership entry is what makes the repeat delete fail instead of
+    serving a deleted file from the dependency's cache."""
+    attachment = await factories.attachment(chat.session_id)
+
+    first = await auth_client.delete(f"/chats/{chat.session_id}/attachments/{attachment.id}")
+    second = await auth_client.delete(f"/chats/{chat.session_id}/attachments/{attachment.id}")
+
+    assert first.status_code == 200
+    assert second.status_code == 403
+    assert second.json()["detail"] == "Invalid session"
+
+
+async def test_delete_attachment_missing_row(auth_client: AsyncClient, redis_client, chat, redis_session: None):
+    """The ownership cache short-circuits the dependency, so the handler's own
+    ``db.scalar`` miss is reachable with an id that no row has."""
+    await redis_client.set(get_attachment_ownership_key(chat.session_id, 999999), "1", ex=600)
+
+    response = await auth_client.delete(f"/chats/{chat.session_id}/attachments/999999")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Attachment not found"
+
+
+async def test_delete_attachment_forbidden_for_other_user(
+    auth_client: AsyncClient, db_session: AsyncSession, other_chat, factories, redis_session: None
+):
+    attachment = await factories.attachment(other_chat.session_id)
+
+    response = await auth_client.delete(f"/chats/{other_chat.session_id}/attachments/{attachment.id}")
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Invalid session"
+    assert await count(db_session, Attachment) == 1
+
+
+async def test_delete_attachment_drops_the_generation_result_that_points_at_it(
+    auth_client: AsyncClient, db_session: AsyncSession, chat, factories, redis_session: None, s3: None
+):
+    """The generated commercial offer is an attachment too, and the ORM cascade on
+    ``Attachment.generation_result`` takes the result row with it."""
+    attachment = await factories.attachment(chat.session_id, name="kp.xlsx", s3_key="chat/kp.xlsx")
+    db_session.add(
+        GenerationResult(
+            chat_session_id=chat.session_id,
+            type=GenerationResultType.SUCCESS,
+            content="готово",
+            attachment_id=attachment.id,
+        )
+    )
+    await db_session.commit()
+
+    response = await auth_client.delete(f"/chats/{chat.session_id}/attachments/{attachment.id}")
+
+    assert response.status_code == 200
+    assert await count(db_session, Attachment) == 0
+    assert await count(db_session, GenerationResult) == 0
 
 
 # ---------------------------------------------------------------------------

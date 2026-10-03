@@ -165,6 +165,35 @@ describe('AttachmentUploadService', () => {
     vi.useRealTimers();
   });
 
+  it('reports the attachment id as soon as the backend registers the file', () => {
+    const ids: number[] = [];
+
+    service.upload(makeItem(), SESSION_ID, { onAttachmentId: (id) => ids.push(id) }).subscribe();
+
+    http.expectOne(`${environment.apiUrl}/chats/${SESSION_ID}/uploads`).flush({
+      attachment_id: 7,
+      params: { url: 'https://minio/upload', fields: { key: 'attachments/1' } }
+    });
+
+    // Reported before the bytes go out, so a half-finished file is still deletable.
+    expect(ids).toEqual([7]);
+    expect(FakeXhr.last().sent).toBe(true);
+  });
+
+  it('deletes an attachment by id', () => {
+    let result: { deleted: boolean } | undefined;
+
+    service.remove(SESSION_ID, 7).subscribe((response) => {
+      result = response;
+    });
+
+    const req = http.expectOne(`${environment.apiUrl}/chats/${SESSION_ID}/attachments/7`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush({ deleted: true });
+
+    expect(result?.deleted).toBe(true);
+  });
+
   it('clamps reported progress to the file size and skips non-computable events', () => {
     const values: number[] = [];
 

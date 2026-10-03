@@ -8,6 +8,7 @@ import {
   ChatCreated,
   ChatMessageApi,
   ChatResult,
+  ChatSessionAttachment,
   ChatUploadParams,
   MessageResponse,
   UserChat
@@ -90,6 +91,17 @@ export class ChatService {
 
   getAttachmentUrl(sessionId: string, attachmentId: number): Observable<ChatAttachmentUrl> {
     return this.http.get<ChatAttachmentUrl>(
+      `${this.baseUrl}/${sessionId}/attachments/${attachmentId}`
+    );
+  }
+
+  /** Every file on the session, including the ones still uploading or processing. */
+  attachments(sessionId: string): Observable<ChatSessionAttachment[]> {
+    return this.http.get<ChatSessionAttachment[]>(`${this.baseUrl}/${sessionId}/attachments`);
+  }
+
+  deleteAttachment(sessionId: string, attachmentId: number): Observable<{ deleted: boolean }> {
+    return this.http.delete<{ deleted: boolean }>(
       `${this.baseUrl}/${sessionId}/attachments/${attachmentId}`
     );
   }

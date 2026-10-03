@@ -1,23 +1,33 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component } from '@angular/core';
 import { By } from '@angular/platform-browser';
-import { Observable } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { DragNDropComponent } from './drag-n-drop.component';
 import { AttachmentUploadService } from '../../../core/services/attachment-upload.service';
+import { NotificationService } from '../../../core/services/notification.service';
 import { UploadItem } from '../../../core/models/models';
 
 const MB = 1024 * 1024;
 
 class FakeUploader {
+  removed: { sessionId: string; attachmentId: number }[] = [];
+  failNextRemove = false;
+  private nextAttachmentId = 100;
+
   upload(
     item: UploadItem,
     _sessionId: string,
-    options: { onProgress?: (uploaded: number) => void } = {}
+    options: {
+      onProgress?: (uploaded: number) => void;
+      onAttachmentId?: (attachmentId: number) => void;
+    } = {}
   ): Observable<number> {
+    const attachmentId = this.nextAttachmentId++;
     let uploaded = 0;
     return new Observable<number>((observer) => {
+      options.onAttachmentId?.(attachmentId);
       const timer = setInterval(() => {
         uploaded = Math.min(uploaded + MB, item.size);
         options.onProgress?.(uploaded);
@@ -29,6 +39,11 @@ class FakeUploader {
       }, 5);
       return () => clearInterval(timer);
     });
+  }
+
+  remove(sessionId: string, attachmentId: number): Observable<{ deleted: boolean }> {
+    this.removed.push({ sessionId, attachmentId });
+    return this.failNextRemove ? throwError(() => new Error('boom')) : of({ deleted: true });
   }
 }
 
@@ -59,6 +74,13 @@ class TestHost {}
   template: `<app-drag-n-drop [sessionId]="'test-session'" variant="compact" />`
 })
 class CompactTestHost {}
+
+@Component({
+  selector: 'app-dnd-no-session-host',
+  imports: [DragNDropComponent],
+  template: `<app-drag-n-drop />`
+})
+class NoSessionHost {}
 
 describe('DragNDropComponent', () => {
   let fixture: ComponentFixture<TestHost>;
@@ -210,6 +232,53 @@ describe('DragNDropComponent', () => {
     expect(texts.some((t: string) => t.includes('В очереди'))).toBe(true);
     expect(texts.some((t: string) => t.includes('%'))).toBe(true);
   });
+
+  it('asks the backend to delete a removed file that it knows about', async () => {
+    const uploader = TestBed.inject(AttachmentUploadService) as unknown as FakeUploader;
+    dropFiles([makeFile('removed.pdf', 0.2 * MB)]);
+
+    for (let i = 0; i < 40 && component.state() !== 'completed'; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      fixture.detectChanges();
+    }
+    expect(component.state()).toBe('completed');
+
+    fixture.debugElement
+      .query(By.css('.upload-item__action[aria-label="Удалить"]'))
+      .nativeElement.click();
+    fixture.detectChanges();
+
+    expect(component.items().length).toBe(0);
+    // Local removal alone would leave the file on the session and let the next
+    // message attach it.
+    expect(uploader.removed).toEqual([{ sessionId: 'test-session', attachmentId: 100 }]);
+  });
+
+  it('reports a failed server-side delete and still drops the row locally', async () => {
+    const uploader = TestBed.inject(AttachmentUploadService) as unknown as FakeUploader;
+    uploader.failNextRemove = true;
+    const notifications = TestBed.inject(NotificationService);
+    const error = vi.spyOn(notifications, 'error');
+    dropFiles([makeFile('kept-local.pdf', 0.2 * MB)]);
+
+    for (let i = 0; i < 40 && component.state() !== 'completed'; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      fixture.detectChanges();
+    }
+
+    component.removeItem(component.items()[0].id);
+
+    expect(component.items().length).toBe(0);
+    expect(error).toHaveBeenCalledWith('Не удалось удалить файл на сервере');
+  });
+
+  it('does not call the backend for a file that never reached it', () => {
+    const uploader = TestBed.inject(AttachmentUploadService) as unknown as FakeUploader;
+    component.items.set([]);
+    component.removeItem('never-uploaded');
+
+    expect(uploader.removed).toEqual([]);
+  });
 });
 
 describe('DragNDropComponent compact variant', () => {
@@ -242,6 +311,40 @@ describe('DragNDropComponent compact variant', () => {
     expect(component.items().length).toBe(1);
     expect(fixture.debugElement.query(By.css('.uploader--compact'))).not.toBeNull();
     expect(fixture.debugElement.query(By.css('.uploader__header'))).toBeNull();
+  });
+});
+
+describe('DragNDropComponent without a session', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [NoSessionHost],
+      providers: [{ provide: AttachmentUploadService, useClass: FakeUploader }]
+    }).compileComponents();
+  });
+
+  it('keeps the removal local, because there is nowhere to delete the file', () => {
+    const fixture = TestBed.createComponent(NoSessionHost);
+    fixture.detectChanges();
+    const component = fixture.debugElement.query(By.directive(DragNDropComponent))
+      .componentInstance as DragNDropComponent;
+    const uploader = TestBed.inject(AttachmentUploadService) as unknown as FakeUploader;
+    component.items.set([
+      {
+        id: 'local',
+        name: 'a.pdf',
+        size: 1,
+        extension: '.pdf',
+        file: makeFile('a.pdf', 1),
+        status: 'done',
+        uploaded: 1,
+        attachmentId: 42
+      }
+    ]);
+
+    component.removeItem('local');
+
+    expect(component.items().length).toBe(0);
+    expect(uploader.removed).toEqual([]);
   });
 });
 
