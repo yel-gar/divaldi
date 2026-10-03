@@ -442,3 +442,12 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   wrapped tuple") and only later traced to PEP 758. Confirming *that* a file parses is not the
   same as confirming *why* it parses, and a confident wrong explanation is worse than the
   original false positive.
+- **`PurePath` does not split on a backslash when running on POSIX.** `PurePath("..\\..\\x.pdf").suffix`
+  is `.pdf` and `PurePath("/etc/passwd.pdf").suffix` is `.pdf` too, so an extension check built
+  on `PurePath` happily accepts a name that is really a path. That is why the chat upload route
+  tests the name shape separately (`_is_bare_filename`) before it tests the suffix.
+- **A NUL byte in a string column is a 500, not a 400.** asyncpg refuses the write with
+  `CharacterNotInRepertoireError: invalid byte sequence for encoding "UTF8": 0x00`, so a request
+  carrying `"filename": "dr\0awing.pdf"` used to get past every check in `upload_file` and blow
+  up in the commit. `str.isprintable()` is False for NUL and for every other control character, so
+  one call covers the whole class.

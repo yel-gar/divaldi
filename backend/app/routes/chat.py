@@ -1,6 +1,7 @@
 import json
 import uuid
 from datetime import timedelta
+from pathlib import PurePath
 
 import structlog.stdlib
 from fastapi import APIRouter, Depends, HTTPException
@@ -67,6 +68,22 @@ ALLOWED_CHAT_CONTENT_TYPES = [
     "image/jpeg",
 ]
 CHAT_MAX_UPLOAD_SIZE = 30 * 1024 * 1024
+# Extensions the frontend offers (`ACCEPTED_EXTENSIONS` in models.ts), i.e. the
+# filenames whose types the content type allowlist above already permits. The
+# suffix is copied into the S3 key and shown back to the user, so it has to be
+# one of these rather than whatever the client felt like asking for.
+ALLOWED_CHAT_FILE_EXTENSIONS = frozenset({".pdf", ".dxf", ".png", ".jpg", ".jpeg"})
+
+
+def _is_bare_filename(filename: str) -> bool:
+    """Whether the name is a bare filename: no path separators, no control characters.
+
+    The name reaches `get_s3_attachment_key` and the `attachments.name` column.
+    A NUL byte is refused by asyncpg on write, so it has to be rejected before
+    the row is made, and a separator would smuggle a path into a value the
+    download endpoint hands back to the browser as a filename.
+    """
+    return "/" not in filename and "\\" not in filename and filename.isprintable()
 
 
 router = APIRouter(
@@ -386,7 +403,7 @@ async def get_result(
     summary="Get link to upload file to chat, make sure to confirm the upload afterwards",
     response_model=S3ChatUploadParams,
     responses={
-        400: {"description": "Content type not allowed, or file size exceeds the 30 MB limit"},
+        400: {"description": "Content type or filename not allowed, or file size exceeds 30 MB"},
         401: {"description": "Not authenticated, or session expired/invalid"},
         403: {"description": "Chat session not found or does not belong to the user"},
         429: {"description": "Rate limit exceeded (max 100 per minute across all chat endpoints)"},
@@ -403,6 +420,9 @@ async def upload_file(
 
     Allowed content types: PDF, DXF, PNG, JPEG. Max file size 30 MB.
 
+    The filename must be a bare name whose extension is one of .pdf, .dxf,
+    .png, .jpg, .jpeg.
+
     After uploading to the returned URL, call
     `POST /chats/{session_id}/uploads/{attachment_id}/uploaded` to confirm and
     start processing. The upload URL expires after 5 minutes.
@@ -411,6 +431,10 @@ async def upload_file(
         raise HTTPException(status_code=400, detail="Content type not allowed")
     if data.file_size > CHAT_MAX_UPLOAD_SIZE:
         raise HTTPException(status_code=400, detail="File size too large")
+    if not _is_bare_filename(data.filename):
+        raise HTTPException(status_code=400, detail="File name not allowed")
+    if PurePath(data.filename).suffix.lower() not in ALLOWED_CHAT_FILE_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="File extension not allowed")
 
     s3_key = get_s3_attachment_key(session_id, data.filename)
     attachment = Attachment(name=data.filename, session_id=session_id, s3_key=s3_key)

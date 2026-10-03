@@ -603,6 +603,68 @@ async def test_upload_file_rejects_oversize(auth_client: AsyncClient, chat, redi
     assert response.json()["detail"] == "File size too large"
 
 
+@pytest.mark.parametrize("filename", ["payload.sh", "drawing", "drawing.", "archive.tar.gz", "payload.exe"])
+async def test_upload_file_rejects_extension_outside_the_allowlist(
+    auth_client: AsyncClient, db_session: AsyncSession, chat, filename: str, redis_session: None, s3: None
+):
+    """A permitted content type must not buy a filename the frontend would never send."""
+    response = await auth_client.post(
+        f"/chats/{chat.session_id}/uploads",
+        json={"filename": filename, "content_type": "application/pdf", "file_size": 10},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "File extension not allowed"
+    assert await db_session.scalar(select(func.count()).select_from(Attachment)) == 0
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "../../etc/passwd.pdf",
+        "sub/drawing.pdf",
+        "..\\drawing.pdf",
+        "/etc/passwd.pdf",
+        "dr\x00awing.pdf",
+        "draw\ning.pdf",
+    ],
+)
+async def test_upload_file_rejects_names_that_are_not_bare(
+    auth_client: AsyncClient, db_session: AsyncSession, chat, filename: str, redis_session: None, s3: None
+):
+    response = await auth_client.post(
+        f"/chats/{chat.session_id}/uploads",
+        json={"filename": filename, "content_type": "application/pdf", "file_size": 10},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "File name not allowed"
+    assert await db_session.scalar(select(func.count()).select_from(Attachment)) == 0
+
+
+@pytest.mark.parametrize(
+    ("filename", "content_type", "extension"),
+    [
+        ("drawing.pdf", "application/pdf", ".pdf"),
+        ("деталь.dxf", "application/dxf", ".dxf"),
+        ("photo.png", "image/png", ".png"),
+        ("photo.jpg", "image/jpeg", ".jpg"),
+        ("photo.JPEG", "image/jpeg", ".jpeg"),
+        ("Чертёж 2 (1).PDF", "application/pdf", ".pdf"),
+    ],
+)
+async def test_upload_file_accepts_every_allowed_extension(
+    auth_client: AsyncClient, chat, filename: str, content_type: str, extension: str, redis_session: None, s3: None
+):
+    response = await auth_client.post(
+        f"/chats/{chat.session_id}/uploads",
+        json={"filename": filename, "content_type": content_type, "file_size": 10},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["params"]["fields"]["key"].endswith(extension.lower())
+
+
 async def test_upload_file_forbidden_for_other_user(
     auth_client: AsyncClient, other_chat, redis_session: None, s3: None
 ):
