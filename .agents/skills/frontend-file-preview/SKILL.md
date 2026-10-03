@@ -11,8 +11,8 @@ Covers `file-preview.component.ts`, the results panel, and `AttachmentUploadServ
 
 | Type | Preview path |
 |---|---|
-| PDF | object/iframe embed of the MinIO URL |
-| PNG, JPEG | `<img>` against the MinIO URL |
+| PDF | object/iframe embed of the presigned S3 URL |
+| PNG, JPEG | `<img>` against the presigned S3 URL |
 | DOCX | `docx-preview`, lazily imported |
 | XLSX | `xlsx` (SheetJS) parsed and rendered as a sheet grid |
 
@@ -51,14 +51,14 @@ preview instance, not global.
 
 ## Download versus preview
 
-Previews read from a **presigned MinIO URL** returned by the backend. The download action
+Previews read from a **presigned S3 URL** returned by the backend. The download action
 uses a separate presigned URL. Both expire, so a URL held in component state can go stale;
 re-fetch rather than caching a long-lived URL.
 
 ## Upload handshake and polling
 
 Upload is a two-step flow: the backend issues presigned S3 upload parameters, the browser
-uploads directly to MinIO, then the client confirms. Status is polled rather than pushed:
+uploads directly to object storage, then the client confirms. Status is polled rather than pushed:
 
 ```typescript
 const STATUS_POLL_INTERVAL_MS = 2000;
@@ -100,7 +100,7 @@ npm --prefix frontend run lint
 npm --prefix frontend test
 npm --prefix frontend run build
 
-# end-to-end check needs the real stack, since previews read from MinIO
+# end-to-end check needs the real stack, since previews read from S3
 docker compose up -d --build
 ```
 

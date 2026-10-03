@@ -24,7 +24,7 @@ Append new entries at the bottom, one `##` section per topic, chronological.
 
 - **The full application runs only through Docker Compose** (`docker compose up -d --build`).
   This is not laziness, it is load-bearing:
-  - Redis, RabbitMQ, MinIO and the TaskIQ dashboard hostnames are **hardcoded literals** in
+  - Redis, RabbitMQ, Garage and the TaskIQ dashboard hostnames are **hardcoded literals** in
     the backend (`redis://redis:6379`, `amqp://...@rabbitmq:5672/taskiq`,
     `http://minio:9000`, `http://taskiq_dashboard:8000`), matching Compose service names.
   - `providers/sber.py` loads `res/gigachat-ca.cer` by **relative path**, so the process
@@ -436,6 +436,50 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   belongs in the pull request or in `.context/`. The `conventional-commits` skill carries a
   worked too-long/too-short example pair, since a rule with an example is followed and a bare
   limit is not.
+
+## Object storage: MinIO to Garage
+
+- **Storage is Garage, migrated 2026-10-03, because MinIO became unpullable.** MinIO was
+  deleted from Docker Hub (its Hub API 404s) and then locked down on quay.io, where manifests,
+  the tag list and the repo API all return 401 for every tag including `latest`. A control
+  check against `quay.io/prometheus/busybox` and `quay.io/coreos/etcd` returned 200 from the
+  same code path, so this was upstream action rather than a local network problem.
+  `mirror.gcr.io` mirrors Docker Hub only and had nothing either. Backend CI broke because
+  the testcontainer could no longer pull the image.
+- **Garage was chosen because it is a real S3 implementation from a project that still
+  publishes images**, not because it is a drop-in. Verified on `dxflrs/garage:v2.4.1`: every
+  call the backend makes works, `generate_presigned_post` works with the exact argument shape
+  both upload routes use, and `PutBucketLifecycleConfiguration` accepts the existing rule
+  files verbatim. `mc` was unavailable too, since the MinIO client image lives on the same
+  dead quay.io account.
+- **The S3 wire protocol is unchanged, so `app/` barely moved.** Only `storage.py` changed,
+  and only to rename `MINIO_*` to `S3_*` and stop hardcoding the internal endpoint. The
+  migration cost was almost entirely Compose plumbing, which is the argument for preferring a
+  protocol-compatible store over a feature-compatible one.
+- **Credentials are pinned in the environment rather than captured at runtime.**
+  `garage key create` mints a random secret that can never be displayed again, so handing it
+  to the backend would need a shared volume and a startup race. `garage key import` accepts an
+  explicit key id and secret, which lets `S3_ACCESS_KEY` and `S3_SECRET_KEY` stay static. The
+  cost is that Garage refuses to reuse a key id with a different secret, so **rotating the
+  secret requires a new key id**; `conf/garage-init.sh` verifies the stored secret matches and
+  fails loudly rather than leaving the backend unable to authenticate.
+- **Bootstrap is two services, not one.** `garage-bootstrap` runs the CLI for what only the
+  CLI can do — key import, bucket creation, key grants — because an S3 `CreateBucket` needs
+  permissions a freshly imported key does not yet have. `garage-lifecycle` runs the backend
+  image to apply expiration rules, because there is no lifecycle CLI command and the API needs
+  XML, which botocore generates from the JSON rule files we already keep. Merging them into
+  one image would have meant either a Python dependency in the bootstrap image or
+  hand-maintained XML.
+- **The lifecycle rules stay in JSON and stay unchanged.** Garage implements only
+  `Expiration` and `AbortIncompleteMultipartUpload`, which covers all three of our rules.
+  Converting them to XML would make them harder to review for no gain.
+- **`--single-node` is used in Compose**, which assigns the cluster layout at startup and
+  removes the layout bootstrap entirely. `conf/garage.toml` records that a real deployment
+  should drop the flag and raise `replication_factor` to 3 across 3+ nodes.
+- **The registry risk is reduced, not solved.** `dxflrs/garage` is one small project on one
+  registry and could in principle disappear the same way. The durable fix is to mirror the
+  image into an organisation-controlled registry and pin by digest. That was not done here
+  because it needs write access to a registry the project does not own yet.
 
 ## Documentation
 

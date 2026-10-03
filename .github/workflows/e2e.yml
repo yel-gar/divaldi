@@ -58,7 +58,9 @@ jobs:
             echo "TASKIQ_API_TOKEN=e2e-token"
             echo "SBER_API_KEY=mock"
             echo "SBER_API_SCOPE=PERS"
-            echo "MINIO_ROOT_PASSWORD=e2e-minio"
+            echo "S3_SECRET_KEY=$(openssl rand -hex 48)"
+            echo "GARAGE_RPC_SECRET=$(openssl rand -hex 48)"
+            echo "GARAGE_ADMIN_TOKEN=$(openssl rand -hex 48)"
           } >> .env
 
       - name: Bring up the stack and seed it

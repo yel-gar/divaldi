@@ -3,6 +3,8 @@ node_modules
 .husky
 .env
 docker-compose.override.yml
+# Written by e2e/scripts/setup.sh when it backs up a developer's override.
+docker-compose.override.yml.bak
 .python-version
 
 # remove unusual directory

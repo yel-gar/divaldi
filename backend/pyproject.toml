@@ -52,7 +52,10 @@ line-length = 120
 target-version = "py314"
 exclude = [
     "alembic/versions",
-    "./createsuperuser.py"
+    # One-shot operator scripts, not application code: they print progress to
+    # the container log, which is the whole point.
+    "./createsuperuser.py",
+    "./apply_s3_lifecycle.py"
 ]
 
 [tool.ruff.lint]

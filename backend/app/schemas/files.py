@@ -14,13 +14,14 @@ class S3UploadParams(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "url": "http://localhost:9000/avatars",
+                "url": "http://localhost:3900/avatars",
                 "fields": {
                     "Content-Type": "image/jpeg",
-                    "key": "b5942871-dd53-464d-abee-3f048f942f67/avatar-unprocessed",
-                    "AWSAccessKeyId": "minio",
+                    "key": "avatars-unprocessed/b5942871-dd53-464d-abee-3f048f942f67",
+                    "x-amz-algorithm": "AWS4-HMAC-SHA256",
+                    "x-amz-credential": "GK.../20260101/garage/s3/aws4_request",
                     "policy": "very-secret-key",
-                    "signature": "very-secret-signature",
+                    "x-amz-signature": "very-secret-signature",
                 },
             }
         }

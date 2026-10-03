@@ -18,9 +18,10 @@ These five rules override any other instinct you have.
 |---|---|
 | 1 | **All Python dependencies are added via `poetry add`.** Never hand-edit `pyproject.toml` dependencies, never write a `requirements.txt`. Use `poetry add <pkg>` (runtime) or `poetry add --group dev <pkg>` (dev) from the relevant package directory (`backend/` or `processing/`). Commit the updated `poetry.lock` with it. |
 | 2 | **All frontend dependencies are added via `npm install`.** From `frontend/`, use `npm install <pkg>` (runtime) or `npm install -D <pkg>` (dev). Commit `frontend/package-lock.json` with it. Never hand-edit dependency versions in `package.json`; let npm resolve them and write the lockfile. |
-| 3 | **The full project can only be run via Docker.** `docker compose up -d --build`. There is no supported local run of the application: the backend expects service hostnames (`db`, `redis`, `rabbitmq`, `minio`) and resolves two paths relative to `backend/` as CWD. Never claim the app works without stating how you started it in Docker. |
+| 3 | **The full project can only be run via Docker.** `docker compose up -d --build`. There is no supported local run of the application: the backend expects service hostnames (`db`, `redis`, `rabbitmq`, `garage`) and resolves two paths relative to `backend/` as CWD. Never claim the app works without stating how you started it in Docker. |
 | 4 | **Tests may be run locally.** `poetry -C backend run pytest`, `poetry -C processing run pytest -v`, `npm --prefix frontend test`. Backend tests need a running Docker *daemon* (they use testcontainers) but not the full stack. |
 | 5 | **Update `.context/` as you work.** See [section 7](#7-context-directory). A change with no recorded decision or lesson is a change the next agent will re-litigate. |
+| 6 | **Never destroy Docker volumes.** No `docker compose down -v`, no `docker volume prune`, no `docker system prune`. The named volumes hold real state — the PostgreSQL database can contain a developer's accounts, chats and uploaded attachments, and you cannot see whether it does. Ask before removing a volume, even one that looks disposable. `docker compose down` on its own is fine; it leaves volumes alone. |
 
 ---
 
@@ -31,7 +32,7 @@ divaldi/
 ├── backend/            FastAPI service + TaskIQ workers     owner @yel-gar
 ├── processing/         shared library (PDF, DXF, Excel)     owner @AX-Ray
 ├── frontend/           Angular 21 SPA                        owner @krchvl
-├── conf/               infra config: redis.conf, minio init, ILM rules, pg init
+├── conf/               infra config: redis.conf, garage.toml, garage init, lifecycle rules, pg init
 ├── scripts/            pre-commit shims for per-package Poetry tools
 ├── .context/           decisions / lessons / project state
 ├── .agents/skills/     task-specific playbooks
@@ -219,9 +220,46 @@ The resulting `docker-compose.override.yml` is **gitignored**. Never commit it.
 
 ### Hardcoded service hostnames
 
-`redis://redis:6379`, `amqp://...@rabbitmq:5672/taskiq`, `http://minio:9000` and
+`redis://redis:6379`, `amqp://...@rabbitmq:5672/taskiq`, `http://garage:3900` and
 `http://taskiq_dashboard:8000` are literals in the source. Do not parameterise them
 without being asked; it would break the Docker-only run model this project relies on.
+
+### Object storage is Garage
+
+Storage is [Garage](https://garagehq.deuxfleurs.fr), an S3-compatible server. It replaced
+MinIO in October 2026, because MinIO was deleted from both quay.io and Docker Hub and became
+unpullable from any registry. The S3 wire protocol is unchanged, so `app/storage.py` and every
+route are unaffected; what differs is the bootstrap.
+
+| What | Where |
+|---|---|
+| Server config | `conf/garage.toml` (secrets come from the environment, never from this file) |
+| Key import, buckets, grants | `conf/garage-init.sh`, run by the `garage-bootstrap` service |
+| Lifecycle rules | `conf/garage-rules/*.json`, applied by `backend/apply_s3_lifecycle.py` |
+| Bootstrap image | `conf/garage.Dockerfile` — busybox with the garage binary copied in |
+
+Four things about Garage are not obvious and will cost you an hour if you rediscover them:
+
+- **The image has no shell.** Not `/bin/sh`, no `curl`, no `mc`. The old `mc`-based init
+  pattern is impossible, which is why `garage.Dockerfile` exists. Note the copy direction:
+  busybox is the base and the garage binary comes in from upstream. Lifting binaries *out* of
+  busybox into the Garage image yields a shell that fails to exec.
+- **`--single-node` assigns the cluster layout at startup.** There is no separate layout
+  bootstrap, and no `replication_factor` to satisfy by hand.
+- **Access keys must be imported, not created.** `garage key create` generates a random
+  secret that can never be displayed again, so credentials could not be handed to the
+  backend. `garage key import` accepts a fixed id and secret, which is what lets
+  `S3_ACCESS_KEY` and `S3_SECRET_KEY` stay static in the environment. Garage will not let a
+  key id be reused with a different secret, so **rotating the secret also requires a new key
+  id**.
+- **`GARAGE_RPC_SECRET` and `GARAGE_ADMIN_TOKEN` must be exactly 32 bytes of hex** — 64
+  characters. Garage refuses to start otherwise, so generate those two with
+  `openssl rand -hex 32`, not the `-hex 48` used for every other secret in `.env`.
+
+The buckets are still `avatars` and `uploads`, and the lifecycle rules are still the same
+three prefix-scoped expirations. Garage implements `Expiration` and
+`AbortIncompleteMultipartUpload` only, which is all this project uses; it has no ACL API at
+all, and buckets are private unless a key is granted access.
 
 ### Two CWD-sensitive paths
 

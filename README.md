@@ -12,7 +12,7 @@
 [![PostgreSQL](https://img.shields.io/badge/db-PostgreSQL%2018-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![RabbitMQ](https://img.shields.io/badge/broker-RabbitMQ%204-FF6600?logo=rabbitmq&logoColor=white)](https://www.rabbitmq.com)
 [![Redis](https://img.shields.io/badge/cache-Redis%208-DC382D?logo=redis&logoColor=white)](https://redis.io)
-[![MinIO](https://img.shields.io/badge/storage-MinIO-C04748?logo=minio&logoColor=white)](https://min.io)
+[![Garage](https://img.shields.io/badge/storage-Garage-EEEEEE?logo=rust&logoColor=black)](https://garagehq.deuxfleurs.fr)
 [![TaskIQ](https://img.shields.io/badge/queue-TaskIQ-FFD34E?logoColor=black)](https://taskiq-python.github.io)
 [![License](https://img.shields.io/badge/license-proprietary-lightgrey)]()
 
@@ -90,7 +90,7 @@ asks clarifying questions when data is missing, and finally produces a costed
 |---|---|---|
 | 📈 | **TaskIQ dashboard** | Task history, results, failures |
 | 🐇 | **RabbitMQ management** | Queue depth and worker health |
-| 🗄️ | **MinIO console** | Bucket browsing, lifecycle rules |
+| 🗄️ | **Garage admin API** | Cluster status, layout, keys |
 | ♻️ | **Self‑cleaning storage** | ILM rules expire unprocessed avatars (1 d), attachments (7 d), artifacts (1 d) |
 | 🧹 | **Scheduled cleanup** | Hourly jobs purge stale results, orphan attachments and expired sessions |
 
@@ -108,7 +108,7 @@ divaldi/
 │   │   ├── tasks/        TaskIQ background jobs (default + network queues)
 │   │   ├── providers/    GigaChat (Sber) AI client
 │   │   ├── cache.py      Redis client + every cache-key builder
-│   │   ├── storage.py    MinIO/S3 object storage
+│   │   ├── storage.py    S3 object storage (Garage)
 │   │   ├── deps.py       Annotated dependency aliases
 │   │   └── harness.py    LLM system prompt + structured output schema
 │   ├── alembic/          Migrations (single `initial` revision so far)
@@ -116,7 +116,7 @@ divaldi/
 │   └── tests/            pytest + testcontainers
 ├── processing/        Shared library: PDF rasteriser, DXF parser, Excel calculator
 ├── frontend/          Angular 21 standalone + signals + SCSS
-├── conf/              Infra config: redis.conf, minio-init.sh, ILM rules, pg init
+├── conf/              Infra config: redis.conf, garage.toml, garage-init.sh, lifecycle rules, pg init
 ├── scripts/           pre-commit shims for per-package Poetry tools
 └── docker-compose.yaml
 ```
@@ -126,7 +126,7 @@ divaldi/
 1. `POST /api/v1/chats` creates a session, returns `202`.
 2. The message is enqueued on the **`network`** queue (`generate_chat_message`).
 3. The worker uploads attachments to GigaChat and requests a structured JSON completion.
-4. If the agent returns positions → `res/calc.xlsx` is filled → `kp.xlsx` lands in MinIO.
+4. If the agent returns positions → `res/calc.xlsx` is filled → `kp.xlsx` lands in Garage.
 5. If it returns an empty `positions` list → it asked clarifying questions instead.
 6. The frontend polls `GET /chats/{id}/result` every 2 s (5 min timeout) — there are no WebSockets.
 
@@ -149,7 +149,7 @@ Splitting them means a slow external API never blocks the local pipeline.
 
 **Frontend** — Angular 21 (standalone, signals) · TypeScript 5.9 · SCSS (BEM + CSS custom properties) · RxJS · Vitest · ESLint · Prettier
 
-**Infrastructure** — Docker Compose · PostgreSQL 18 · Redis 8 · RabbitMQ 4 · MinIO
+**Infrastructure** — Docker Compose · PostgreSQL 18 · Redis 8 · RabbitMQ 4 · Garage
 
 ---
 
@@ -161,7 +161,7 @@ Splitting them means a slow external API never blocks the local pipeline.
 - 📝 A `.env` file with the secrets marked required in the [table below](#-environment-variables)
 
 > ⚠️ **The full project runs only via Docker Compose.** The backend expects service
-> hostnames (`db`, `redis`, `rabbitmq`, `minio`) and two paths resolved relative to
+> hostnames (`db`, `redis`, `rabbitmq`, `garage`) and two paths resolved relative to
 > `backend/` as the working directory. There is no supported local run of the app.
 > Running individual services locally is fine for editing, but *running* means Compose.
 
@@ -185,7 +185,8 @@ PS> Copy-Item .env.example .env
 ```
 
 Then fill in the required values — at minimum `POSTGRES_PASSWORD`, `RABBITMQ_PASS`,
-`TASKIQ_API_TOKEN`, `MINIO_ROOT_PASSWORD`, `SBER_API_KEY`, `SBER_API_SCOPE`.
+`TASKIQ_API_TOKEN`, `S3_SECRET_KEY`, `GARAGE_RPC_SECRET`, `GARAGE_ADMIN_TOKEN`,
+`SBER_API_KEY`, `SBER_API_SCOPE`.
 
 Generate secrets with:
 
@@ -229,8 +230,8 @@ Open **http://localhost:8080** and log in with the account you just created. �
 | ⚡ **Backend API** | http://localhost:3000 | docs at `/api/v1/docs` — **only when `DEBUG` is on** |
 | 📈 **TaskIQ dashboard** | http://localhost:8000 | needs `TASKIQ_API_TOKEN` |
 | 🐇 **RabbitMQ** | http://localhost:15672 | user `RABBITMQ_USER` / `RABBITMQ_PASS` |
-| 🗄️ **MinIO console** | http://localhost:9001 | user `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` |
-| 🗃️ **MinIO S3 API** | http://localhost:9000 | |
+| 🗄️ **Garage admin API** | http://localhost:3903 | needs `GARAGE_ADMIN_TOKEN` |
+| 🗃️ **Garage S3 API** | http://localhost:3900 | presigned upload/download URLs point here |
 | 🐘 **PostgreSQL** | `localhost:5432` | `5431` in the dev override |
 
 ### Compose services
@@ -247,7 +248,9 @@ Open **http://localhost:8080** and log in with the account you just created. �
 | `db` | PostgreSQL 18 (`shm_size: 512mb`) |
 | `redis` | cache + locks + rate limits |
 | `rabbitmq` | task broker, vhost `taskiq` |
-| `minio` / `minio-init` | S3 storage; init creates buckets and imports ILM rules |
+| `garage` | S3-compatible object storage (`--single-node`) |
+| `garage-bootstrap` | imports the app key, creates the buckets, grants access |
+| `garage-lifecycle` | applies the expiration rules over the S3 API |
 
 ---
 
@@ -382,15 +385,18 @@ You should generally only touch variables marked as **Required**.
 | `SBER_API_KEY`                | API key from [Sber developers](https://developers.sber.ru/docs/ru/gigachat/api/reference/rest/post-token).                                  | ✅           | `mock`                  |
 | `SBER_API_SCOPE`              | API scope from [Sber developers](https://developers.sber.ru/docs/ru/gigachat/api/reference/rest/post-token). One of: `PERS`, `B2B`, `CORP`. | ✅           | `PERS`                  |
 | `GIGACHAT_MODEL`              | GigaChat model used. See [Sber models docs](https://developers.sber.ru/docs/ru/gigachat/models/main).                                       | ❌           | `GigaChat-3-Ultra`      |
-| **Object storage (MinIO)**    |                                                                                                                                             |              |                         |
-| `MINIO_ROOT_PASSWORD`         | MinIO password. ⚠️ MinIO is exposed in production — a weak password here can cause severe security issues.                                  | ✅           |                         |
-| `MINIO_URL`                   | Public base URL of MinIO.                                                                                                                   | ✅           | `http://localhost:9000` |
-| `MINIO_ROOT_USER`             | MinIO user.                                                                                                                                 | ❌           | `minio`                 |
-| `MINIO_PORT`                  | Production port where MinIO runs.                                                                                                           | ❌           | `9000`                  |
-| `MINIO_DASHBOARD_PORT`        | MinIO dashboard port.                                                                                                                       | ❌           | `9001`                  |
+| **Object storage (Garage)**   |                                                                                                                                             |              |                         |
+| `S3_SECRET_KEY`               | Secret for the application's S3 key. ⚠️ Garage is exposed in production — a weak secret here can cause severe security issues. Generate with `openssl rand -hex 48`. | ✅           |                         |
+| `S3_ACCESS_KEY`               | Key id imported by `garage-bootstrap`. Must be `GK` + 26 hex chars. ⚠️ Cannot be reused with a different secret, so rotating the secret needs a new id. | ❌           | `GKd1a1b2c3d4e5f60718293a4b5c6d` |
+| `S3_PUBLIC_URL`               | Endpoint baked into presigned URLs, so it must be reachable from your browser. UPDATE IN PRODUCTION.                                         | ❌           | `http://localhost:3900` |
+| `S3_PORT`                     | Host port the S3 API is published on.                                                                                                       | ❌           | `3900`                  |
+| `S3_REGION`                   | Must match `s3_region` in `conf/garage.toml`.                                                                                                | ❌           | `garage`                |
+| `GARAGE_RPC_SECRET`           | Garage's RPC secret. ⚠️ Must be **exactly 32 bytes of hex** — use `openssl rand -hex 32`, not `-hex 48`, or Garage refuses to start.         | ✅           |                         |
+| `GARAGE_ADMIN_TOKEN`          | Garage's admin API token. Same 32-byte constraint as `GARAGE_RPC_SECRET`.                                                                    | ✅           |                         |
+| `GARAGE_ADMIN_PORT`           | Host port for the Garage admin API.                                                                                                          | ❌           | `3903`                  |
 
-> 🔐 **Redis, RabbitMQ, MinIO and TaskIQ dashboard hostnames are hardcoded** in the
-> backend (`redis://redis:6379`, `amqp://…@rabbitmq:5672/taskiq`, `http://minio:9000`,
+> 🔐 **Redis, RabbitMQ, Garage and TaskIQ dashboard hostnames are hardcoded** in the
+> backend (`redis://redis:6379`, `amqp://…@rabbitmq:5672/taskiq`, `http://garage:3900`,
 > `http://taskiq_dashboard:8000`). That is another reason the app only runs in Compose.
 
 ### 🧠 Redis database designation
@@ -432,7 +438,7 @@ See [`.github/CODEOWNERS`](.github/CODEOWNERS).
 <summary><b>🎭 End-to-end tests (Playwright)</b></summary>
 
 The e2e suite drives the real Compose stack — browser, FastAPI, TaskIQ workers,
-PostgreSQL, Redis, MinIO — with **`SBER_API_KEY=mock`**, so the whole request path is
+PostgreSQL, Redis, Garage — with **`SBER_API_KEY=mock`**, so the whole request path is
 exercised while the LLM itself is offline and free.
 
 ```bash

@@ -1,21 +1,27 @@
 import os
+import time
 from collections.abc import AsyncGenerator, Generator
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 
 # These must be set before anything under `app` is imported. `app.storage` builds
 # an `ObjectStorage` at import time and `app.providers.containers` builds the
 # provider at import time, both reading `os.environ` directly. An autouse fixture
 # is too late: fixtures run after collection, and these modules import during it.
-_MINIO_ROOT_USER = "minioadmin"
-_MINIO_ROOT_PASSWORD = "minioadmin"
+# Garage has no way to pre-declare an S3 key in its config, so tests import a
+# key the same way conf/garage-init.sh does: by pinning the id and secret here
+# and calling `garage key import` against the container.
+_S3_ACCESS_KEY = "GKd1a1b2c3d4e5f60718293a4b5c6d"
+_S3_SECRET_KEY = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+_GARAGE_RPC_SECRET = _S3_SECRET_KEY
+_GARAGE_ADMIN_TOKEN = _S3_SECRET_KEY
 
 os.environ.setdefault("SBER_API_KEY", "mock")
 os.environ.setdefault("SBER_API_SCOPE", "PERS")
 os.environ.setdefault("RABBITMQ_USER", "jut")
 os.environ.setdefault("RABBITMQ_PASS", "jut")
 os.environ.setdefault("TASKIQ_API_TOKEN", "jut")
-os.environ.setdefault("MINIO_ROOT_USER", _MINIO_ROOT_USER)
-os.environ.setdefault("MINIO_ROOT_PASSWORD", _MINIO_ROOT_PASSWORD)
+os.environ.setdefault("S3_ACCESS_KEY", _S3_ACCESS_KEY)
+os.environ.setdefault("S3_SECRET_KEY", _S3_SECRET_KEY)
 # `app.main` reads these at import time to configure CORS, and raises when they
 # are missing outside debug mode. Individual tests may still override them.
 os.environ.setdefault("DEBUG", "1")
@@ -42,12 +48,34 @@ from app.cache import get_redis_pool  # noqa: E402
 from app.database import Base, get_db  # noqa: E402
 from app.models.auth import User  # noqa: E402
 
-MINIO_IMAGE = "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772"
-MINIO_ROOT_USER = _MINIO_ROOT_USER
-MINIO_ROOT_PASSWORD = _MINIO_ROOT_PASSWORD
+GARAGE_IMAGE = "dxflrs/garage:v2.4.1"
+S3_ACCESS_KEY = _S3_ACCESS_KEY
+S3_SECRET_KEY = _S3_SECRET_KEY
+S3_REGION = "garage"
+GARAGE_S3_PORT = 3900
 
-#: Mirrors the buckets created by conf/minio-init.sh in the Compose stack.
+#: Mirrors the buckets created by conf/garage-init.sh in the Compose stack.
 S3_BUCKETS = ("avatars", "uploads")
+
+#: Minimal Garage config for the test container. The test container is a single
+#: node, so `--single-node` assigns the cluster layout at startup and no separate
+#: layout bootstrap is needed. `rpc_public_addr` is deliberately absent: the CLI
+#: runs inside the container, where the default loopback works.
+GARAGE_CONFIG = """
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "lmdb"
+replication_factor = 1
+rpc_bind_addr = "0.0.0.0:3901"
+rpc_public_addr = "127.0.0.1:3901"
+rpc_secret = "{rpc_secret}"
+[s3_api]
+s3_region = "{region}"
+api_bind_addr = "0.0.0.0:3900"
+root_domain = ".s3.garage.localhost"
+[admin]
+admin_bind_addr = "0.0.0.0:3903"
+"""
 
 
 @pytest.fixture(autouse=True)
@@ -58,8 +86,8 @@ def env(monkeypatch):
     monkeypatch.setenv("RABBITMQ_USER", "jut")
     monkeypatch.setenv("RABBITMQ_PASS", "jut")
     monkeypatch.setenv("TASKIQ_API_TOKEN", "jut")
-    monkeypatch.setenv("MINIO_ROOT_USER", MINIO_ROOT_USER)
-    monkeypatch.setenv("MINIO_ROOT_PASSWORD", MINIO_ROOT_PASSWORD)
+    monkeypatch.setenv("S3_ACCESS_KEY", S3_ACCESS_KEY)
+    monkeypatch.setenv("S3_SECRET_KEY", S3_SECRET_KEY)
     # Restored per test because a few tests deliberately change DEBUG/URLs.
     monkeypatch.setenv("DEBUG", "1")
     monkeypatch.setenv("FRONTEND_URL", "http://frontend.test")
@@ -80,22 +108,113 @@ def redis_container() -> Generator[AsyncRedisContainer]:
 
 
 @pytest.fixture(scope="session")
-def minio_container() -> Generator[DockerContainer]:
-    """A real MinIO, matching the object storage the Compose stack provides."""
-    container = DockerContainer(
-        MINIO_IMAGE,
-        command="server /data",
-        env={
-            "MINIO_ROOT_USER": MINIO_ROOT_USER,
-            "MINIO_ROOT_PASSWORD": MINIO_ROOT_PASSWORD,
-        },
-        ports=[9000, 9001],
+def garage_container(tmp_path_factory) -> Generator[DockerContainer]:
+    """A real Garage, matching the object storage the Compose stack provides.
+
+    Garage differs from MinIO in two ways that shape this fixture. It needs a
+    config file rather than environment-only settings, because ``rpc_secret`` and
+    the metadata paths have no useful default. And it has no root credentials:
+    access keys are created explicitly, so the key is imported before the S3 API
+    is usable and buckets have to be created through the CLI, since an S3
+    ``CreateBucket`` needs permissions the key does not have yet.
+    """
+    config_dir = tmp_path_factory.mktemp("garage")
+    config = config_dir / "garage.toml"
+    config.write_text(
+        GARAGE_CONFIG.format(rpc_secret=_GARAGE_RPC_SECRET, region=S3_REGION),
+        encoding="utf-8",
     )
+    # Metadata holds the cluster layout and the key database, so it must survive
+    # independently of the data directory.
+    meta_dir = tmp_path_factory.mktemp("garage-meta")
+    data_dir = tmp_path_factory.mktemp("garage-data")
+
+    container = DockerContainer(
+        GARAGE_IMAGE,
+        # The image has no entrypoint, only a CMD of `/garage server`, so the
+        # binary has to be named here.
+        command="/garage server --single-node",
+        env={"GARAGE_ADMIN_TOKEN": _GARAGE_ADMIN_TOKEN},
+        ports=[GARAGE_S3_PORT, 3903],
+    )
+    container.with_volume_mapping(str(config), "/etc/garage.toml", "ro")
+    # Both directories need "rw". testcontainers defaults a volume mapping to
+    # read-only, and Garage creates its own LMDB directory inside the mount point
+    # rather than being handed a pre-made one, so a read-only bind makes it exit
+    # with "Unable to create LMDB data directory: Read-only file system".
+    container.with_volume_mapping(str(meta_dir), "/var/lib/garage/meta", "rw")
+    container.with_volume_mapping(str(data_dir), "/var/lib/garage/data", "rw")
     container.start()
     try:
+        _wait_for_garage(container)
+        _bootstrap_garage(container)
         yield container
     finally:
         container.stop()
+
+
+def _bootstrap_garage(container: DockerContainer) -> None:
+    """Import the application key and create both buckets.
+
+    Done once per session rather than per test, because Garage keys and buckets
+    live in the metadata volume and outlive any single test.
+    """
+    _garage_cli(
+        container,
+        "key",
+        "import",
+        S3_ACCESS_KEY,
+        S3_SECRET_KEY,
+        "--yes",
+        "-n",
+        "divaldi-app",
+        tolerate=True,
+    )
+    for bucket in S3_BUCKETS:
+        # Tolerated: on a re-run against the same volume the bucket exists.
+        _garage_cli(container, "bucket", "create", bucket, tolerate=True)
+        _garage_cli(
+            container,
+            "bucket",
+            "allow",
+            "--read",
+            "--write",
+            "--owner",
+            bucket,
+            "--key",
+            S3_ACCESS_KEY,
+            tolerate=True,
+        )
+
+
+def _wait_for_garage(container: DockerContainer, attempts: int = 60) -> None:
+    """Block until the CLI reports a healthy cluster.
+
+    Garage binds its RPC port before the cluster layout is usable, so a container
+    that has merely started will refuse bucket operations. Polling the CLI is
+    what the Compose bootstrap does too.
+    """
+    last_error = ""
+    for _ in range(attempts):
+        exit_code, output = container.exec("/garage status")
+        if exit_code == 0:
+            return
+        last_error = output.decode(errors="replace")
+        time.sleep(1)
+    raise RuntimeError(f"Garage never became ready: {last_error}")
+
+
+def _garage_cli(container: DockerContainer, *args: str, tolerate: bool = False) -> str:
+    """Run the ``garage`` CLI inside the container and return its output.
+
+    ``tolerate`` swallows the failure, for steps that legitimately fail on a
+    re-run because the resource already exists.
+    """
+    exit_code, output = container.exec(f"/garage {' '.join(args)}")
+    text = output.decode(errors="replace")
+    if exit_code != 0 and not tolerate:
+        raise RuntimeError(f"garage {' '.join(args)} failed ({exit_code}): {text}")
+    return text
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -204,44 +323,26 @@ async def client(db_session: AsyncSession):
     main_app.dependency_overrides.clear()
 
 
-@pytest_asyncio.fixture()
-async def s3(minio_container: DockerContainer, monkeypatch):
-    """A real MinIO wired into ``app.storage.storage``, buckets pre-created.
+@pytest_asyncio.fixture(scope="function")
+async def s3(garage_container: DockerContainer, monkeypatch):
+    """A real Garage wired into ``app.storage.storage``, buckets pre-created.
 
-    Readiness is handled by retrying bucket creation rather than a log wait:
-    MinIO is not listening the instant the container reports started, and a
-    retry loop fails with the actual S3 error if it never comes up.
+    The key import and bucket creation happen once, in the session-scoped
+    ``garage_container`` fixture, because they are cluster-level operations that
+    need the CLI: an S3 ``CreateBucket`` requires permissions a freshly imported
+    key does not have yet.
     """
-    import asyncio
-
-    import aioboto3
-
     from app.storage import storage
 
-    endpoint = f"http://{minio_container.get_container_host_ip()}:{minio_container.get_exposed_port(9000)}"
-
-    session = aioboto3.Session(
-        aws_access_key_id=MINIO_ROOT_USER,
-        aws_secret_access_key=MINIO_ROOT_PASSWORD,
+    endpoint = (
+        f"http://{garage_container.get_container_host_ip()}" f":{garage_container.get_exposed_port(GARAGE_S3_PORT)}"
     )
-    last_error: Exception | None = None
-    for _ in range(30):
-        try:
-            async with session.client("s3", endpoint_url=endpoint) as raw:
-                for bucket in S3_BUCKETS:
-                    # Already-exists is fine: buckets are shared across tests.
-                    with suppress(Exception):
-                        await raw.create_bucket(Bucket=bucket)
-            last_error = None
-            break
-        except Exception as exc:
-            last_error = exc
-            await asyncio.sleep(0.5)
-    if last_error is not None:
-        raise RuntimeError(f"MinIO never became ready at {endpoint}") from last_error
 
     monkeypatch.setattr(storage, "internal_client", lambda: _client(endpoint))
     monkeypatch.setattr(storage, "public_client", lambda: _client(endpoint))
+    monkeypatch.setenv("S3_INTERNAL_URL", endpoint)
+    monkeypatch.setenv("S3_PUBLIC_URL", endpoint)
+    monkeypatch.setenv("S3_REGION", S3_REGION)
     yield
 
 
@@ -249,9 +350,10 @@ def _client(endpoint: str):
     import aioboto3
 
     return aioboto3.Session(
-        aws_access_key_id=MINIO_ROOT_USER,
-        aws_secret_access_key=MINIO_ROOT_PASSWORD,
-    ).client("s3", endpoint_url=endpoint)
+        aws_access_key_id=S3_ACCESS_KEY,
+        aws_secret_access_key=S3_SECRET_KEY,
+        region_name=S3_REGION,
+    ).client("s3", endpoint_url=endpoint, region_name=S3_REGION)
 
 
 @pytest_asyncio.fixture()

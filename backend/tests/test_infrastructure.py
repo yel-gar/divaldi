@@ -16,7 +16,7 @@ async def test_redis_client_reaches_the_test_container(redis_session: None):
         assert await redis.get("smoke:key") == "value"
 
 
-async def test_minio_round_trip(s3: None):
+async def test_object_storage_round_trip(s3: None):
     import uuid as _uuid
 
     key = f"smoke/{_uuid.uuid4()}.txt"

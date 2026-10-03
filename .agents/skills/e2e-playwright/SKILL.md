@@ -6,7 +6,7 @@ description: Conventions for the Playwright end-to-end suite in divaldi. Use whe
 # E2E with Playwright — divaldi conventions
 
 The suite in `e2e/` drives the **real Compose stack** — Angular behind nginx, FastAPI,
-both TaskIQ worker pools, PostgreSQL, Redis, MinIO — with `SBER_API_KEY=mock`. Only the
+both TaskIQ worker pools, PostgreSQL, Redis, Garage — with `SBER_API_KEY=mock`. Only the
 LLM is replaced, by the same `MockProvider` the unit suite uses. A request therefore still
 walks the router, the worker, the spreadsheet calculator and a real S3 round trip.
 

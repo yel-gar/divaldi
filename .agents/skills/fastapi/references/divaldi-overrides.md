@@ -91,7 +91,7 @@ Chat routes carry a multi-line docstring **and** a `responses={...}` map for 401
   real `AIClient` implementation that ships in the image. Its mode comes from
   `MOCK_PROVIDER_MODE` (`kp`, `clarify`, `empty`, `error`) and its output is
   deterministic, so tests and e2e never depend on an LLM.
-- **PostgreSQL, Redis and MinIO are real testcontainers**, not fakes. Only the LLM and the
+- **PostgreSQL, Redis and Garage are real testcontainers**, not fakes. Only the LLM and the
   `httpx` calls inside `SberProvider` (via `httpx.MockTransport`) are stubbed.
 - **Worker tasks are not awaitable.** Use `tests.helpers.run_task(task, *args)`, which
   calls `task.original_func`, so nothing is enqueued to RabbitMQ.

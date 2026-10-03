@@ -12,7 +12,7 @@
 [![PostgreSQL](https://img.shields.io/badge/db-PostgreSQL%2018-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![RabbitMQ](https://img.shields.io/badge/broker-RabbitMQ%204-FF6600?logo=rabbitmq&logoColor=white)](https://www.rabbitmq.com)
 [![Redis](https://img.shields.io/badge/cache-Redis%208-DC382D?logo=redis&logoColor=white)](https://redis.io)
-[![MinIO](https://img.shields.io/badge/storage-MinIO-C04748?logo=minio&logoColor=white)](https://min.io)
+[![Garage](https://img.shields.io/badge/storage-Garage-EEEEEE?logo=rust&logoColor=black)](https://garagehq.deuxfleurs.fr)
 [![TaskIQ](https://img.shields.io/badge/queue-TaskIQ-FFD34E?logoColor=black)](https://taskiq-python.github.io)
 
 [🇬🇧 English](README.md) · [🇷🇺 Русский](README.ru.md)
@@ -89,7 +89,7 @@ Divaldi — внутреннее веб‑приложение для **ООО �
 |---|---|---|
 | 📈 | **Панель TaskIQ** | История задач, результаты, ошибки |
 | 🐇 | **Управление RabbitMQ** | Длина очередей и состояние воркеров |
-| 🗄️ | **Консоль MinIO** | Просмотр бакетов, правила жизненного цикла |
+| 🗄️ | **Admin API Garage** | Статус кластера, раскладка, ключи |
 | ♻️ | **Автоочистка хранилища** | Правила ILM удаляют необработанные аватары (1 д), вложения (7 д), артефакты (1 д) |
 | 🧹 | **Плановые очистки** | Ежечасные задачи удаляют устаревшие результаты, «сиротские» вложения и истёкшие сессии |
 
@@ -107,7 +107,7 @@ divaldi/
 │   │   ├── tasks/        Фоновые задачи TaskIQ (очереди default и network)
 │   │   ├── providers/    ИИ-клиент GigaChat (Sber)
 │   │   ├── cache.py      Клиент Redis + все билдеры ключей кэша
-│   │   ├── storage.py    Объектное хранилище MinIO/S3
+│   │   ├── storage.py    Объектное хранилище S3 (Garage)
 │   │   ├── deps.py       Алиасы зависимостей на базе Annotated
 │   │   └── harness.py    Системный промпт + схема структурированного вывода
 │   ├── alembic/          Миграции (пока одна — initial)
@@ -115,7 +115,7 @@ divaldi/
 │   └── tests/            pytest + testcontainers
 ├── processing/        Общая библиотека: растеризация PDF, парсер DXF, калькулятор Excel
 ├── frontend/          Angular 21 standalone + signals + SCSS
-├── conf/              Конфигурация инфраструктуры: redis.conf, minio-init.sh, правила ILM, инициализация БД
+├── conf/              Конфигурация инфраструктуры: redis.conf, garage.toml, garage-init.sh, правила жизненного цикла, инициализация БД
 ├── scripts/           Обёртки pre-commit для инструментов Poetry
 └── docker-compose.yaml
 ```
@@ -125,7 +125,7 @@ divaldi/
 1. `POST /api/v1/chats` создаёт сессию и возвращает `202`.
 2. Сообщение попадает в очередь **`network`** (`generate_chat_message`).
 3. Воркер загружает вложения в GigaChat и запрашивает структурированный JSON‑ответ.
-4. Если агент вернул позиции → заполняется `res/calc.xlsx` → `kp.xlsx` попадает в MinIO.
+4. Если агент вернул позиции → заполняется `res/calc.xlsx` → `kp.xlsx` попадает в Garage.
 5. Если список `positions` пуст — агент задал уточняющие вопросы.
 6. Фронтенд опрашивает `GET /chats/{id}/result` каждые 2 с (таймаут 5 мин) — WebSocket'ов нет.
 
@@ -148,7 +148,7 @@ divaldi/
 
 **Frontend** — Angular 21 (standalone, signals) · TypeScript 5.9 · SCSS (BEM + CSS-переменные) · RxJS · Vitest · ESLint · Prettier
 
-**Инфраструктура** — Docker Compose · PostgreSQL 18 · Redis 8 · RabbitMQ 4 · MinIO
+**Инфраструктура** — Docker Compose · PostgreSQL 18 · Redis 8 · RabbitMQ 4 · Garage
 
 ---
 
@@ -160,7 +160,7 @@ divaldi/
 - 📝 Файл `.env` с секретами, отмеченными обязательными в [таблице ниже](#-переменные-окружения)
 
 > ⚠️ **Весь проект запускается только через Docker Compose.** Бэкенд ожидает
-> имена сервисов (`db`, `redis`, `rabbitmq`, `minio`) и два пути, разрешаемые
+> имена сервисов (`db`, `redis`, `rabbitmq`, `garage`) и два пути, разрешаемые
 > относительно рабочей директории `backend/`. Локального запуска приложения не
 > существует. Отдельные сервисы можно запускать локально для редактирования, но
 > *запуск* — это Compose.
@@ -185,7 +185,8 @@ PS> Copy-Item .env.example .env
 ```
 
 Заполните обязательные значения — как минимум `POSTGRES_PASSWORD`, `RABBITMQ_PASS`,
-`TASKIQ_API_TOKEN`, `MINIO_ROOT_PASSWORD`, `SBER_API_KEY`, `SBER_API_SCOPE`.
+`TASKIQ_API_TOKEN`, `S3_SECRET_KEY`, `GARAGE_RPC_SECRET`, `GARAGE_ADMIN_TOKEN`,
+`SBER_API_KEY`, `SBER_API_SCOPE`.
 
 Генерация секретов:
 
@@ -229,8 +230,8 @@ PS> .\createsuperuser.ps1
 | ⚡ **Backend API** | http://localhost:3000 | документация `/api/v1/docs` — **только при включённом `DEBUG`** |
 | 📈 **Панель TaskIQ** | http://localhost:8000 | нужен `TASKIQ_API_TOKEN` |
 | 🐇 **RabbitMQ** | http://localhost:15672 | пользователь `RABBITMQ_USER` / `RABBITMQ_PASS` |
-| 🗄️ **Консоль MinIO** | http://localhost:9001 | пользователь `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` |
-| 🗃️ **MinIO S3 API** | http://localhost:9000 | |
+| 🗄️ **Admin API Garage** | http://localhost:3903 | нужен `GARAGE_ADMIN_TOKEN` |
+| 🗃️ **Garage S3 API** | http://localhost:3900 | сюда указывают presigned-ссылки на загрузку и скачивание |
 | 🐘 **PostgreSQL** | `localhost:5432` | `5431` в dev-оверрайде |
 
 ### Сервисы Compose
@@ -247,7 +248,9 @@ PS> .\createsuperuser.ps1
 | `db` | PostgreSQL 18 (`shm_size: 512mb`) |
 | `redis` | кэш, блокировки, лимиты запросов |
 | `rabbitmq` | брокер задач, vhost `taskiq` |
-| `minio` / `minio-init` | S3-хранилище; init создаёт бакеты и импортирует правила ILM |
+| `garage` | S3-совместимое хранилище объектов (`--single-node`) |
+| `garage-bootstrap` | импортирует ключ приложения, создаёт бакеты, выдаёт доступ |
+| `garage-lifecycle` | применяет правила жизненного цикла через S3 API |
 
 ---
 
@@ -382,15 +385,18 @@ npm --prefix frontend run format
 | `SBER_API_KEY`                | API-ключ из [документации Сбера](https://developers.sber.ru/docs/ru/gigachat/api/reference/rest/post-token).                                 | ✅             | `mock`               |
 | `SBER_API_SCOPE`              | Область действия API из [документации Сбера](https://developers.sber.ru/docs/ru/gigachat/api/reference/rest/post-token). Одно из: `PERS`, `B2B`, `CORP`. | ✅         | `PERS`               |
 | `GIGACHAT_MODEL`              | Используемая модель GigaChat. См. [модели GigaChat](https://developers.sber.ru/docs/ru/gigachat/models/main).                                | ❌             | `GigaChat-3-Ultra`   |
-| **Объектное хранилище (MinIO)** |                                                                                                                                           |                |                      |
-| `MINIO_ROOT_PASSWORD`         | Пароль MinIO. ⚠️ MinIO открыт в продакшене — слабый пароль здесь приведёт к серьёзным проблемам безопасности.                             | ✅             |                      |
-| `MINIO_URL`                   | Публичный базовый URL MinIO.                                                                                                                | ✅             | `http://localhost:9000` |
-| `MINIO_ROOT_USER`             | Пользователь MinIO.                                                                                                                        | ❌             | `minio`              |
-| `MINIO_PORT`                  | Порт MinIO в продакшене.                                                                                                                   | ❌             | `9000`               |
-| `MINIO_DASHBOARD_PORT`        | Порт консоли MinIO.                                                                                                                        | ❌             | `9001`               |
+| **Объектное хранилище (Garage)** |                                                                                                                                           |                |                      |
+| `S3_SECRET_KEY`               | Секрет S3-ключа приложения. ⚠️ Garage открыт в продакшене — слабый секрет приведёт к серьёзным проблемам безопасности. Генерируйте через `openssl rand -hex 48`. | ✅             |                      |
+| `S3_ACCESS_KEY`               | Id ключа, который импортирует `garage-bootstrap`. Формат: `GK` + 26 hex-символов. ⚠️ Нельзя использовать с другим секретом, поэтому при ротации секрета нужен новый id. | ❌             | `GKd1a1b2c3d4e5f60718293a4b5c6d` |
+| `S3_PUBLIC_URL`               | Endpoint, зашитый в presigned-ссылки, поэтому должен быть доступен из браузера. ОБЯЗАТЕЛЬНО ОБНОВИТЕ В ПРОДАКШЕНЕ.                              | ❌             | `http://localhost:3900` |
+| `S3_PORT`                     | Хостовый порт S3 API.                                                                                                                      | ❌             | `3900`               |
+| `S3_REGION`                   | Должно совпадать с `s3_region` в `conf/garage.toml`.                                                                                       | ❌             | `garage`             |
+| `GARAGE_RPC_SECRET`           | RPC-секрет Garage. ⚠️ Ровно **32 байта в hex** — используйте `openssl rand -hex 32`, а не `-hex 48`, иначе Garage не стартует.              | ✅             |                      |
+| `GARAGE_ADMIN_TOKEN`          | Токен admin API Garage. То же ограничение в 32 байта, что и у `GARAGE_RPC_SECRET`.                                                        | ✅             |                      |
+| `GARAGE_ADMIN_PORT`           | Хостовый порт admin API Garage.                                                                                                             | ❌             | `3903`               |
 
-> 🔐 **Имена хостов Redis, RabbitMQ, MinIO и панели TaskIQ захардкожены** в бэкенде
-> (`redis://redis:6379`, `amqp://…@rabbitmq:5672/taskiq`, `http://minio:9000`,
+> 🔐 **Имена хостов Redis, RabbitMQ, Garage и панели TaskIQ захардкожены** в бэкенде
+> (`redis://redis:6379`, `amqp://…@rabbitmq:5672/taskiq`, `http://garage:3900`,
 > `http://taskiq_dashboard:8000`). Это ещё одна причина, почему приложение работает
 > только в Compose.
 
@@ -432,7 +438,7 @@ npm --prefix frontend run format
 <summary><b>🎭 End-to-end тесты (Playwright)</b></summary>
 
 E2E-набор работает с реальным стеком Compose — браузер, FastAPI, воркеры TaskIQ,
-PostgreSQL, Redis, MinIO — с **`SBER_API_KEY=mock`**, поэтому весь путь запроса
+PostgreSQL, Redis, Garage — с **`SBER_API_KEY=mock`**, поэтому весь путь запроса
 проверяется, а сама языковая модель работает офлайн и бесплатно.
 
 ```bash

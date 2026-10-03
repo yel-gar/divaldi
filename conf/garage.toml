@@ -1,0 +1,43 @@
+# Garage configuration for divaldi.
+#
+# Garage is an S3-compatible object store. It replaces MinIO, whose upstream
+# repositories were deleted and are no longer pullable from any registry.
+#
+# Secrets are NOT stored here. GARAGE_RPC_SECRET and GARAGE_ADMIN_TOKEN are read
+# from the environment (see .env.example), so this file is safe to commit.
+# Garage refuses to start if rpc_secret is not exactly 32 bytes of hex, which is
+# why the file only names a secret file and does not carry a value.
+#
+# The metadata directory holds the cluster layout and the key database, and is
+# as important as the data directory itself: losing it orphans the data.
+
+metadata_dir = "/var/lib/garage/meta"
+data_dir     = "/var/lib/garage/data"
+db_engine    = "lmdb"
+
+# Single node, so every object is stored exactly once. A production deployment
+# should raise this to 3 and run 3+ nodes across failure domains; the
+# replication factor must not exceed the number of assigned nodes.
+replication_factor = 1
+
+# GARAGE_RPC_SECRET must be exactly 32 bytes of hex, i.e. 64 characters, so
+# generate it with `openssl rand -hex 32` rather than the usual `-hex 48`.
+# Garage refuses to start otherwise.
+
+rpc_bind_addr   = "0.0.0.0:3901"
+# Must be an address other nodes and the CLI can reach. In Compose this is the
+# service name; the init container resolves it over the compose network.
+rpc_public_addr = "garage:3901"
+
+[s3_api]
+api_bind_addr = "0.0.0.0:3900"
+# Arbitrary but must match the region the backend signs requests with.
+s3_region = "garage"
+# Only used for virtual-host-style addressing. The backend addresses Garage
+# path-style, so this is never resolved.
+root_domain = ".s3.garage.localhost"
+
+[admin]
+# Used by the compose healthcheck and by `garage` CLI calls made from outside
+# the container.
+admin_bind_addr = "0.0.0.0:3903"

@@ -319,7 +319,12 @@ async def test_set_avatar_returns_presigned_post_params(
     assert data["fields"]["Content-Type"] == "image/png"
     assert data["fields"]["key"] == get_s3_avatar_unprocessed_key(test_user.uuid)
     assert "policy" in data["fields"]
-    assert "signature" in data["fields"]
+    # SigV4, not the legacy v2 form. The old assertion looked for "signature"
+    # and passed only because the credentials defaulted to us-east-1, where
+    # botocore still signs with SigV2. Any other region, including the "garage"
+    # region this project now uses, produces "x-amz-signature".
+    assert "x-amz-signature" in data["fields"]
+    assert "x-amz-algorithm" in data["fields"]
 
 
 @pytest.mark.asyncio

@@ -36,7 +36,7 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   **relative** path, so a different working directory raises at request time, or worse, only
   under the PERS-scope code path. `tasks/api.py` gets this right by anchoring on
   `Path(__file__).parent.parent.parent / "res/calc.xlsx"`.
-- Service hostnames (`redis`, `rabbitmq`, `minio`, `taskiq_dashboard`) are hardcoded literals
+- Service hostnames (`redis`, `rabbitmq`, `garage`, `taskiq_dashboard`) are hardcoded literals
   in the source. That is why the project cannot be run outside Compose; do not "improve" them
   into env vars without also changing the run model.
 - Redis database **0 is general** (cache, locks, rate limits, statuses) and **1 is TaskIQ
@@ -222,7 +222,7 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
 - **`app.storage` and `app.providers.containers` read `os.environ` at import time**, so
   the test env must be set at the top of `conftest.py` *before* any `app` import. An
   autouse fixture is too late: fixtures run after collection, and these modules import
-  during it. This surfaced as `KeyError: MINIO_ROOT_PASSWORD` at collection.
+  during it. This surfaced as `KeyError: S3_SECRET_KEY` at collection.
 - **`get_redis_pool` and friends are `@cache`d, so tests that change the environment must
   call `cache_clear()`.** `get_debug` returned a stale value across every value of `DEBUG`
   until the cache was cleared, which looked like the truthiness logic being wrong.
@@ -286,6 +286,41 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   "Something removed the coverage directory". Just run the coverage command; do not clean it
   first.
 
+## Object storage (Garage)
+
+- **The `dxflrs/garage` image has no shell at all** — no `/bin/sh`, no `curl`, no `mc`, not even
+  `ls`. Anything the bootstrap needs has to come from another image.
+- **Do not lift binaries out of busybox into the Garage image.** Copying `/bin/sh` in that
+  direction builds an image whose shell fails with `exec /bin/sh: no such file or directory`
+  even though the binary is present and executable, because those binaries expect a loader
+  and directory layout the distroless base lacks. Base on busybox and copy the garage binary
+  *in* instead.
+- **`GARAGE_RPC_SECRET` and `GARAGE_ADMIN_TOKEN` must be exactly 32 bytes of hex (64
+  characters).** The failure is `Invalid RPC secret key: expected 32 bytes of random hex`, which
+  does not say the value is the wrong length. `openssl rand -hex 48`, used for every other
+  secret in `.env`, produces 96 characters and is rejected.
+- **testcontainers mounts a volume read-only by default**, and Garage creates its own LMDB
+  directory inside the mount point, so the container exits with `Unable to create LMDB data
+  directory: Read-only file system`. Pass `mode="rw"` to `with_volume_mapping`. MinIO tolerated
+  the read-only mount, so this only appeared after the migration.
+- **A presigned POST rejects any form field that is not also a policy condition**, with
+  `Key 'content-type' is not allowed in policy`. The upload routes pass `Content-Type` in both
+  `Fields` and `Conditions`, which is why they work; a new call site that adds a field without
+  the matching condition will get HTTP 400.
+- **The region decides the signature version.** With credentials defaulting to `us-east-1`,
+  botocore signs presigned POSTs with the legacy `signature` field. Any other region, including
+  the `garage` region this project now uses, produces `x-amz-signature`. A test asserting
+  `signature` was passing for the wrong reason.
+- **Garage's lifecycle worker runs once per day at midnight**, so a 1-day expiration rule
+  cannot be observed in a test. An already-past `Expiration.Date` is accepted but is only
+  applied by the next daily sweep.
+- **The garage admin API (port 3903) resets connections when proxied**, so the admin API is not
+  a reliable readiness probe here. The CLI over RPC, or the S3 port answering `GET /`, is what
+  the healthcheck and the bootstrap use.
+- **A secret written with `echo` carries a trailing newline**, which aiohttp rejects as
+  `Forbidden control character detected in headers`. Strip it when loading credentials from a
+  file in a test.
+
 ## Agent skills and documentation
 
 - **Do not hand-write a skill for a framework you can install.** `openai/skills` (curated)
@@ -313,6 +348,22 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   architecture, feature, port, test or contribution documentation at all, which is why the
   project had three unrunnable-looking parts (`parser/`, no `.env.example` entry for
   `TEST_INSTANCE_MODE`, no LICENSE).
+
+## Destructive operations
+
+- **`docker compose down -v` destroyed the developer's PostgreSQL data.** I ran it to prove the
+  object-storage bootstrap works from empty volumes, reasoning that the database was "just a
+  test database". That reasoning was mine to make and it was wrong: the volume can hold real
+  accounts, chats and attachments, and there is no way to check from the host whether it does.
+  The user had to tell me not to do it again.
+- **The general rule: never issue a command whose effect is irreversible and invisible.**
+  `-v` is a single character that deletes a database. If a verification seems to need a
+  destructive step, ask first, or verify against a throwaway name instead — in this case a
+  fresh `docker run` or a separate Compose project name would have proved the same thing
+  without touching anything.
+- **"It is probably fine" is not a risk assessment when the cost is someone else's data.**
+  Blast radius decides whether a guess is acceptable, and here the blast radius was the user's
+  work.
 
 ## Cross-cutting
 

@@ -64,7 +64,7 @@ async def test_something(client, test_user):
 
 | Fixture | Purpose |
 |---|---|
-| `env` | autouse; monkeypatches `SBER_API_KEY`, `SBER_API_SCOPE`, `RABBITMQ_*`, `TASKIQ_API_TOKEN`, `MINIO_ROOT_PASSWORD` |
+| `env` | autouse; monkeypatches `SBER_API_KEY`, `SBER_API_SCOPE`, `RABBITMQ_*`, `TASKIQ_API_TOKEN`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` |
 | `postgres_container` / `redis_container` | session-scoped testcontainers |
 | `engine` | session-scoped; builds the schema with `Base.metadata.create_all` |
 | `db_session` | per-test session, truncated |
@@ -100,13 +100,13 @@ Available from `conftest.py` (see the file for the full set):
 |---|---|
 | `db_session` | a transactional session, rolled back per test |
 | `redis_session` / `redis_client` | the real Redis container |
-| `s3` / `s3_put` | the real MinIO, buckets pre-created, wired into `app.storage.storage` |
+| `s3` / `s3_put` | the real Garage, buckets pre-created, wired into `app.storage.storage` |
 | `task_db` | rebinds `tsq_db()` inside the workers to the test database |
 | `engine` | the session-scoped test engine |
 | `client` / `admin_client` | authenticated `httpx.AsyncClient` over ASGI |
 | `chat_session`, `factories`, `test_user` | domain rows |
 | `mock_mode(mode)` | sets `MOCK_PROVIDER_MODE` for one test |
-| `minio_container`, `postgres_container`, `redis_container` | the raw containers |
+| `garage_container`, `postgres_container`, `redis_container` | the raw containers |
 
 ## Conventions that will waste your time if ignored
 
