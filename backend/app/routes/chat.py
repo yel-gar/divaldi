@@ -2,10 +2,11 @@ import json
 import uuid
 from datetime import timedelta
 from pathlib import PurePath
+from typing import Annotated, Literal
 
 import structlog.stdlib
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import delete, select, update
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import aliased, selectinload
 
 from app.cache import (
@@ -46,6 +47,7 @@ from app.schemas.chat import (
     ResultSchema,
     ResultSchemaContent,
     SendMessageSchema,
+    UserChatPageSchema,
     UserChatSchema,
 )
 from app.schemas.files import (
@@ -98,18 +100,27 @@ router = APIRouter(
 
 @router.get(
     "/",
-    summary="Get all chats user has ever created",
-    response_model=list[UserChatSchema],
+    summary="Get a page of chats user has ever created",
+    response_model=UserChatPageSchema,
     responses={
         401: {"description": "Not authenticated, or session expired/invalid"},
         429: {"description": "Rate limit exceeded (max 100 per minute across all chat endpoints)"},
     },
 )
-async def get_chats(db: DbSession, user: CurrentUser):
-    """Return one entry per chat session the user has ever created, each with its last non-system message.
+async def get_chats(
+    db: DbSession,
+    user: CurrentUser,
+    items_per_page: Annotated[int, Query(ge=1, le=100)] = 20,
+    page: Annotated[int, Query(ge=0, description="Current page, starting from zero")] = 0,
+    sort: Annotated[Literal["date", "number"], Query(description="Sort key")] = "date",
+    order: Annotated[Literal["asc", "desc"], Query(description="Sort direction for the chosen key")] = "desc",
+):
+    """Return one page of the user's chat sessions, each with its last non-system message.
 
-    Sessions are ordered by most recently active first. Sessions with no messages
-    other than the initial system message are omitted.
+    Sessions with no messages other than the initial system message are omitted.
+    `sort=date` orders by the last message's timestamp, `sort=number` by session id;
+    `total` is the number of matching sessions across all pages, so a page number
+    past the end returns no items but still reports the real total.
     """
     latest_per_session = (
         select(ChatMessage)
@@ -126,28 +137,56 @@ async def get_chats(db: DbSession, user: CurrentUser):
 
     LatestMessage = aliased(ChatMessage, latest_per_session)  # noqa: N806
 
+    # Same predicate as the page query, grouped by session, so `total` counts sessions
+    # rather than messages.
+    total = await db.scalar(
+        select(func.count()).select_from(
+            select(ChatMessage.chat_session_id)
+            .join(ChatMessage.session)
+            .where(ChatSession.user_id == user.id, ChatMessage.role != UserRole.SYSTEM)
+            .group_by(ChatMessage.chat_session_id)
+            .subquery()
+        )
+    )
+
+    # The secondary key makes the order total, so a session cannot land on two pages
+    # or on none when two sessions share a timestamp.
+    sort_columns = (
+        (LatestMessage.timestamp, LatestMessage.chat_session_id)
+        if sort == "date"
+        else (LatestMessage.chat_session_id, LatestMessage.timestamp)
+    )
+    order_by = [column.asc() if order == "asc" else column.desc() for column in sort_columns]
+
     data = await db.scalars(
         select(LatestMessage)
-        .order_by(LatestMessage.timestamp.desc())  # most recently active sessions first
+        .order_by(*order_by)
+        .limit(items_per_page)
+        .offset(page * items_per_page)
         .options(
             selectinload(LatestMessage.attachments),
             selectinload(LatestMessage.session),
         )
     )
-    return [
-        UserChatSchema(
-            session_id=d.chat_session_id,
-            last_message=ChatMessageSchema(
-                id=d.id,
-                role=d.role,
-                content=d.get_chat_text(),
-                timestamp=d.timestamp,
-                attachments=[ChatAttachment.model_validate(a, from_attributes=True) for a in d.attachments],
-            ),
-            name=d.session.name,
-        )
-        for d in data
-    ]
+    return UserChatPageSchema(
+        items=[
+            UserChatSchema(
+                session_id=d.chat_session_id,
+                last_message=ChatMessageSchema(
+                    id=d.id,
+                    role=d.role,
+                    content=d.get_chat_text(),
+                    timestamp=d.timestamp,
+                    attachments=[ChatAttachment.model_validate(a, from_attributes=True) for a in d.attachments],
+                ),
+                name=d.session.name,
+            )
+            for d in data
+        ],
+        total=total or 0,
+        page=page,
+        items_per_page=items_per_page,
+    )
 
 
 @router.post(

@@ -120,7 +120,7 @@ async def test_get_chats_empty(auth_client: AsyncClient, redis_session: None):
     response = await auth_client.get("/chats/")
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == {"items": [], "total": 0, "page": 0, "items_per_page": 20}
 
 
 async def test_get_chats_skips_system_only_sessions(auth_client: AsyncClient, chat, factories, redis_session: None):
@@ -129,7 +129,8 @@ async def test_get_chats_skips_system_only_sessions(auth_client: AsyncClient, ch
     response = await auth_client.get("/chats/")
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json()["items"] == []
+    assert response.json()["total"] == 0
 
 
 async def test_get_chats_returns_latest_message_with_attachments(
@@ -146,12 +147,14 @@ async def test_get_chats_returns_latest_message_with_attachments(
 
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 1
-    assert data[0]["session_id"] == str(chat.session_id)
-    assert data[0]["name"] == "Новый чат"
-    assert data[0]["last_message"]["content"] == "второе"
+    assert data["total"] == 1
+    assert data["page"] == 0
+    assert len(data["items"]) == 1
+    assert data["items"][0]["session_id"] == str(chat.session_id)
+    assert data["items"][0]["name"] == "Новый чат"
+    assert data["items"][0]["last_message"]["content"] == "второе"
     # The list endpoint does not filter on readiness, unlike GET /chats/{id}.
-    assert {a["name"] for a in data[0]["last_message"]["attachments"]} == {"drawing.pdf", "photo.png"}
+    assert {a["name"] for a in data["items"][0]["last_message"]["attachments"]} == {"drawing.pdf", "photo.png"}
 
 
 async def test_get_chats_orders_most_recent_first_and_hides_other_users(
@@ -175,8 +178,79 @@ async def test_get_chats_orders_most_recent_first_and_hides_other_users(
 
     assert response.status_code == 200
     data = response.json()
-    assert [entry["session_id"] for entry in data] == [str(newer.session_id), str(older.session_id)]
-    assert [entry["last_message"]["content"] for entry in data] == ["свежее", "старое"]
+    # The other user's session is neither listed nor counted.
+    assert data["total"] == 2
+    assert [entry["session_id"] for entry in data["items"]] == [str(newer.session_id), str(older.session_id)]
+    assert [entry["last_message"]["content"] for entry in data["items"]] == ["свежее", "старое"]
+
+
+async def _seed_paged_chats(
+    db_session: AsyncSession, factories, count: int, user: User, start: datetime
+) -> list[ChatSession]:
+    """`count` sessions whose last message timestamps increase with the list index."""
+    sessions = []
+    for index in range(count):
+        row = await make_chat(db_session, user.id, name=f"Чат {index}")
+        message = await factories.message(row.session_id, content=f"сообщение {index}")
+        await set_timestamp(db_session, message, start + timedelta(minutes=index))
+        sessions.append(row)
+    return sessions
+
+
+async def test_get_chats_splits_sessions_into_pages(
+    auth_client: AsyncClient, db_session: AsyncSession, test_user: User, factories, redis_session: None
+):
+    sessions = await _seed_paged_chats(db_session, factories, 5, test_user, BASE_TIME)
+
+    first = await auth_client.get("/chats/", params={"items_per_page": 2, "page": 0})
+    second = await auth_client.get("/chats/", params={"items_per_page": 2, "page": 1})
+
+    assert first.status_code == 200
+    assert first.json()["items_per_page"] == 2
+    assert first.json()["page"] == 0
+    # `total` counts every session regardless of the page that was asked for.
+    assert first.json()["total"] == second.json()["total"] == 5
+    # Default order is by last message, newest first, so page 0 holds the newest two.
+    assert [entry["session_id"] for entry in first.json()["items"]] == [
+        str(sessions[4].session_id),
+        str(sessions[3].session_id),
+    ]
+    assert [entry["session_id"] for entry in second.json()["items"]] == [
+        str(sessions[2].session_id),
+        str(sessions[1].session_id),
+    ]
+
+
+async def test_get_chats_page_past_the_end_is_empty_but_reports_the_total(
+    auth_client: AsyncClient, db_session: AsyncSession, test_user: User, factories, redis_session: None
+):
+    await _seed_paged_chats(db_session, factories, 3, test_user, BASE_TIME)
+
+    response = await auth_client.get("/chats/", params={"items_per_page": 2, "page": 9})
+
+    assert response.status_code == 200
+    assert response.json() == {"items": [], "total": 3, "page": 9, "items_per_page": 2}
+
+
+async def test_get_chats_sort_by_number(
+    auth_client: AsyncClient, db_session: AsyncSession, test_user: User, factories, redis_session: None
+):
+    sessions = await _seed_paged_chats(db_session, factories, 3, test_user, BASE_TIME)
+
+    ascending = await auth_client.get("/chats/", params={"sort": "number", "order": "asc"})
+    descending = await auth_client.get("/chats/", params={"sort": "number", "order": "desc"})
+
+    by_id = sorted(str(row.session_id) for row in sessions)
+    assert [entry["session_id"] for entry in ascending.json()["items"]] == by_id
+    assert [entry["session_id"] for entry in descending.json()["items"]] == list(reversed(by_id))
+
+
+async def test_get_chats_rejects_invalid_pagination_and_sort(auth_client: AsyncClient, redis_session: None):
+    assert (await auth_client.get("/chats/", params={"page": -1})).status_code == 422
+    assert (await auth_client.get("/chats/", params={"items_per_page": 0})).status_code == 422
+    assert (await auth_client.get("/chats/", params={"items_per_page": 101})).status_code == 422
+    assert (await auth_client.get("/chats/", params={"sort": "name"})).status_code == 422
+    assert (await auth_client.get("/chats/", params={"order": "sideways"})).status_code == 422
 
 
 # ---------------------------------------------------------------------------

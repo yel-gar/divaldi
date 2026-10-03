@@ -33,6 +33,24 @@ export interface UserChat {
   name: string;
 }
 
+/** Envelope every paginated list endpoint returns: the page itself plus the total. */
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  items_per_page: number;
+}
+
+export type ChatSortKey = 'date' | 'number';
+export type SortOrder = 'asc' | 'desc';
+
+export interface ChatListQuery {
+  page?: number;
+  itemsPerPage?: number;
+  sort?: ChatSortKey;
+  order?: SortOrder;
+}
+
 export interface ChatResultContent {
   type: 'error' | 'success';
   content: string;

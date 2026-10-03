@@ -40,6 +40,12 @@ export interface SidebarHistoryItem {
 
 const CHAT_URL_PATTERN = /^\/chats\/([^/?#]+)/;
 
+/**
+ * The sidebar is a shortcut column, not the history list: it shows the most recent
+ * sessions only, and the history page pages through the rest.
+ */
+const HISTORY_PREVIEW_SIZE = 10;
+
 function toHistoryItem(chat: UserChat): SidebarHistoryItem {
   const parsedTimestamp = Date.parse(chat.last_message?.timestamp ?? '');
   return {
@@ -163,15 +169,15 @@ export class Sidebar implements OnInit {
   private loadHistory(): void {
     this.chatsLoading.set(true);
     this.chatService
-      .list()
+      .list({ itemsPerPage: HISTORY_PREVIEW_SIZE })
       .pipe(
         finalize(() => this.chatsLoading.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (chats) => {
+        next: (response) => {
           this.chatsError.set(false);
-          this.chats.set(chats.map(toHistoryItem));
+          this.chats.set(response.items.map(toHistoryItem));
         },
         error: () => {
           this.chatsError.set(true);

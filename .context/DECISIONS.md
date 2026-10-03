@@ -543,3 +543,37 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   extension — the Content-Type on the stored object is what selects the processor — so the
   pairing would add a rule with no consumer behind it. Deliberately left out; revisit if a
   consumer ever starts trusting the suffix.
+
+## Chat list pagination (2026-10-03, issue #51)
+
+- **`GET /chats/` returns an envelope, not a bare list.** The shape is
+  `UserChatPageSchema` = `{items, total, page, items_per_page}`, with query parameters
+  `page` (zero-based, `ge=0`), `items_per_page` (`ge=1, le=100`, default 20), `sort`
+  (`date` or `number`) and `order` (`asc` or `desc`). **This is a breaking change** for
+  every consumer, which is why all of them moved in the same commit: `ChatService.list()`
+  and its two callers.
+- **`total` is computed with a second query rather than by fetching `items_per_page + 1`
+  rows.** The extra row is the cheaper trick for a "has more" flag, but a page counter
+  needs the real count, and the count query is a `DISTINCT` over the same predicate the
+  page query uses, so the two cannot disagree.
+- **Sorting moved to the server, and that was forced by pagination, not chosen for taste.**
+  The history page used to sort the whole array client-side, which is impossible once only
+  one page is in memory: page 2 of "newest first" is not page 2 of "oldest first". A
+  paginated list with client-side sorting is worse than either, because the visible order
+  silently changes meaning between pages.
+- **The ordering has a secondary key.** `sort=date` orders by `(timestamp, session_id)` and
+  `sort=number` by `(session_id, timestamp)`. Without the tiebreaker two sessions whose
+  last message shares a timestamp could swap between requests, and with `LIMIT`/`OFFSET`
+  that means one session appears on two pages and another on none.
+- **The sidebar asks for a fixed 10-item preview and the history page pages through the
+  rest.** The sidebar column is a shortcut to recent work, not a second copy of the list,
+  and it already had no way to show more than a screenful. It is a separate constant from
+  `CHATS_PAGE_SIZE` precisely because it is a different question, not a different style of
+  the same one.
+- **`messages` pagination was deliberately left out of this issue.** `GET /chats/{id}`
+  returns one append-only transcript, and the chat view already merges it with a
+  2-second poll and with locally pending messages carrying negative ids
+  (`mergeApiMessages`). Paging that list correctly needs either a cursor rather than an
+  offset, or an "older messages" control that preserves scroll position; doing it as an
+  offset alongside the existing merge would have been a second, subtler bug. The route is
+  unchanged and still returns every message. Revisit as its own change.

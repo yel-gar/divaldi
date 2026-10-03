@@ -3,7 +3,7 @@
 Rewritten in place on each update. Do not append. Keep it short and current; detail belongs
 in `DECISIONS.md` (rationale) or `AGENTS.md` (procedure).
 
-Last updated: **2026-10-03** (issues #44, #46 and #59 merged)
+Last updated: **2026-10-03** (issues #44, #46, #51 and #59 merged)
 
 ---
 
@@ -51,20 +51,20 @@ instance, created by `conf/postgres-init/01-taskiq-dashboard.sql`.
 
 | Suite | Command | Notes |
 |---|---|---|
-| Backend | `poetry -C backend run pytest` | 325 tests; needs a Docker daemon |
-| Backend coverage | `poetry -C backend run pytest --cov` | **98.80%**, gated at 90% by `fail_under` |
+| Backend | `poetry -C backend run pytest` | 337 tests; needs a Docker daemon |
+| Backend coverage | `poetry -C backend run pytest --cov` | **98.81%**, gated at 90% by `fail_under` |
 | Processing | `poetry -C processing run pytest -v` | 85 tests; DXF, PDF, calculator; pure, no Docker |
 | Processing coverage | `poetry -C processing run pytest --cov` | **95.73%**, gated at 90% by `fail_under` |
-| Frontend | `npm --prefix frontend test` | Vitest, 305 tests; runs in `frontend-ci.yml` |
-| Frontend coverage | `npx ng test --coverage` | 90.24% stmts, 84.93% branches, 90.13% funcs; gated at 90% |
+| Frontend | `npm --prefix frontend test` | Vitest, 314 tests; runs in `frontend-ci.yml` |
+| Frontend coverage | `npx ng test --coverage` | 90.29% stmts, 85.22% branches, 90.20% funcs; gated at 90% |
 
 **Backend coverage is enforced at 90%** via `fail_under` in `backend/pyproject.toml`,
-reading **98.80%** across 325 tests with branch coverage. The `pre-push` hook and
+reading **98.81%** across 337 tests with branch coverage. The `pre-push` hook and
 `.github/workflows/backend-coverage.yml` enforce it and neither names a percentage.
 
 **Frontend coverage is enforced at 90%** via `coverageThresholds` on the `test` target in
-`frontend/angular.json`, reading **90.24%** statements across 305 tests. That is only just
-above the line; branches (84.93%) are deliberately not gated.
+`frontend/angular.json`, reading **90.29%** statements across 314 tests. That is only just
+above the line; branches (85.22%) are deliberately not gated.
 
 **All three Python and TypeScript suites are now gated at 90%**, each with its threshold in
 exactly one place. Processing reads **95.73%** across 85 tests with branch coverage; the 15
@@ -76,7 +76,7 @@ PostgreSQL, Redis and Garage are real testcontainers on the backend. The LLM is 
 `MOCK_PROVIDER_MODE`; the real GigaChat is only reachable through `@pytest.mark.live`
 tests, which are deselected by default.
 
-**The frontend suite is GREEN.** 305 of 305 tests pass across 33 spec files, up from 154.
+**The frontend suite is GREEN.** 314 of 314 tests pass across 33 spec files, up from 154.
 It was red on `main`: 14 tests in `sidebar.component.spec.ts` failed because the jsdom test
 environment exposes no `localStorage`, and `ThemeService` reads it in a field initializer.
 Fixed by `src/test-setup.ts`, registered through the builder's `setupFiles` option. The
@@ -102,6 +102,15 @@ There is no deploy workflow; CI only.
 ---
 
 ## Current work
+
+**Branch `issue/51-chat-pagination` (from `feat/ai-refactor`)** — `GET /chats/` is
+paginated. The response is now `{items, total, page, items_per_page}` with `page`,
+`items_per_page`, `sort` and `order` query parameters, so the change is breaking for
+every consumer: `ChatService.list()` takes a `ChatListQuery`, the history page pages and
+sorts server-side behind a pager, and the sidebar asks for a 10-item preview. 9 new
+backend tests and 9 new frontend tests; see "Chat list pagination" in `DECISIONS.md`.
+**Message pagination is not included** and `GET /chats/{id}` is unchanged; the reasoning
+is in that same section.
 
 **Branch `issue/46-filename-filter` (from `feat/ai-refactor`)** — the chat upload route
 (`POST /chats/{id}/uploads`) now rejects a filename that is not a bare name with an
@@ -186,6 +195,10 @@ backend and frontend coverage pipelines:
 
 Ordered by value, not by commitment:
 
+- **Paginate `GET /chats/{id}` (messages).** Left out of #51 on purpose. The chat view
+  merges the transcript with a 2 s poll and with local pending messages, so this needs a
+  cursor or a scroll-preserving "older messages" control rather than a plain offset.
+
 0. **Mirror the Garage image into a registry we control** and pin it by digest. MinIO's
    deletion cost a CI outage and this migration; the same event could happen to
    `dxflrs/garage`. Roughly an hour, and it is the only fix that addresses the cause rather
@@ -221,8 +234,8 @@ Ordered by value, not by commitment:
   file or the backend source to learn it exists.
 - The frontend dev override bind-mounts `./frontend` over `/app`. If `node_modules` inside it
   is stale or partially populated, `ng serve` fails in ways that look like source errors.
-- Frontend statement coverage (90.24%) sits almost exactly on the 90% gate. Any new
-  uncovered component will fail CI, and branches at 84.93% have no headroom.
+- Frontend statement coverage (90.29%) sits almost exactly on the 90% gate. Any new
+  uncovered component will fail CI, and branches at 85.22% have no headroom.
 - **The object-storage image is still a single point of failure.** `dxflrs/garage` lives in
   one small project's Docker Hub namespace; MinIO died the same way. Mirroring the image into
   an organisation-controlled registry and pinning it by digest would make an upstream deletion
