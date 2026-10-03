@@ -46,12 +46,25 @@ export interface ChatResult {
   result: ChatResultContent | null;
 }
 
+export const USER_ROLES = ['user', 'admin', 'superuser'] as const;
+
+export type UserRole = (typeof USER_ROLES)[number];
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  user: 'Пользователь',
+  admin: 'Администратор',
+  superuser: 'Суперпользователь'
+};
+
+export const isAdminRole = (role: UserRole | undefined): boolean =>
+  role === 'admin' || role === 'superuser';
+
 export interface User {
   id: number;
   username: string;
   first_name: string | null;
   last_name: string | null;
-  is_superuser: boolean;
+  role: UserRole;
 }
 
 export interface S3AvatarUrl {
@@ -63,7 +76,7 @@ export interface AdminUser {
   username: string;
   first_name: string | null;
   last_name: string | null;
-  is_superuser: boolean;
+  role: UserRole;
   expires_at: string | null;
 }
 
@@ -73,6 +86,7 @@ export interface AdminUserPayload {
   first_name: string | null;
   last_name: string | null;
   expires_at: string | null;
+  role?: UserRole;
 }
 
 export interface MessageResponse {

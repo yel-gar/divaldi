@@ -4,7 +4,7 @@ from getpass import getpass
 from sqlalchemy import select
 
 from app.auth import hash_password
-from app.models.auth import User
+from app.models.auth import AccountRole, User
 from app.tasks.conf.broker import tsq_db
 
 
@@ -28,7 +28,7 @@ async def main():
             User(
                 username=username,
                 password_hash=hash_password(password),
-                is_superuser=True,
+                role=AccountRole.SUPERUSER,
             )
         )
         await db.commit()

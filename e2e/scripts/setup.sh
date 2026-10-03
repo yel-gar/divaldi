@@ -52,7 +52,7 @@ import os
 
 from app.auth import hash_password
 from app.database import get_session_maker
-from app.models.auth import User
+from app.models.auth import AccountRole, User
 from sqlalchemy import select
 
 USERNAME = os.environ["E2E_USERNAME"]
@@ -66,14 +66,14 @@ async def main():
         ).scalar_one_or_none()
         if existing is not None:
             existing.password_hash = hash_password(PASSWORD)
-            existing.is_superuser = True
+            existing.role = AccountRole.SUPERUSER
             print(f"reset superuser {USERNAME}")
         else:
             db.add(
                 User(
                     username=USERNAME,
                     password_hash=hash_password(PASSWORD),
-                    is_superuser=True,
+                    role=AccountRole.SUPERUSER,
                 )
             )
             print(f"created superuser {USERNAME}")

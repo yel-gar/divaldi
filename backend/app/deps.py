@@ -19,7 +19,7 @@ from app.cache import (
     get_redis_client,
 )
 from app.database import get_db
-from app.models.auth import Session, User
+from app.models.auth import ROLE_RANK, AccountRole, Session, User
 from app.models.chat import Attachment, ChatSession
 from app.storage import storage
 
@@ -51,12 +51,29 @@ CurrentUser = Annotated[User, Depends(require_login)]
 
 
 async def require_admin(user: CurrentUser) -> User:
-    if not user.is_superuser:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "You're not allowed here")
+    """Allow the two elevated tiers. Admins and superusers both manage users."""
+    if user.role is AccountRole.USER:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "You're not an admin")
     return user
 
 
 AdminUser = Annotated[User, Depends(require_admin)]
+
+
+def ensure_outranks(actor: User, target: User) -> None:
+    """Reject an operation on an account of the same or a higher tier.
+
+    The comparison is strict, so no tier can act on its own peers; a superuser
+    is the only tier left with nobody above it.
+    """
+    if ROLE_RANK[actor.role] <= ROLE_RANK[target.role]:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "You can't manage a user of the same or a higher tier")
+
+
+def ensure_can_assign_roles(actor: User) -> None:
+    """Only a superuser may create or promote an account to an elevated tier."""
+    if actor.role is not AccountRole.SUPERUSER:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only a superuser can change roles")
 
 
 async def redis_session() -> AsyncGenerator[Redis]:

@@ -3,9 +3,10 @@ from __future__ import annotations  # required so sqlalchemy doesn't go insane
 import datetime
 import typing
 import uuid
+from enum import StrEnum
+from typing import Final
 
-import sqlalchemy
-from sqlalchemy import UUID, DateTime, ForeignKey, String, text
+from sqlalchemy import UUID, DateTime, Enum, ForeignKey, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -15,6 +16,28 @@ if typing.TYPE_CHECKING:
 
 MAX_USERNAME_LENGTH = 32
 NAME_SURNAME_MAX_LENGTH = 60
+
+
+class AccountRole(StrEnum):
+    """Privilege tier of a user account, ordered from lowest to highest.
+
+    Named `AccountRole` and not `UserRole` because `app.models.chat.UserRole` is
+    the role of a *chat message*; two enums with the same name for different
+    things is a trap in a codebase this size.
+    """
+
+    USER = "user"
+    ADMIN = "admin"
+    SUPERUSER = "superuser"
+
+
+#: Privilege order, lowest first. Answering "may A act on B?" is a comparison of
+#: these numbers, so it stays correct when a tier is added.
+ROLE_RANK: Final[dict[AccountRole, int]] = {
+    AccountRole.USER: 0,
+    AccountRole.ADMIN: 1,
+    AccountRole.SUPERUSER: 2,
+}
 
 
 class User(Base):
@@ -34,7 +57,12 @@ class User(Base):
     last_name: Mapped[str | None] = mapped_column(String(NAME_SURNAME_MAX_LENGTH))
     expires_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    is_superuser: Mapped[bool] = mapped_column(default=False, nullable=False, server_default=sqlalchemy.false())
+    role: Mapped[AccountRole] = mapped_column(
+        Enum(AccountRole),
+        default=AccountRole.USER,
+        nullable=False,
+        server_default=AccountRole.USER.name,
+    )
 
     sessions: Mapped[list[Session]] = relationship(back_populates="user", cascade="all, delete-orphan")
     chat_sessions: Mapped[list[ChatSession]] = relationship(back_populates="user", cascade="all, delete-orphan")

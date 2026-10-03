@@ -2,6 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.models.auth import AccountRole
 from app.schemas import PasswordField
 
 
@@ -10,7 +11,7 @@ class UserSchema(BaseModel):
     username: str
     first_name: str | None
     last_name: str | None
-    is_superuser: bool
+    role: AccountRole
 
     model_config = {"from_attributes": True}
 

@@ -6,14 +6,16 @@ import { vi } from 'vitest';
 
 import { UsersPage } from './users-page.component';
 import { environment } from '../../../../environments/environment';
+import type { AdminUser, UserRole } from '../../../core/models/models';
+import { ProfileService } from '../../../core/services/profile.service';
 
-const USERS = [
+const USERS: AdminUser[] = [
   {
     id: 1,
     username: 'admin',
     first_name: null,
     last_name: null,
-    is_superuser: true,
+    role: 'superuser',
     expires_at: null
   },
   {
@@ -21,7 +23,7 @@ const USERS = [
     username: 'ivanov',
     first_name: 'Иван',
     last_name: 'Иванов',
-    is_superuser: false,
+    role: 'user',
     expires_at: '2100-01-01T00:00:00Z'
   },
   {
@@ -29,7 +31,7 @@ const USERS = [
     username: 'petrov',
     first_name: 'Пётр',
     last_name: 'Петров',
-    is_superuser: false,
+    role: 'user',
     expires_at: '2000-01-01T00:00:00Z'
   }
 ];
@@ -41,7 +43,7 @@ const CREATED_USER = {
   username: 'sidorov',
   first_name: 'Сидор',
   last_name: 'Сидоров',
-  is_superuser: false,
+  role: 'user',
   expires_at: null
 };
 
@@ -51,6 +53,12 @@ describe('UsersPage', () => {
   let http: HttpTestingController;
 
   const rows = () => fixture.debugElement.queryAll(By.css('tbody tr'));
+
+  /** Set the viewer's own tier, which is what gates role management. */
+  const setViewer = (role: UserRole): void => {
+    const profile = TestBed.inject(ProfileService);
+    profile.user.set({ id: 99, username: 'viewer', first_name: null, last_name: null, role });
+  };
 
   const createPage = (): void => {
     fixture = TestBed.createComponent(UsersPage);
@@ -168,7 +176,8 @@ describe('UsersPage', () => {
       last_name: 'Сидоров',
       username: 'sidorov',
       password: 'password123',
-      expires_at: ''
+      expires_at: '',
+      role: 'admin'
     });
 
     component.submit();
@@ -218,5 +227,89 @@ describe('UsersPage', () => {
     deleteButtons[1].nativeElement.click();
 
     expect(component.users().length).toBe(3);
+  });
+  // --- role tiers (issue #23) -------------------------------------------------
+  // Only a superuser may hand out tiers, so the control and the payload both
+  // depend on the viewer's own role rather than on the target user.
+
+  it('hides role management from anyone who is not a superuser', () => {
+    setViewer('admin');
+    createPage();
+
+    expect(component.canManageRoles()).toBe(false);
+  });
+
+  it('shows role management to a superuser', () => {
+    setViewer('superuser');
+    createPage();
+
+    expect(component.canManageRoles()).toBe(true);
+    expect(component.roleOptions.map((o) => o.value)).toEqual(['user', 'admin', 'superuser']);
+  });
+
+  it('labels each tier in the UI language', () => {
+    createPage();
+
+    expect(component.roleLabel('user')).toBeTruthy();
+    expect(component.roleLabel('admin')).toBeTruthy();
+    expect(component.roleLabel('superuser')).toBeTruthy();
+  });
+
+  it('sends the chosen tier when a superuser creates a user', () => {
+    setViewer('superuser');
+    createPage();
+    component.userForm.setValue({
+      first_name: 'Анна',
+      last_name: 'Аннина',
+      username: 'annina',
+      password: 'password123',
+      expires_at: '',
+      role: 'admin'
+    });
+
+    component.submit();
+
+    const req = http.expectOne(`${environment.apiUrl}/admin/users`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body.role).toBe('admin');
+  });
+
+  it('never sends a role when the viewer is not a superuser', () => {
+    setViewer('admin');
+    createPage();
+    component.userForm.setValue({
+      first_name: 'Анна',
+      last_name: 'Аннина',
+      username: 'annina',
+      password: 'password123',
+      expires_at: '',
+      role: 'superuser'
+    });
+
+    component.submit();
+
+    const req = http.expectOne(`${environment.apiUrl}/admin/users`);
+    expect(req.request.body.role).toBeUndefined();
+  });
+
+  it('repopulates the tier when an existing user is selected', () => {
+    setViewer('superuser');
+    createPage();
+
+    component.selectUser(USERS[2]);
+
+    expect(component.userForm.getRawValue().role).toBe(USERS[2].role);
+  });
+
+  it('does not send a role field when the tier is unchanged', () => {
+    setViewer('superuser');
+    createPage();
+    component.selectUser(USERS[1]);
+    component.userForm.patchValue({ first_name: 'X' });
+
+    component.submit();
+
+    const req = http.expectOne(`${environment.apiUrl}/admin/users/2`);
+    expect(req.request.body.role).toBeUndefined();
   });
 });

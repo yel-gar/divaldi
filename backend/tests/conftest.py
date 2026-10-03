@@ -46,7 +46,7 @@ from testcontainers.core.container import DockerContainer  # noqa: E402
 from app.auth import hash_password  # noqa: E402
 from app.cache import get_redis_pool  # noqa: E402
 from app.database import Base, get_db  # noqa: E402
-from app.models.auth import User  # noqa: E402
+from app.models.auth import AccountRole, User  # noqa: E402
 
 GARAGE_IMAGE = "dxflrs/garage:v2.4.1"
 S3_ACCESS_KEY = _S3_ACCESS_KEY
@@ -467,7 +467,21 @@ async def test_admin_user(db_session: AsyncSession):
     user = User(
         username="admin",
         password_hash=hash_password("admin-password"),
-        is_superuser=True,
+        role=AccountRole.SUPERUSER,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture()
+async def test_tier_admin_user(db_session: AsyncSession):
+    """A user on the admin tier: manages plain users, but not other admins."""
+    user = User(
+        username="tier-admin",
+        password_hash=hash_password("tier-admin-password"),
+        role=AccountRole.ADMIN,
     )
     db_session.add(user)
     await db_session.commit()
@@ -485,6 +499,23 @@ async def admin_client(
         json={
             "username": "admin",
             "password": "admin-password",
+        },
+    )
+    assert response.status_code == 200
+
+    return client
+
+
+@pytest_asyncio.fixture()
+async def tier_admin_client(
+    client: AsyncClient,
+    test_tier_admin_user: User,
+):
+    response = await client.post(
+        "/auth/login",
+        json={
+            "username": "tier-admin",
+            "password": "tier-admin-password",
         },
     )
     assert response.status_code == 200
