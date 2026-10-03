@@ -26,6 +26,10 @@ router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(requir
     "/users",
     response_model=list[AdminUserSchema],
     summary="Get all users, filtered by specified fields",
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "The caller is not a superuser"},
+    },
 )
 async def admin_get_users(
     db: DbSession,
@@ -63,16 +67,41 @@ async def admin_get_users(
     return res.scalars().all()
 
 
-@router.get("/users/{user_id}", response_model=AdminUserSchema, summary="Get user by ID")
+@router.get(
+    "/users/{user_id}",
+    response_model=AdminUserSchema,
+    summary="Get user by ID",
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "The caller is not a superuser"},
+        404: {"description": "User not found"},
+    },
+)
 async def admin_get_user(user_id: int, db: DbSession):
+    """Return a single user by their id."""
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
 
-@router.post("/users/{user_id}/set-password", response_model=MessageResponse)
+@router.post(
+    "/users/{user_id}/set-password",
+    response_model=MessageResponse,
+    summary="Set password of user by ID",
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "The caller is not a superuser, or the target user is a superuser"},
+        404: {"description": "User not found"},
+        450: {"description": "Password changing is disabled on a test instance (`TEST_INSTANCE_MODE`)"},
+    },
+)
 async def admin_user_set_password(user_id: int, db: DbSession, data: AdminSetPasswordSchema):
+    """Set the password of a user without knowing their old one.
+
+    Existing sessions of that user are not invalidated. Superusers cannot be
+    targeted, so another superuser can reset their password.
+    """
     if os.getenv("TEST_INSTANCE_MODE", "false") in {"true", "yes", "1"}:
         raise HTTPException(status_code=450, detail="Password changing on test instance is not allowed")
     user = await db.get(User, user_id)
@@ -89,8 +118,23 @@ async def admin_user_set_password(user_id: int, db: DbSession, data: AdminSetPas
     "/users/{user_id}",
     response_model=AdminUserSchema,
     summary="Edit user by ID. Returns updated user",
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "The caller is not a superuser"},
+        404: {"description": "User not found"},
+        409: {"description": "The new username is already taken by another user"},
+        450: {
+            "description": "Changing `username` or `is_superuser` is disabled "
+            "on a test instance (`TEST_INSTANCE_MODE`)"
+        },
+    },
 )
 async def admin_edit_user(user_id: int, db: DbSession, data: AdminEditUserSchema):
+    """Update the fields present in the request body and return the updated user.
+
+    Fields left out of the body are untouched. `username` and `is_superuser`
+    cannot be set to null.
+    """
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -115,8 +159,19 @@ async def admin_edit_user(user_id: int, db: DbSession, data: AdminEditUserSchema
     response_model=AdminUserSchema,
     summary="Delete user by ID. Returns deleted user",
     description="You cannot delete superusers, demote them first",
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "The caller is not a superuser, or the target user is a superuser"},
+        404: {"description": "User not found"},
+        450: {"description": "Deleting users is disabled on a test instance (`TEST_INSTANCE_MODE`)"},
+    },
 )
 async def admin_delete_user(user_id: int, db: DbSession):
+    """Delete a user along with their sessions and chat sessions.
+
+    Superusers cannot be deleted; demote them with `PATCH /admin/users/{user_id}`
+    first.
+    """
     if os.getenv("TEST_INSTANCE_MODE", "false") in {"true", "yes", "1"}:
         raise HTTPException(status_code=450, detail="Deleting users on test instance is not allowed")
     user = await db.get(User, user_id)
@@ -129,8 +184,23 @@ async def admin_delete_user(user_id: int, db: DbSession):
     return user
 
 
-@router.post("/users", response_model=AdminUserSchema, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/users",
+    response_model=AdminUserSchema,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create user",
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "The caller is not a superuser"},
+        409: {"description": "A user with this username already exists"},
+    },
+)
 async def admin_create_user(db: DbSession, data: AdminCreateUserSchema):
+    """Create a user and return it.
+
+    The password is hashed before storage and is never returned. `expires_at`
+    is optional; a null value means the account does not expire.
+    """
     password_hash = hash_password(data.password)
     user = User(password_hash=password_hash, **data.model_dump(exclude={"password"}))
     db.add(user)
