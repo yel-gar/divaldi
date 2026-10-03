@@ -210,7 +210,14 @@ async def rows(engine: AsyncEngine):
 
 
 class RedisKeys:
-    """Redis helper that removes every key it touched during teardown."""
+    """Redis helper that removes every key it touched during teardown.
+
+    Keep this in the signature of every worker test, including ones that never
+    call it. Requesting it pulls in ``redis_session``, which is what stands the
+    Redis testcontainer up and repoints the cached pool at it; without it the
+    worker still dials the Compose ``redis`` hostname and fails with
+    ``socket.gaierror``.
+    """
 
     def __init__(self) -> None:
         self._tracked: list[str] = []
@@ -679,10 +686,10 @@ async def test_generate_chat_message_does_not_resend_the_assistant_turn_being_re
     assert provider_recorder.texts() == ["system prompt", "Посчитай кронштейн"]
 
 
-async def test_generate_chat_message_drops_a_failed_assistant_turn_without_a_retry_flag(
+async def test_generate_chat_message_keeps_an_assistant_turn_that_precedes_the_last_user_message(
     task_db, rows, redis_keys, kiq_spy, mock_mode, provider_recorder
 ):
-    """The history is cut the same way no matter what triggered the generation."""
+    """An answer the user has already seen is context, not something to cut."""
     mock_mode("kp")
     user = await rows.user()
     session = await rows.chat_session(user)
