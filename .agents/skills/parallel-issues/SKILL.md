@@ -107,6 +107,39 @@ git branch -d issue/59-fix-retry-history   # only after the merge landed
 Remove the worktree **after** the merge is verified, not before. Never `git worktree remove`
 with `--force` on a worktree with uncommitted work; that discards the changes without asking.
 
+## Merging `.context/` files
+
+Every worker updates `.context/DECISIONS.md`, `.context/LESSONS.md` and `.context/PROJECT_STATE.md`,
+so **those three files will conflict on nearly every parallel batch.** Production code merges
+clean when the issues are scoped apart, which is why scoping matters more than resolving.
+
+The conflicts are of two kinds, and they need opposite handling:
+
+- **Additive sections** in `DECISIONS.md` and `LESSONS.md`: both sides are correct and both
+  should be kept. Append order does not matter. Take ours, then theirs.
+- **Competing values for one fact** in `PROJECT_STATE.md`: test counts, coverage percentages, the
+  "Last updated" line. Take the later measurement, and recount rather than trusting either
+  branch, because each worker measured against the old base and so under-reports the total.
+
+Never resolve either kind by taking one side whole. `git checkout --ours` on `DECISIONS.md`
+silently deletes another issue's reasoning, which is worse than the conflict was.
+
+## Verifying a worker's claim yourself
+
+Reports are not evidence. After merging, re-run the regression tests against the **pre-fix**
+version of the changed file to confirm they actually fail:
+
+```bash
+git show HEAD~2:backend/app/tasks/api.py > /tmp/opencode/pre.py   # the pre-fix file
+cp backend/app/tasks/api.py /tmp/opencode/merged.py             # keep the merged one
+cp /tmp/opencode/pre.py backend/app/tasks/api.py
+poetry -C backend run pytest tests/test_tasks_api.py -q           # must FAIL
+cp /tmp/opencode/merged.py backend/app/tasks/api.py              # always restore
+```
+
+Count the failures and check they are the tests that should fail. Zero failures means the tests
+do not test anything, and the branch should go back.
+
 ## Traps this workflow has hit
 
 - **`git worktree` does not carry gitignored files.** `.opencode/agents/reviewer.md` and
@@ -127,6 +160,19 @@ with `--force` on a worktree with uncommitted work; that discards the changes wi
   test output before merging. Reviewers cannot see whether the suites ran.
 - **Two workers in one worktree defeats the whole flow.** Verify with `git worktree list` that
   each agent has its own before launching, not after.
+- **A worker may have no subagent tool at all.** The review step assumes workers can launch
+  the `reviewer` agent, and a `general` subagent session often cannot: its tool catalog exposes
+  no delegation tool. Ask workers to report explicitly whether the review ran and who performed
+  it, so a self-review is never mistaken for an independent one. Do not tell a worker to launch
+  a subagent without checking it has one.
+- **A gate command you write may itself be wrong.** Importing `app.main` reads the environment at
+  import time, so `python -c "from app.main import app"` dies with `KeyError: 'S3_ACCESS_KEY'`
+  unless `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `DEBUG`, `FRONTEND_URL` and `BACKEND_URL` are
+  exported. A gate that fails for the wrong reason trains workers to ignore gate output.
+- **`commitlint` may be unavailable inside a worktree.** The root `package.json` is not installed
+  there. `npm install` in the worktree works but churns `package-lock.json`, which then has to be
+  reverted. Prefer verifying with `npx --no -- commitlint --last` from the main checkout after the
+  merge, and say so in the brief rather than blocking the worker on it.
 - **Never remove a Docker volume as part of this workflow.** Running the full suites means
   starting containers; do not add `docker compose down -v` or any prune to a cleanup step. See
   `AGENTS.md` rule 6.
