@@ -421,6 +421,19 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   `ScalarResult`; the following list comprehension then iterates a closed result and
   collects nothing, so `asyncio.gather` runs zero `_s3_try_delete` calls. The logged
   `count` is rows found, not rows whose objects were removed.
+- **The assistant's own reply lives in `chat_messages`, so "the whole history" includes it.**
+  `process_response` stores the raw provider JSON as a `ChatMessage` with
+  `role=UserRole.ASSISTANT`, not in `generation_results` alone, which is why a retry handed the
+  model the answer it was being asked to replace. Anything that reads the session as history
+  has to cut it at the last `UserRole.USER` row; the reasoning is in `DECISIONS.md`.
+- **`redis_keys` in a worker test signature is not dead weight, and deleting it breaks the test
+  with a DNS error.** It looks unused when a test never calls it, but it is what pulls in
+  `redis_session`, which stands the testcontainer up and repoints the `@cache`d pool at it.
+  Remove it and the worker dials the Compose hostname `redis`, failing with
+  `socket.gaierror: Name or service not known` inside aioredis' reconnect loop.
+- **`generate_chat_message` cannot tell a retry from a new message.** Both `send_message` and
+  `retry_send` call the same task with the same session id, so history shaping has to live in
+  the worker. Fixing it in the route looks right and leaves the other caller unfixed.
 - **Two chat endpoints disagree about attachment readiness.** `GET /chats/` returns every
   attachment while `GET /chats/{id}` filters on `ready == True`. Pinned by tests rather
   than papered over; one of the two is a bug.

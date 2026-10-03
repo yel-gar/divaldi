@@ -30,7 +30,7 @@ from app.models.chat import (
     GenerationResultType,
     UserRole,
 )
-from app.providers.models import Position
+from app.providers.models import Message, Position
 from app.storage import storage
 from app.tasks import api
 from tests.helpers import run_task
@@ -148,9 +148,21 @@ class Rows:
         self._session_ids.append(row.session_id)
         return row
 
-    async def message(self, session_id: uuid.UUID, content: str = "Считай, пожалуйста") -> ChatMessage:
+    async def message(
+        self,
+        session_id: uuid.UUID,
+        content: str = "Считай, пожалуйста",
+        *,
+        role: UserRole = UserRole.USER,
+        display_text: str | None = None,
+    ) -> ChatMessage:
         async with self.session() as db:
-            row = ChatMessage(chat_session_id=session_id, role=UserRole.USER, content=content)
+            row = ChatMessage(
+                chat_session_id=session_id,
+                role=role,
+                content=content,
+                display_text=display_text,
+            )
             db.add(row)
             await db.commit()
             await db.refresh(row)
@@ -198,7 +210,14 @@ async def rows(engine: AsyncEngine):
 
 
 class RedisKeys:
-    """Redis helper that removes every key it touched during teardown."""
+    """Redis helper that removes every key it touched during teardown.
+
+    Keep this in the signature of every worker test, including ones that never
+    call it. Requesting it pulls in ``redis_session``, which is what stands the
+    Redis testcontainer up and repoints the cached pool at it; without it the
+    worker still dials the Compose ``redis`` hostname and fails with
+    ``socket.gaierror``.
+    """
 
     def __init__(self) -> None:
         self._tracked: list[str] = []
@@ -240,6 +259,41 @@ def kiq_spy(monkeypatch) -> AsyncMock:
     spy = AsyncMock(name="process_response.kiq")
     monkeypatch.setattr(api.process_response, "kiq", spy)
     return spy
+
+
+class ProviderRecorder:
+    """Wraps ``provider.generate`` and keeps every history it was handed.
+
+    The real (mock) provider still answers, so the task under test runs to
+    completion; only the message list is captured, which is what the retry
+    regression tests assert on.
+    """
+
+    def __init__(self, original) -> None:
+        self._original = original
+        self.histories: list[list[Message]] = []
+
+    async def __call__(self, messages: list[Message], *args, **kwargs):
+        self.histories.append(messages)
+        return await self._original(messages, *args, **kwargs)
+
+    @property
+    def history(self) -> list[Message]:
+        assert len(self.histories) == 1, f"expected one generate() call, got {len(self.histories)}"
+        return self.histories[0]
+
+    def roles(self) -> list[str]:
+        return [m.role for m in self.history]
+
+    def texts(self) -> list[str]:
+        return [m.content[0].text for m in self.history]
+
+
+@pytest.fixture()
+def provider_recorder(monkeypatch) -> ProviderRecorder:
+    recorder = ProviderRecorder(api.provider.generate)
+    monkeypatch.setattr(api.provider, "generate", recorder)
+    return recorder
 
 
 # --------------------------------------------------------------------------------------
@@ -544,6 +598,161 @@ async def test_generate_chat_message_reports_an_unexpected_failure(task_db, rows
     assert result.type == GenerationResultType.ERROR
     assert result.content == "Internal server error occurred"
     assert await redis_keys.get(key) is None
+
+
+# --------------------------------------------------------------------------------------
+# _history_up_to_last_user_message
+# --------------------------------------------------------------------------------------
+
+
+def stored(role: UserRole, content: str) -> ChatMessage:
+    return ChatMessage(role=role, content=content, chat_session_id=uuid.uuid4())
+
+
+def test_history_is_cut_after_the_last_user_message():
+    rows = [
+        stored(UserRole.SYSTEM, "system"),
+        stored(UserRole.USER, "спроси"),
+        stored(UserRole.ASSISTANT, '{"message": "уточните"}'),
+    ]
+
+    kept = api._history_up_to_last_user_message(rows)
+
+    assert [m.content for m in kept] == ["system", "спроси"]
+
+
+def test_history_keeps_assistant_turns_before_the_last_user_message():
+    """Earlier answers are context: the harness prompt asks what to do with them."""
+    rows = [
+        stored(UserRole.SYSTEM, "system"),
+        stored(UserRole.USER, "посчитай"),
+        stored(UserRole.ASSISTANT, '{"gen_kp": true}'),
+        stored(UserRole.USER, "а теперь пересчитай"),
+    ]
+
+    kept = api._history_up_to_last_user_message(rows)
+
+    assert [m.content for m in kept] == ["system", "посчитай", '{"gen_kp": true}', "а теперь пересчитай"]
+
+
+def test_history_drops_every_trailing_assistant_message():
+    rows = [
+        stored(UserRole.USER, "спроси"),
+        stored(UserRole.ASSISTANT, "первый ответ"),
+        stored(UserRole.ASSISTANT, "второй ответ"),
+    ]
+
+    kept = api._history_up_to_last_user_message(rows)
+
+    assert [m.content for m in kept] == ["спроси"]
+
+
+def test_history_is_empty_without_a_user_message():
+    assert api._history_up_to_last_user_message([]) == []
+    assert api._history_up_to_last_user_message([stored(UserRole.SYSTEM, "system")]) == []
+
+
+# --------------------------------------------------------------------------------------
+# generate_chat_message: the history sent to the provider
+# --------------------------------------------------------------------------------------
+
+
+async def test_generate_chat_message_does_not_resend_the_assistant_turn_being_retried(
+    task_db, rows, redis_keys, kiq_spy, mock_mode, provider_recorder
+):
+    """A retried turn must not be preceded by the assistant's own previous answer.
+
+    ``process_response`` stores the assistant reply as a ``ChatMessage``, so after
+    an error it is still the last row of the session. Sending it back would make
+    the provider continue its own message instead of answering the user.
+    """
+    mock_mode("kp")
+    user = await rows.user()
+    session = await rows.chat_session(user)
+    await rows.message(session.session_id, "system prompt", role=UserRole.SYSTEM)
+    await rows.message(session.session_id, "Посчитай кронштейн")
+    await rows.message(
+        session.session_id,
+        payload(message="Прошлый, неудачный ответ."),
+        role=UserRole.ASSISTANT,
+        display_text="Прошлый, неудачный ответ.",
+    )
+    await rows.result(session.session_id, type=GenerationResultType.ERROR, content="Internal server error occurred")
+
+    await run_task(api.generate_chat_message, session.session_id)
+
+    kiq_spy.assert_awaited_once()
+    assert provider_recorder.roles() == [UserRole.SYSTEM, UserRole.USER]
+    assert provider_recorder.texts() == ["system prompt", "Посчитай кронштейн"]
+
+
+async def test_generate_chat_message_keeps_an_assistant_turn_that_precedes_the_last_user_message(
+    task_db, rows, redis_keys, kiq_spy, mock_mode, provider_recorder
+):
+    """An answer the user has already seen is context, not something to cut."""
+    mock_mode("kp")
+    user = await rows.user()
+    session = await rows.chat_session(user)
+    await rows.message(session.session_id, "Посчитай кронштейн")
+    await rows.message(session.session_id, payload(), role=UserRole.ASSISTANT, display_text="Готово.")
+    await rows.message(session.session_id, "И пересчитай с другой толщиной")
+
+    await run_task(api.generate_chat_message, session.session_id)
+
+    kiq_spy.assert_awaited_once()
+    # The first answer is legitimate context; only the trailing one is dropped.
+    assert provider_recorder.roles() == [UserRole.USER, UserRole.ASSISTANT, UserRole.USER]
+    assert provider_recorder.texts() == ["Посчитай кронштейн", payload(), "И пересчитай с другой толщиной"]
+
+
+async def test_generate_chat_message_keeps_the_whole_history_of_a_healthy_session(
+    task_db, rows, redis_keys, kiq_spy, mock_mode, provider_recorder
+):
+    """A plain turn ending on a user message reaches the provider untouched."""
+    mock_mode("kp")
+    user = await rows.user()
+    session = await rows.chat_session(user)
+    await rows.message(session.session_id, "system prompt", role=UserRole.SYSTEM)
+    await rows.message(session.session_id, "Посчитай кронштейн")
+    await rows.message(session.session_id, payload(), role=UserRole.ASSISTANT, display_text="Готово.")
+    await rows.message(session.session_id, "А ещё одна деталь")
+
+    await run_task(api.generate_chat_message, session.session_id)
+
+    kiq_spy.assert_awaited_once()
+    assert provider_recorder.roles() == [
+        UserRole.SYSTEM,
+        UserRole.USER,
+        UserRole.ASSISTANT,
+        UserRole.USER,
+    ]
+    assert provider_recorder.texts() == [
+        "system prompt",
+        "Посчитай кронштейн",
+        payload(),
+        "А ещё одна деталь",
+    ]
+
+
+async def test_generate_chat_message_without_a_user_message_writes_an_error(
+    task_db, rows, redis_keys, kiq_spy, mock_mode, provider_recorder
+):
+    """A history that holds no user turn has nothing to answer."""
+    mock_mode("kp")
+    user = await rows.user()
+    session = await rows.chat_session(user)
+    await rows.message(session.session_id, "system prompt", role=UserRole.SYSTEM)
+    redis_keys.track(get_generation_key(user.uuid))
+
+    await run_task(api.generate_chat_message, session.session_id)
+
+    async with rows.session() as db:
+        result = await db.get(GenerationResult, session.session_id)
+    assert result is not None
+    assert result.type == GenerationResultType.ERROR
+    assert result.content == "Invalid message session: no messages to send"
+    assert provider_recorder.histories == []
+    kiq_spy.assert_not_awaited()
 
 
 # --------------------------------------------------------------------------------------
