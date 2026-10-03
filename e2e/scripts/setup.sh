@@ -40,6 +40,20 @@ for _ in $(seq 1 60); do
   sleep 2
 done
 
+# nginx answering `/` only proves the bundle was served. The first spec still
+# needs the API: it logs in, and a login against a backend that is still starting
+# fails in a way that surfaces as "the app stayed on the login page". An
+# unauthenticated 401 is the correct answer here and means the routes are loaded.
+echo "==> Waiting for the backend API"
+for _ in $(seq 1 60); do
+  code=$(curl -s -o /dev/null -w '%{http_code}' \
+    "http://localhost:${E2E_FRONTEND_PORT}/api/v1/users/me" 2>/dev/null)
+  if [ "$code" = "401" ]; then
+    break
+  fi
+  sleep 2
+done
+
 echo "==> Seeding the e2e superuser (${E2E_USER})"
 # `exec -e` is required: compose does not forward host variables into the
 # container on its own.

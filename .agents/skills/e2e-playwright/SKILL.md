@@ -85,6 +85,17 @@ The users table and the create/edit form sit side by side. The form is **always 
 switches between the headings `Новый пользователь` and `Редактирование пользователя`, and
 its submit button reads `Сохранить` in both modes. There is no "create" button.
 
+## Readiness must include the API
+
+`setup.sh` used to wait only for nginx to serve `/`. That proves the bundle was
+served, not that the backend was up, so on a cold start the first spec logged in
+against an API that was still starting and failed as "the app stayed on the login
+page" — a symptom that points at auth, not at startup. It now also waits for
+`/api/v1/users/me` to answer **401**, which means the routes are loaded.
+
+A readiness probe that only proves the thing you already know is fine is not a
+probe. Check the dependency the first test actually needs.
+
 ## Waiting
 
 Generation is asynchronous: the frontend polls the result every 2 s. Give agent-dependent
