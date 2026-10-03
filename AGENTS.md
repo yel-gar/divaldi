@@ -36,7 +36,6 @@ divaldi/
 ├── scripts/            pre-commit shims for per-package Poetry tools
 ├── .context/           decisions / lessons / project state
 ├── .agents/skills/     task-specific playbooks
-├── .agents/agents/     reviewer agent instructions
 ├── docker-compose.yaml
 └── .pre-commit-config.yaml   single source of truth for hooks
 ```
@@ -467,14 +466,9 @@ Rules for writing them:
 
 ---
 
-## 8. `.agents/` directory
+## 8. `.agents/skills/` directory
 
-`.agents/skills/` holds task-specific playbooks. `.agents/agents/` holds standalone agent
-instructions that are not tied to one task area.
-
-### Skills
-
-Playbooks live in `.agents/skills/<skill-name>/SKILL.md`, each with YAML
+Task-specific playbooks live in `.agents/skills/<skill-name>/SKILL.md`, each with YAML
 frontmatter (`name`, `description`) and progressive disclosure through a `references/`
 subfolder for detail that is only sometimes needed.
 
@@ -523,16 +517,10 @@ this repository, including both `divaldi-overrides.md` files, is emoji-free.
 **Load the relevant skill before doing the work it covers.** If a skill is missing or
 inaccurate, fixing it as part of your change is expected, not out of scope.
 
-### Agents
-
-`.agents/agents/reviewer.md` holds the instructions for the reviewer agent, which assesses a
-change before it lands. It is a single markdown file, deliberately not a skill: it is not tied
-to one task area and is loaded whole rather than progressively disclosed. It encodes the review
-checklist and the traps that have actually caused defects here, and it points at
-`.context/LESSONS.md` rather than restating it.
-
-When you fix a defect, ask whether the reviewer should know about it. If the trap is new, add
-it — otherwise the reviewer keeps re-discovering the same thing.
+The reviewer agent, which assesses a change before it lands, is at `.opencode/agents/reviewer.md`.
+That path is **gitignored**, so the file is local-only and will not reach other developers or
+CI. When you fix a defect, ask whether the reviewer should know about it: if the trap is new,
+add it, otherwise the reviewer keeps re-discovering the same thing.
 
 ---
 
