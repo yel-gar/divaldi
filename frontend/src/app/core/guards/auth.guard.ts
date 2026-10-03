@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { catchError, map, of } from 'rxjs';
+import { isAdminRole } from '../models/models';
 import { NotificationService } from '../services/notification.service';
 import { ProfileService } from '../services/profile.service';
 
@@ -23,7 +24,7 @@ export const adminGuard: CanActivateFn = () => {
   const router = inject(Router);
 
   const checkAdmin = () =>
-    profile.user()?.is_superuser ? true : router.createUrlTree(['/create']);
+    isAdminRole(profile.user()?.role) ? true : router.createUrlTree(['/create']);
 
   if (profile.user()) {
     return checkAdmin();

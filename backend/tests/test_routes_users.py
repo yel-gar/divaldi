@@ -79,7 +79,7 @@ async def test_users_me_returns_the_current_user(client: AsyncClient, test_user:
         "username": "test",
         "first_name": None,
         "last_name": None,
-        "is_superuser": False,
+        "role": "user",
     }
 
 

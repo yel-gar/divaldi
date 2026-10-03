@@ -18,11 +18,19 @@ import {
   LucideSearch,
   LucideTrash2
 } from '@lucide/angular';
-import { AdminUser, AdminUserPayload } from '../../../core/models/models';
+import {
+  AdminUser,
+  AdminUserPayload,
+  ROLE_LABELS,
+  USER_ROLES,
+  UserRole
+} from '../../../core/models/models';
 import { AdminUsersService } from '../../../core/services/admin-users.service';
 import { NotificationService } from '../../../core/services/notification.service';
+import { ProfileService } from '../../../core/services/profile.service';
 import { extractApiErrorMessage } from '../../../shared/utils/api-error';
 import { InputComponent } from '../../../shared/components/input/input.component';
+import { Select, SelectOption } from '../../../shared/components/select/select.component';
 import { SkeletonUsersTableComponent } from '../../../shared/components/skeleton/skeleton-users-table/skeleton-users-table.component';
 
 type UserStatus = 'active' | 'expiring' | 'expired';
@@ -42,6 +50,7 @@ function localDateInputValue(iso: string): string {
   imports: [
     ReactiveFormsModule,
     InputComponent,
+    Select,
     SkeletonUsersTableComponent,
     LucidePencil,
     LucideTrash2
@@ -55,6 +64,7 @@ export class UsersPage {
   private readonly notifications = inject(NotificationService);
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly profile = inject(ProfileService);
 
   readonly loading = signal(true);
   readonly users = signal<AdminUser[]>([]);
@@ -78,12 +88,21 @@ export class UsersPage {
 
   readonly isEditMode = computed(() => this.selectedUser() !== null);
 
+  /** Only a superuser may hand out tiers, so only a superuser gets the control. */
+  readonly canManageRoles = computed(() => this.profile.user()?.role === 'superuser');
+
+  readonly roleOptions: SelectOption[] = USER_ROLES.map((role) => ({
+    value: role,
+    label: ROLE_LABELS[role]
+  }));
+
   readonly userForm = this.fb.group({
     first_name: ['', [Validators.required, Validators.maxLength(60)]],
     last_name: ['', [Validators.required, Validators.maxLength(60)]],
     username: ['', [Validators.required, Validators.maxLength(32)]],
     password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(128)]],
-    expires_at: ['']
+    expires_at: [''],
+    role: ['user' as UserRole]
   });
 
   readonly searchIcon = LucideSearch;
@@ -116,7 +135,8 @@ export class UsersPage {
       last_name: user.last_name ?? '',
       username: user.username,
       password: '',
-      expires_at: user.expires_at ? localDateInputValue(user.expires_at) : ''
+      expires_at: user.expires_at ? localDateInputValue(user.expires_at) : '',
+      role: user.role
     });
     this.updatePasswordValidators();
   }
@@ -158,6 +178,10 @@ export class UsersPage {
     return [user.first_name, user.last_name].filter(Boolean).join(' ') || '—';
   }
 
+  roleLabel(role: UserRole): string {
+    return ROLE_LABELS[role];
+  }
+
   initials(user: AdminUser): string {
     const fromNames = ((user.first_name?.[0] ?? '') + (user.last_name?.[0] ?? '')).toUpperCase();
     return fromNames || user.username.slice(0, 2).toUpperCase();
@@ -171,16 +195,21 @@ export class UsersPage {
     }
 
     const selected = this.selectedUser();
-    const { first_name, last_name, username, password, expires_at } = this.userForm.getRawValue();
+    const { first_name, last_name, username, password, expires_at, role } =
+      this.userForm.getRawValue();
 
     if (!selected) {
-      this.sendCreate({
+      const payload: AdminUserPayload = {
         username: username.trim(),
         password,
         first_name: first_name.trim(),
         last_name: last_name.trim(),
         expires_at: expires_at ? new Date(`${expires_at}T00:00:00`).toISOString() : null
-      });
+      };
+      if (this.canManageRoles() && role !== 'user') {
+        payload.role = role;
+      }
+      this.sendCreate(payload);
       return;
     }
 
@@ -197,6 +226,9 @@ export class UsersPage {
     const storedExpiry = selected.expires_at ? localDateInputValue(selected.expires_at) : '';
     if (expires_at !== storedExpiry) {
       payload.expires_at = expires_at ? new Date(`${expires_at}T00:00:00`).toISOString() : null;
+    }
+    if (this.canManageRoles() && role !== selected.role) {
+      payload.role = role;
     }
 
     if (!Object.keys(payload).length && !password) {

@@ -29,6 +29,7 @@ import { NotificationService } from '../../../core/services/notification.service
 import { ProfileService } from '../../../core/services/profile.service';
 import { ThemeService } from '../../../core/services/theme.service';
 import type { UserChat } from '../../../core/models/models';
+import { isAdminRole } from '../../../core/models/models';
 import { SkeletonChatListComponent } from '../skeleton/skeleton-chat-list/skeleton-chat-list.component';
 import type { NavItem, Role } from './sidebar.config';
 
@@ -107,7 +108,7 @@ export class Sidebar implements OnInit {
     this.navItems().filter((item) => item !== Sidebar.ADMIN_PANEL_ITEM)
   );
   readonly adminItem = computed<NavItem | null>(() => {
-    if (this.role() !== 'user' || !this.user()?.is_superuser) {
+    if (this.role() !== 'user' || !isAdminRole(this.user()?.role)) {
       return null;
     }
     return Sidebar.ADMIN_PANEL_ITEM;
