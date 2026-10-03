@@ -349,6 +349,19 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   project had three unrunnable-looking parts (`parser/`, no `.env.example` entry for
   `TEST_INSTANCE_MODE`, no LICENSE).
 
+## Verifying migrations
+
+- **`backend/tests/test_migrations.py` already proves every migration works.** It runs
+  `alembic upgrade head`, `downgrade base`, re-`upgrade` and `alembic check` against a real
+  PostgreSQL container. I did not know this, so I hand-rolled a throwaway postgres to run
+  `alembic check` by hand — and the container published 5431, colliding with the developer's dev
+  database and knocking it offline. The suite had already answered the question in 12 seconds.
+  **Read the existing tests before writing a verification step.**
+- **Do not run `alembic` from a worktree without a reachable database.** It resolves
+  `POSTGRES_HOST` from the environment, and the db port is only published by the dev override.
+  With the e2e override in place the port is unpublished and the command fails on a DNS or
+  connection error that looks like a migration bug.
+
 ## Destructive operations
 
 - **`docker compose down -v` destroyed the developer's PostgreSQL data.** I ran it to prove the

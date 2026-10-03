@@ -140,6 +140,25 @@ cp /tmp/opencode/merged.py backend/app/tasks/api.py              # always restor
 Count the failures and check they are the tests that should fail. Zero failures means the tests
 do not test anything, and the branch should go back.
 
+## Do not hand-roll what the suite already does
+
+**`backend/tests/test_migrations.py` already verifies every migration.** It runs
+`alembic upgrade head`, `downgrade base`, re-`upgrade`, and `alembic check` against a real
+PostgreSQL container via the `migration_postgres_url` fixture. If you need to know whether a
+migration is sound, run that file:
+
+```bash
+poetry -C backend run pytest tests/test_migrations.py -v
+```
+
+Do not spin up your own throwaway postgres to run `alembic check`. Doing so publishes a port
+that collides with the developer's dev database, and you will break their environment while
+trying to verify yours.
+
+Likewise, check whether a test already covers the thing before writing one that "proves" it.
+Read the existing suite first; the migration pipeline, the storage round trip and the rate
+limiters are all already covered.
+
 ## Traps this workflow has hit
 
 - **`git worktree` does not carry gitignored files.** `.opencode/agents/reviewer.md` and
@@ -160,6 +179,10 @@ do not test anything, and the branch should go back.
   test output before merging. Reviewers cannot see whether the suites ran.
 - **Two workers in one worktree defeats the whole flow.** Verify with `git worktree list` that
   each agent has its own before launching, not after.
+- **`docker compose up -d` picks up whatever override file is present.** The e2e override does
+  `ports: !reset []` on the db, so leaving it in place silently stops PostgreSQL being published
+  on 5431. After any compose work, check `docker compose config` for the ports you expect, and
+  restore `docker-compose.override.yml.dev` when returning to development.
 - **A worker may have no subagent tool at all.** The review step assumes workers can launch
   the `reviewer` agent, and a `general` subagent session often cannot: its tool catalog exposes
   no delegation tool. Ask workers to report explicitly whether the review ran and who performed
