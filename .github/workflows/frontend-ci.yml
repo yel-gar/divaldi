@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint-and-build:
+  lint-test-and-build:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -32,5 +32,12 @@ jobs:
         run: npm ci
       - name: Lint
         run: npx ng lint
+      # The suite was absent here, which is how 14 failing tests in
+      # sidebar.component.spec.ts stayed unnoticed until a coverage run was
+      # added. --watch=false is passed explicitly: the builder defaults it to
+      # true in TTY environments, and pinning it keeps the run from hanging if
+      # that heuristic ever changes or a step is run interactively.
+      - name: Test
+        run: npx ng test --watch=false
       - name: Build
         run: npx ng build --configuration production

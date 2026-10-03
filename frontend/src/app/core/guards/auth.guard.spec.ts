@@ -21,7 +21,7 @@ const testUser: User = {
   username: 'admin',
   first_name: null,
   last_name: null,
-  is_superuser: true
+  role: 'superuser'
 };
 
 const route = {} as ActivatedRouteSnapshot;
@@ -87,7 +87,7 @@ describe('Auth guards', () => {
   it('adminGuard fetches the profile and blocks non-superusers', async () => {
     const result = firstValueFrom(runGuard(adminGuard) as Observable<UrlTree>);
 
-    http.expectOne(ME_URL).flush({ ...testUser, is_superuser: false });
+    http.expectOne(ME_URL).flush({ ...testUser, role: 'user' });
 
     expect((await result).toString()).toBe('/create');
   });
@@ -103,7 +103,7 @@ describe('Auth guards', () => {
   });
 
   it('adminGuard blocks non-superusers', () => {
-    profile.user.set({ ...testUser, is_superuser: false });
+    profile.user.set({ ...testUser, role: 'user' });
 
     const result = runGuard(adminGuard);
     expect(result.toString()).toBe('/create');

@@ -175,6 +175,12 @@
 
     color: var(--color-gray);
   }
+
+  &--main {
+    background: color-mix(in srgb, var(--color-main) 14%, transparent);
+
+    color: var(--color-main);
+  }
 }
 
 .users-form {

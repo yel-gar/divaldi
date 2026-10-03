@@ -72,3 +72,36 @@ repos:
         language: system
         stages: [commit-msg]
         pass_filenames: false
+
+      # --- coverage reporting ---
+      # Runs at pre-push, not pre-commit, because each of these needs the whole
+      # suite rather than the changed files: the backend hook needs a Docker
+      # daemon for its testcontainers, and the others take long enough that
+      # running them on every commit would be rude. Each threshold lives in ONE
+      # place and is read by the tool, so no percentage is repeated here.
+      - id: pytest-coverage
+        name: pytest coverage report (backend)
+        entry: poetry -C backend run pytest --cov --cov-report=term-missing
+        language: system
+        stages: [pre-push]
+        files: ^backend/.*\.py$
+        pass_filenames: false
+        always_run: true
+
+      - id: pytest-coverage-processing
+        name: pytest coverage report (processing)
+        entry: poetry -C processing run pytest --cov --cov-report=term-missing
+        language: system
+        stages: [pre-push]
+        files: ^processing/.*\.py$
+        pass_filenames: false
+        always_run: true
+
+      - id: vitest-coverage
+        name: vitest coverage report (frontend)
+        entry: npx --prefix frontend ng test --coverage --watch=false
+        language: system
+        stages: [pre-push]
+        files: ^frontend/.*\.(ts|html|json)$
+        pass_filenames: false
+        always_run: true

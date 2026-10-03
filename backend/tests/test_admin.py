@@ -5,7 +5,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import hash_password
-from app.models.auth import User
+from app.models.auth import AccountRole, User
 
 # ---------------------------------------------------------------------------
 # GET /admin/users
@@ -26,7 +26,7 @@ async def test_get_users(
     assert len(data) == 1
     assert data[0]["id"] == test_admin_user.id
     assert data[0]["username"] == "admin"
-    assert data[0]["is_superuser"] is True
+    assert data[0]["role"] == "superuser"
 
 
 @pytest.mark.asyncio
@@ -108,7 +108,7 @@ async def test_get_user(
 
     assert data["id"] == test_admin_user.id
     assert data["username"] == "admin"
-    assert data["is_superuser"] is True
+    assert data["role"] == "superuser"
 
 
 @pytest.mark.asyncio
@@ -137,7 +137,7 @@ async def test_create_user(
             "password": "password1234",
             "first_name": "John",
             "last_name": "Doe",
-            "is_superuser": False,
+            "role": "user",
         },
     )
 
@@ -148,7 +148,7 @@ async def test_create_user(
     assert data["username"] == "john"
     assert data["first_name"] == "John"
     assert data["last_name"] == "Doe"
-    assert data["is_superuser"] is False
+    assert data["role"] == "user"
 
     # Sensitive fields must not be exposed.
     assert "password" not in data
@@ -198,7 +198,7 @@ async def test_edit_user(
     assert data["username"] == "test"
     assert data["first_name"] == "John"
     assert data["last_name"] == "Doe"
-    assert data["is_superuser"] is False
+    assert data["role"] == "user"
 
 
 @pytest.mark.asyncio
@@ -435,14 +435,14 @@ async def test_filter_by_last_name(
 
 
 @pytest.mark.asyncio
-async def test_filter_by_is_superuser(
+async def test_filter_by_role(
     admin_client: AsyncClient,
     test_admin_user: User,
     test_user: User,
 ):
     response = await admin_client.get(
         "/admin/users",
-        params={"is_superuser": "true"},
+        params={"role": "superuser"},
     )
 
     assert response.status_code == 200
@@ -555,19 +555,19 @@ async def test_combined_filters(
             username="john",
             password_hash=hash_password("password1234"),
             first_name="John",
-            is_superuser=False,
+            role=AccountRole.USER,
         ),
         User(
             username="john-admin",
             password_hash=hash_password("password1234"),
             first_name="John",
-            is_superuser=True,
+            role=AccountRole.SUPERUSER,
         ),
         User(
             username="alice",
             password_hash=hash_password("password1234"),
             first_name="Alice",
-            is_superuser=False,
+            role=AccountRole.USER,
         ),
     ]
 
@@ -579,7 +579,7 @@ async def test_combined_filters(
         params={
             "username": "john",
             "first_name": "john",
-            "is_superuser": "false",
+            "role": "user",
         },
     )
 
@@ -589,3 +589,187 @@ async def test_combined_filters(
 
     assert len(data) == 1
     assert data[0]["username"] == "john"
+
+
+# ---------------------------------------------------------------------------
+# Tiers: admin manages plain users, superuser manages admins
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_plain_user_is_refused_by_the_admin_api(client: AsyncClient, test_user: User):
+    await client.post("/auth/login", json={"username": "test", "password": "password1234"})
+
+    response = await client.get("/admin/users")
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "You're not an admin"
+
+
+@pytest.mark.asyncio
+async def test_admin_tier_manages_plain_users(tier_admin_client: AsyncClient, test_user: User):
+    """The new tier has the same day-to-day powers a superuser always had."""
+    listing = await tier_admin_client.get("/admin/users")
+    assert listing.status_code == 200
+    assert {user["username"] for user in listing.json()} == {"tier-admin", "test"}
+
+    edited = await tier_admin_client.patch(f"/admin/users/{test_user.id}", json={"first_name": "Jane"})
+    assert edited.status_code == 200
+    assert edited.json()["first_name"] == "Jane"
+
+    created = await tier_admin_client.post(
+        "/admin/users",
+        json={"username": "newcomer", "password": "password1234"},
+    )
+    assert created.status_code == 201
+    assert created.json()["role"] == "user"
+
+    deleted = await tier_admin_client.delete(f"/admin/users/{test_user.id}")
+    assert deleted.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_admin_tier_cannot_promote_anyone(tier_admin_client: AsyncClient, test_user: User):
+    response = await tier_admin_client.patch(f"/admin/users/{test_user.id}", json={"role": "admin"})
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Only a superuser can change roles"
+
+
+@pytest.mark.asyncio
+async def test_admin_tier_cannot_create_an_elevated_account(tier_admin_client: AsyncClient):
+    response = await tier_admin_client.post(
+        "/admin/users",
+        json={"username": "wannabe", "password": "password1234", "role": "admin"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Only a superuser can change roles"
+
+
+@pytest.mark.asyncio
+async def test_admin_tier_cannot_create_a_superuser(tier_admin_client: AsyncClient):
+    response = await tier_admin_client.post(
+        "/admin/users",
+        json={"username": "wannabe-root", "password": "password1234", "role": "superuser"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Only a superuser can change roles"
+
+
+@pytest.mark.asyncio
+async def test_admin_tier_cannot_edit_another_admin(tier_admin_client: AsyncClient, db_session: AsyncSession):
+    peer = User(
+        username="second-admin",
+        password_hash=hash_password("password1234"),
+        role=AccountRole.ADMIN,
+    )
+    db_session.add(peer)
+    await db_session.commit()
+
+    response = await tier_admin_client.patch(f"/admin/users/{peer.id}", json={"first_name": "Mallory"})
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "You can't manage a user of the same or a higher tier"
+
+
+@pytest.mark.asyncio
+async def test_admin_tier_cannot_delete_another_admin(tier_admin_client: AsyncClient, db_session: AsyncSession):
+    peer = User(
+        username="second-admin",
+        password_hash=hash_password("password1234"),
+        role=AccountRole.ADMIN,
+    )
+    db_session.add(peer)
+    await db_session.commit()
+
+    response = await tier_admin_client.delete(f"/admin/users/{peer.id}")
+
+    assert response.status_code == 403
+    assert await db_session.get(User, peer.id) is not None
+
+
+@pytest.mark.asyncio
+async def test_admin_tier_cannot_reset_another_admin_password(tier_admin_client: AsyncClient, db_session: AsyncSession):
+    peer = User(
+        username="second-admin",
+        password_hash=hash_password("password1234"),
+        role=AccountRole.ADMIN,
+    )
+    db_session.add(peer)
+    await db_session.commit()
+
+    response = await tier_admin_client.post(f"/admin/users/{peer.id}/set-password", json={"password": "hijacked12345"})
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "You can't manage a user of the same or a higher tier"
+
+
+@pytest.mark.asyncio
+async def test_admin_tier_cannot_act_on_itself(tier_admin_client: AsyncClient, test_tier_admin_user: User):
+    """The rank comparison is strict, so peers and self are both off limits."""
+    response = await tier_admin_client.patch(f"/admin/users/{test_tier_admin_user.id}", json={"first_name": "Renamed"})
+
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_superuser_promotes_and_demotes(admin_client: AsyncClient, test_user: User, db_session: AsyncSession):
+    promoted = await admin_client.patch(f"/admin/users/{test_user.id}", json={"role": "admin"})
+    assert promoted.status_code == 200
+    assert promoted.json()["role"] == "admin"
+
+    await db_session.refresh(test_user)
+    assert test_user.role is AccountRole.ADMIN
+
+    demoted = await admin_client.patch(f"/admin/users/{test_user.id}", json={"role": "user"})
+    assert demoted.status_code == 200
+    assert demoted.json()["role"] == "user"
+
+
+@pytest.mark.asyncio
+async def test_superuser_creates_an_admin(admin_client: AsyncClient, db_session: AsyncSession):
+    response = await admin_client.post(
+        "/admin/users",
+        json={"username": "made-admin", "password": "password1234", "role": "admin"},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["role"] == "admin"
+
+
+@pytest.mark.asyncio
+async def test_role_change_is_blocked_on_a_test_instance(admin_client: AsyncClient, test_user: User, monkeypatch):
+    monkeypatch.setenv("TEST_INSTANCE_MODE", "true")
+
+    response = await admin_client.patch(f"/admin/users/{test_user.id}", json={"role": "admin"})
+
+    assert response.status_code == 450
+    assert "test instance" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_username_change_is_blocked_on_a_test_instance(admin_client: AsyncClient, test_user: User, monkeypatch):
+    monkeypatch.setenv("TEST_INSTANCE_MODE", "true")
+
+    response = await admin_client.patch(f"/admin/users/{test_user.id}", json={"username": "renamed"})
+
+    assert response.status_code == 450
+
+
+@pytest.mark.asyncio
+async def test_delete_is_blocked_on_a_test_instance(admin_client: AsyncClient, test_user: User, monkeypatch):
+    monkeypatch.setenv("TEST_INSTANCE_MODE", "true")
+
+    response = await admin_client.delete(f"/admin/users/{test_user.id}")
+
+    assert response.status_code == 450
+    assert "test instance" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_edit_rejects_a_null_role(admin_client: AsyncClient, test_user: User):
+    response = await admin_client.patch(f"/admin/users/{test_user.id}", json={"role": None})
+
+    assert response.status_code == 422

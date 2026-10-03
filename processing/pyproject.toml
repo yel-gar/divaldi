@@ -69,10 +69,42 @@ ignore = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["src/processing"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+precision = 2
+# The gate. 90% was reached on 2026-10-01 by adding suites for the
+# get_measurements_data entity branches, the material-price reader and the PDF
+# converter's empty-document paths. pytest-cov reads this and turns the run's
+# exit code on it, so the pre-push hook and the processing-coverage workflow
+# enforce it without naming a number.
+#
+# The figure reads 96%, not 100%, because 15 statements in dxf_parser.py are
+# provably unreachable: latin-1 decodes every byte sequence, so the
+# UnicodeDecodeError fallback at the end of the encoding loop cannot run, and
+# _get_float swallows its own ValueError/TypeError, so the per-entity
+# `except ValueError, TypeError: continue` blocks can never be entered. Do not
+# write tests to chase them; see .context/DECISIONS.md.
+fail_under = 90
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abstractmethod",
+]
+
+[tool.coverage.json]
+output = "coverage.json"
+
 [dependency-groups]
 dev = [
     "black (>=26.5.1,<27.0.0)",
     "pytest (>=9.1.1,<10.0.0)",
     "ruff (>=0.16.7,<0.17.0)",
-    "reportlab (>=5.0.1,<6.0.0)"
+    "reportlab (>=5.0.1,<6.0.0)",
+    "pytest-cov (>=7.1.0,<8.0.0)"
 ]

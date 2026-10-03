@@ -165,6 +165,50 @@ describe('Select', () => {
 
       expect(disabledSelect.isDisabled()).toBe(true);
     });
+
+    it('should ignore selectOption while the select is disabled', async () => {
+      const disabledFixture = TestBed.createComponent(DisabledTestHost);
+      disabledFixture.componentInstance.disabled.set(true);
+      disabledFixture.detectChanges();
+      await disabledFixture.whenStable();
+      const disabledSelect = disabledFixture.debugElement.query(By.directive(Select))
+        .componentInstance as Select;
+
+      disabledSelect.selectOption(OPTIONS[1]);
+
+      expect(disabledSelect.value()).toBeNull();
+      expect(disabledSelect.isOpen()).toBe(false);
+    });
+  });
+
+  describe('opening and closing', () => {
+    it('should close the listbox when the trigger is toggled a second time', async () => {
+      await openListbox();
+      expect(select.isOpen()).toBe(true);
+
+      getTrigger().nativeElement.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(select.isOpen()).toBe(false);
+      expect(host.control.touched).toBe(true);
+    });
+
+    it('should do nothing when close is called on an already closed listbox', () => {
+      select.close();
+
+      expect(select.isOpen()).toBe(false);
+      expect(host.control.touched).toBe(false);
+    });
+
+    it('should move the highlight when an option is hovered', async () => {
+      await openListbox();
+
+      getOptions()[3].nativeElement.dispatchEvent(new MouseEvent('mouseenter'));
+      fixture.detectChanges();
+
+      expect(select.highlightedIndex()).toBe(3);
+    });
   });
 
   describe('outside click', () => {
@@ -274,6 +318,41 @@ describe('Select', () => {
 
       await openListbox();
       expect(select.highlightedIndex()).toBe(2);
+    });
+
+    it('should open the closed listbox with ArrowDown and ArrowUp', async () => {
+      keydownOnTrigger('ArrowDown');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(select.isOpen()).toBe(true);
+
+      keydownOnTrigger('Escape');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      keydownOnTrigger('ArrowUp');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(select.isOpen()).toBe(true);
+    });
+
+    it('should not move the highlight when there are no options to cycle through', async () => {
+      const emptyFixture = TestBed.createComponent(TestHost);
+      emptyFixture.componentInstance.options = [];
+      emptyFixture.detectChanges();
+      await emptyFixture.whenStable();
+      const emptySelect = emptyFixture.debugElement.query(By.directive(Select))
+        .componentInstance as Select;
+
+      await openListboxFor(emptyFixture);
+      emptyFixture.debugElement
+        .query(By.css('button[role="combobox"]'))
+        .triggerEventHandler('keydown', {
+          key: 'ArrowDown',
+          preventDefault: noop
+        } as KeyboardEvent);
+
+      expect(emptySelect.highlightedIndex()).toBe(0);
     });
   });
 
@@ -426,6 +505,44 @@ describe('Select', () => {
       expect(rafSpy).toHaveBeenCalledTimes(1);
 
       vi.mocked(window.requestAnimationFrame).mockRestore();
+    });
+
+    it('should close the listbox when the trigger scrolls out of the viewport', async () => {
+      mockTriggerRect(700, 740);
+      await openListbox();
+      expect(select.isOpen()).toBe(true);
+
+      mockTriggerRect(-200, -100);
+      document.dispatchEvent(new Event('scroll'));
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(select.isOpen()).toBe(false);
+    });
+
+    it('should ignore a pending scroll frame once the listbox is closed', async () => {
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
+      const cancelSpy = vi.spyOn(window, 'cancelAnimationFrame');
+      mockTriggerRect(700, 740);
+      await openListbox();
+
+      document.dispatchEvent(new Event('scroll'));
+      expect(select.isOpen()).toBe(true);
+
+      select.close();
+      select.flushScrollFrame();
+      await fixture.whenStable();
+
+      expect(cancelSpy).toHaveBeenCalledWith(1);
+      expect(select.isOpen()).toBe(false);
+      expect(select.dropUp()).toBe(true);
+    });
+
+    it('should do nothing when flushing a scroll frame that was never scheduled', () => {
+      select.flushScrollFrame();
+
+      expect(select.isOpen()).toBe(false);
     });
   });
 });

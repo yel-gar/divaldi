@@ -31,6 +31,7 @@
               <tr>
                 <th scope="col">Пользователь</th>
                 <th scope="col">Имя</th>
+                <th scope="col">Роль</th>
                 <th scope="col">Статус</th>
                 <th scope="col">Действия</th>
               </tr>
@@ -45,6 +46,9 @@
                     </div>
                   </td>
                   <td>{{ fullName(user) }}</td>
+                  <td>
+                    <span class="badge badge--main">{{ roleLabel(user.role) }}</span>
+                  </td>
                   <td>
                     <span
                       class="badge"
@@ -151,6 +155,18 @@
               [rightIcon]="calendarIcon"
             />
           </div>
+          @if (canManageRoles()) {
+            <div class="users-form__field">
+              <span class="users-form__label">Роль</span>
+              <app-select
+                formControlName="role"
+                inputId="user-role"
+                label="Роль"
+                [options]="roleOptions"
+                placeholder="Пользователь"
+              />
+            </div>
+          }
           <div class="users-form__actions">
             <button type="button" class="button button--outline h3" (click)="resetForm()">
               Отмена

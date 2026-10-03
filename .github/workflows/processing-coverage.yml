@@ -1,0 +1,56 @@
+name: Processing Coverage
+
+on:
+  pull_request:
+    paths: ["processing/**"]
+  push:
+    branches: [main]
+    paths: ["processing/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    name: Test coverage report
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: processing
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Cache Poetry virtualenv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pypoetry/virtualenvs
+          key: poetry-${{ runner.os }}-${{ hashFiles('processing/poetry.lock') }}
+          restore-keys: |
+            poetry-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-ansi
+
+      # The threshold lives in ONE place: `fail_under` in
+      # processing/pyproject.toml, which pytest-cov reads and enforces. This step
+      # names no percentage, so the two cannot disagree.
+      - name: Test with coverage
+        run: poetry run pytest --cov --cov-report=term-missing --cov-report=json
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: processing-coverage
+          path: processing/coverage.json
+          retention-days: 14

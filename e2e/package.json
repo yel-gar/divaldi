@@ -1,0 +1,16 @@
+{
+  "name": "divaldi-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "End-to-end tests for divaldi, run against the Docker Compose stack with the offline mock provider.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "install:browsers": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

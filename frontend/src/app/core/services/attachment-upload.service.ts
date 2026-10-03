@@ -6,6 +6,12 @@ import { ChatService } from './chat.service';
 
 export interface AttachmentUploadOptions {
   readonly onProgress?: (uploadedBytes: number) => void;
+  /**
+   * Called as soon as the backend has registered the file, before the bytes are
+   * sent. The id is what the delete endpoint needs, so it is reported as early as
+   * possible rather than only on completion.
+   */
+  readonly onAttachmentId?: (attachmentId: number) => void;
 }
 
 const STATUS_POLL_INTERVAL_MS = 2000;
@@ -75,6 +81,7 @@ export class AttachmentUploadService {
           if (disposed) {
             return;
           }
+          options.onAttachmentId?.(attachment_id);
           const form = new FormData();
           for (const [key, value] of Object.entries(params.fields)) {
             form.append(key, value);
@@ -129,5 +136,15 @@ export class AttachmentUploadService {
         innerSubscriptions.clear();
       };
     });
+  }
+
+  /**
+   * Delete a file the backend has already registered.
+   *
+   * Symmetric with `upload`: the caller owns the id it got from `onAttachmentId`,
+   * and a file that never reached the backend simply has nothing to delete.
+   */
+  remove(sessionId: string, attachmentId: number): Observable<{ deleted: boolean }> {
+    return this.chatService.deleteAttachment(sessionId, attachmentId);
   }
 }

@@ -1,0 +1,108 @@
+name: E2E
+
+on:
+  pull_request:
+    paths: ["e2e/**", "backend/**", "frontend/**", "docker-compose*.yaml", "conf/**"]
+  push:
+    branches: [main]
+    paths: ["e2e/**", "backend/**", "frontend/**", "docker-compose*.yaml", "conf/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Playwright against the Compose stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install e2e dependencies
+        working-directory: e2e
+        run: npm ci
+
+      # Chromium and its OS libraries. Kept after `npm ci` so the Playwright
+      # version being installed is the one that fetches the browser.
+      - name: Install Chromium
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      # The stack runs with SBER_API_KEY=mock (set in
+      # docker-compose.override.yml.e2e), so no GigaChat call is made and no
+      # key is needed. Everything else is the real thing: PostgreSQL, Redis,
+      # RabbitMQ, Garage, the FastAPI app and the TaskIQ workers.
+      - name: Write .env
+        run: |
+          {
+            echo "DEBUG=0"
+            echo "BACKEND_URL="
+            echo "FRONTEND_URL=http://localhost:18080"
+            echo "POSTGRES_PASSWORD=e2e-postgres"
+            echo "RABBITMQ_PASS=e2e-rabbit"
+            echo "TASKIQ_API_TOKEN=e2e-token"
+            echo "SBER_API_KEY=mock"
+            echo "SBER_API_SCOPE=PERS"
+            echo "S3_SECRET_KEY=$(openssl rand -hex 48)"
+            # Garage refuses to start unless these are exactly 32 bytes of hex.
+            echo "GARAGE_RPC_SECRET=$(openssl rand -hex 32)"
+            echo "GARAGE_ADMIN_TOKEN=$(openssl rand -hex 32)"
+          } >> .env
+
+      - name: Bring up the stack and seed it
+        run: ./e2e/scripts/setup.sh
+
+      - name: Run the suite
+        working-directory: e2e
+        run: npx playwright test
+
+      - name: Upload the Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 14
+
+      - name: Upload failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: e2e/test-results
+          retention-days: 7
+
+      # setup.sh runs the stack under the divaldi-e2e project, so plain
+      # `docker compose` here would target a project that does not exist.
+      - name: Dump logs on failure
+        if: failure()
+        run: >-
+          docker compose -p divaldi-e2e
+          -f docker-compose.yaml
+          -f docker-compose.override.yml.e2e
+          logs --no-color --tail 200
+
+      # No `-v`: the volumes belong to the e2e project alone, but destroying
+      # volumes is not something this workflow should do. The runner is ephemeral.
+      - name: Stop the stack
+        if: always()
+        run: >-
+          docker compose -p divaldi-e2e
+          -f docker-compose.yaml
+          -f docker-compose.override.yml.e2e
+          down

@@ -120,3 +120,44 @@
     color: var(--color-gray);
   }
 }
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+
+  margin-top: 16px;
+
+  &__button {
+    padding: 8px 16px;
+
+    background: var(--color-surface);
+    border: 1px solid var(--color-outline);
+    border-radius: 8px;
+
+    font: inherit;
+    color: var(--color-text);
+
+    cursor: pointer;
+
+    transition: background 250ms;
+
+    @include reduced-motion;
+    @include focus-ring;
+
+    &:hover:not(:disabled) {
+      background: var(--color-hover-secondary);
+    }
+
+    &:disabled {
+      color: var(--color-gray);
+      cursor: default;
+    }
+  }
+
+  &__status {
+    color: var(--color-gray);
+    white-space: nowrap;
+  }
+}

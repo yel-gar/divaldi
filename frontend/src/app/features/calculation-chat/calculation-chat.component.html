@@ -42,7 +42,7 @@
           [sessionId]="id()"
           variant="compact"
           (filesChange)="onFilesChange($event)"
-          (uploadingChange)="isUploading.set($event)"
+          (uploadingChange)="onUploadingChange($event)"
         />
         <app-input
           #messageInput
@@ -116,6 +116,58 @@
       </ul>
     } @else {
       <p class="calculation-results__files-placeholder h4">Пока нет файлов</p>
+    }
+  </section>
+
+  <section class="calculation-results__section">
+    <h3 class="calculation-results__subtitle">Загруженные файлы</h3>
+    @if (pendingAttachments().length > 0) {
+      <ul class="calculation-results__files">
+        @for (file of pendingAttachments(); track file.id) {
+          <li class="calculation-results__file">
+            <span
+              class="calculation-results__file-icon"
+              [style.color]="fileColorFor(file.filename)"
+            >
+              <svg size="18" [lucideIcon]="fileIconFor(file.filename)" aria-hidden="true"></svg>
+            </span>
+            <span class="calculation-results__file-name">{{ file.filename }}</span>
+            <span
+              class="calculation-results__file-status"
+              [class.calculation-results__file-status--error]="file.status === 'error'"
+              [title]="attachmentStatusLabel(file)"
+            >
+              {{ attachmentStatusLabel(file) }}
+            </span>
+            <button
+              type="button"
+              class="button button--outline button--centered"
+              aria-label="Предпросмотр"
+              (click)="openAttachmentPreview({ name: file.filename, attachmentId: file.id })"
+            >
+              <svg size="16" lucideEye aria-hidden="true"></svg>
+            </button>
+            <button
+              type="button"
+              class="button button--outline button--centered"
+              aria-label="Скачать"
+              (click)="downloadAttachment({ name: file.filename, attachmentId: file.id })"
+            >
+              <svg size="16" lucideDownload aria-hidden="true"></svg>
+            </button>
+            <button
+              type="button"
+              class="button button--outline button--centered"
+              aria-label="Удалить файл"
+              (click)="deletePendingAttachment(file)"
+            >
+              <svg size="16" lucideTrash2 aria-hidden="true"></svg>
+            </button>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="calculation-results__files-placeholder h4">Нет файлов в загрузке</p>
     }
   </section>
 

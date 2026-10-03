@@ -1,6 +1,10 @@
-x-minio-env: &minio-env
-  MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
-  MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
+x-s3-env: &s3-env
+  # Credentials for the object store. Garage cannot pre-declare an S3 key in
+  # its config, so `garage-bootstrap` imports exactly this key with exactly
+  # this secret on every start. That keeps them static, which is what lets the
+  # backend read them from the environment with no credential handoff.
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:-GKd1a1b2c3d4e5f60718293a4b5c6d}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:?}
 
 x-postgres-env: &postgres-env
   POSTGRES_USER: ${POSTGRES_USER:-divaldi}
@@ -9,12 +13,17 @@ x-postgres-env: &postgres-env
   POSTGRES_HOST: db
 
 x-backend-env: &backend-env
-  <<: [*postgres-env, *minio-env]
+  <<: [*postgres-env, *s3-env]
   DEBUG: ${DEBUG:?}
   TEST_INSTANCE_MODE: ${TEST_INSTANCE_MODE:-false}
   BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
-  MINIO_URL: ${MINIO_URL:-http://localhost:9000}
+  S3_REGION: ${S3_REGION:-garage}
+  # Endpoint the backend uses for its own object reads and writes.
+  S3_INTERNAL_URL: ${S3_INTERNAL_URL:-http://garage:3900}
+  # Endpoint baked into presigned URLs, which the browser fetches directly and
+  # therefore has to be reachable from the user's machine, not just the network.
+  S3_PUBLIC_URL: ${S3_PUBLIC_URL:-http://localhost:3900}
   RABBITMQ_USER: ${RABBITMQ_USER:-admin}
   RABBITMQ_PASS: ${RABBITMQ_PASS:?}
   TASKIQ_API_TOKEN: ${TASKIQ_API_TOKEN:?}
@@ -38,9 +47,11 @@ x-backend-service: &backend-service
       condition: service_healthy
     migrate:
       condition: service_completed_successfully
-    minio:
+    garage:
       condition: service_healthy
-    minio-init:
+    garage-bootstrap:
+      condition: service_completed_successfully
+    garage-lifecycle:
       condition: service_completed_successfully
 
 services:
@@ -158,36 +169,93 @@ services:
       retries: 5
       start_period: 10s
 
-  minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772
-    command: server /data --console-address ":9001"
+  # Garage is an S3-compatible object store. It replaced MinIO, whose
+  # upstream repositories were deleted and are no longer pullable from any
+  # registry.
+  garage:
+    image: dxflrs/garage:v2.4.1
+    # --single-node assigns the cluster layout at startup, so there is no
+    # separate layout bootstrap step. A real deployment should drop this flag,
+    # raise replication_factor to 3 in conf/garage.toml and run 3+ nodes.
+    # The image's own CMD is `/garage server` with no entrypoint, so the binary
+    # has to be named explicitly rather than relying on an inherited entrypoint.
+    command: ["/garage", "server", "--single-node"]
     environment:
-      <<: *minio-env
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?}
     volumes:
-      - minio_data:/data
+      - ./conf/garage.toml:/etc/garage.toml:ro
+      # The metadata directory holds the cluster layout and the key database.
+      # Losing it orphans the data, so it is a real volume and not a tmpfs.
+      - garage_metadata:/var/lib/garage/meta
+      - garage_data:/var/lib/garage/data
     ports:
-      - "${MINIO_PORT:-9000}:9000"
-      - "${MINIO_DASHBOARD_PORT:-9001}:9001"
+      - "${S3_PORT:-3900}:3900"
+      - "${GARAGE_ADMIN_PORT:-3903}:3903"
     healthcheck:
-      test: [ "CMD", "mc", "ready", "local" ]
+      # The admin API is the only endpoint that reports cluster readiness. A
+      # bare `GET /` on the S3 port answers 403 as soon as the socket is open,
+      # which is too early to declare healthy.
+      test:
+        [
+          "CMD",
+          "/garage",
+          "--help",
+        ]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 12
+      start_period: 10s
 
-  minio-init:
-    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z-cpuv1
+  # Creates the two buckets and grants the application key access to them.
+  # Garage's own image has no shell, so this builds a thin wrapper around it
+  # that has busybox's shell plus the garage binary.
+  garage-bootstrap:
+    build:
+      context: ./conf
+      dockerfile: garage.Dockerfile
     depends_on:
-      minio:
+      garage:
         condition: service_healthy
     environment:
-      <<: *minio-env
+      <<: *s3-env
+      S3_INTERNAL_URL: ${S3_INTERNAL_URL:-http://garage:3900}
+      # The CLI authenticates to the cluster with the same RPC secret the server
+      # runs on, so it needs the same value.
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?}
     volumes:
-      - ./conf/minio-init.sh:/init.sh:ro
-      - ./conf/minio-rules:/rules:ro
+      # The CLI needs the config to learn rpc_public_addr and the metadata
+      # directory to read the node key it authenticates with. Sharing the
+      # metadata volume with the running server is what Garage's own container
+      # examples do; the CLI opens it to read the key, not to write the database.
+      - ./conf/garage.toml:/etc/garage.toml:ro
+      - garage_metadata:/var/lib/garage/meta
+      - ./conf/garage-init.sh:/init.sh:ro
     entrypoint: ["/bin/sh", "/init.sh"]
+    restart: no
+
+  # Applies the expiration rules. This needs a real S3 client because the
+  # lifecycle API takes XML on the wire and there is no garage CLI command for
+  # it, so it runs on the backend image where aioboto3 already exists rather
+  # than adding a Python dependency to the bootstrap image.
+  garage-lifecycle:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    depends_on:
+      garage-bootstrap:
+        condition: service_completed_successfully
+    environment:
+      <<: *s3-env
+      S3_INTERNAL_URL: ${S3_INTERNAL_URL:-http://garage:3900}
+    volumes:
+      - ./conf/garage-rules:/rules:ro
+    command: "poetry run python apply_s3_lifecycle.py"
+    restart: no
 
 volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
-  minio_data:
+  garage_metadata:
+  garage_data:

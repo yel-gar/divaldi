@@ -21,8 +21,16 @@ router = APIRouter(prefix="/auth", tags=["auth"])
     "/login",
     summary="Login user, sets `session_token` cookie",
     response_model=MessageResponse,
+    responses={
+        401: {"description": "Incorrect username or password"},
+    },
 )
 async def login(data: UserLogin, response: Response, db: DbSession):
+    """Exchange a username and password for a session cookie.
+
+    On success an http-only `session_token` cookie is set that is valid for 7
+    days. The cookie is marked `secure` unless `DEBUG` is enabled.
+    """
     res = await db.execute(select(User).where(User.username == data.username))
     user = res.scalar_one_or_none()
 
@@ -51,13 +59,25 @@ async def login(data: UserLogin, response: Response, db: DbSession):
     return MessageResponse(message="Login OK")
 
 
-@router.post("/logout", response_model=MessageResponse)
+@router.post(
+    "/logout",
+    summary="Logout user, clears the `session_token` cookie",
+    response_model=MessageResponse,
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+    },
+)
 async def logout(
     response: Response,
     user: CurrentUser,
     db: DbSession,
     session_token: Annotated[str | None, Cookie()] = None,
 ):
+    """Delete the current session and clear the `session_token` cookie.
+
+    Always succeeds once the caller is authenticated; a cookie that no longer
+    maps to a stored session is simply cleared without an error.
+    """
     if session_token:
         res = await db.execute(select(Session).where(Session.token == session_token, Session.user_id == user.id))
         session = res.scalar_one_or_none()

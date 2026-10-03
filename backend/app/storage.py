@@ -10,16 +10,32 @@ MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024  # 5mb
 
 class ObjectStorage:
     def __init__(self):
+        self._region = os.getenv("S3_REGION", "garage")
         self._session = aioboto3.Session(
-            aws_access_key_id=os.getenv("MINIO_ROOT_USER", "minio"),
-            aws_secret_access_key=os.environ["MINIO_ROOT_PASSWORD"],
+            aws_access_key_id=os.environ["S3_ACCESS_KEY"],
+            aws_secret_access_key=os.environ["S3_SECRET_KEY"],
+            region_name=self._region,
         )
 
     def internal_client(self) -> S3Client:
-        return self._session.client("s3", endpoint_url="http://minio:9000")
+        """Client for calls the backend makes itself, over the Compose network."""
+        return self._session.client(
+            "s3",
+            endpoint_url=os.getenv("S3_INTERNAL_URL", "http://garage:3900"),
+            region_name=self._region,
+        )
 
     def public_client(self) -> S3Client:
-        return self._session.client("s3", endpoint_url=os.getenv("MINIO_URL", "http://localhost:9000"))
+        """Client for presigning URLs the browser will fetch directly.
+
+        The endpoint is baked into every presigned URL, so it has to be
+        reachable from the user's machine and not only from inside Compose.
+        """
+        return self._session.client(
+            "s3",
+            endpoint_url=os.getenv("S3_PUBLIC_URL", "http://localhost:3900"),
+            region_name=self._region,
+        )
 
 
 def get_s3_avatar_unprocessed_key(id: uuid.UUID) -> str:

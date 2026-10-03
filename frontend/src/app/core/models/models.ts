@@ -14,6 +14,19 @@ export interface ChatUploadParams {
 
 export type ChatAttachmentStatus = 'uploading' | 'processing' | 'completed' | 'error';
 
+/** Same states as `ChatAttachmentStatus`, plus the case where the status key has expired. */
+export type ChatSessionAttachmentStatus = ChatAttachmentStatus | 'unknown';
+
+/** A file currently on a chat session, whether or not a message references it yet. */
+export interface ChatSessionAttachment {
+  id: number;
+  filename: string;
+  status: ChatSessionAttachmentStatus;
+  ready: boolean;
+  chat_message_id: number | null;
+  timestamp: string;
+}
+
 export interface ChatAttachmentUrl {
   attachment_url: string;
   filename: string;
@@ -33,6 +46,24 @@ export interface UserChat {
   name: string;
 }
 
+/** Envelope every paginated list endpoint returns: the page itself plus the total. */
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  items_per_page: number;
+}
+
+export type ChatSortKey = 'date' | 'number';
+export type SortOrder = 'asc' | 'desc';
+
+export interface ChatListQuery {
+  page?: number;
+  itemsPerPage?: number;
+  sort?: ChatSortKey;
+  order?: SortOrder;
+}
+
 export interface ChatResultContent {
   type: 'error' | 'success';
   content: string;
@@ -46,12 +77,25 @@ export interface ChatResult {
   result: ChatResultContent | null;
 }
 
+export const USER_ROLES = ['user', 'admin', 'superuser'] as const;
+
+export type UserRole = (typeof USER_ROLES)[number];
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  user: 'Пользователь',
+  admin: 'Администратор',
+  superuser: 'Суперпользователь'
+};
+
+export const isAdminRole = (role: UserRole | undefined): boolean =>
+  role === 'admin' || role === 'superuser';
+
 export interface User {
   id: number;
   username: string;
   first_name: string | null;
   last_name: string | null;
-  is_superuser: boolean;
+  role: UserRole;
 }
 
 export interface S3AvatarUrl {
@@ -63,7 +107,7 @@ export interface AdminUser {
   username: string;
   first_name: string | null;
   last_name: string | null;
-  is_superuser: boolean;
+  role: UserRole;
   expires_at: string | null;
 }
 
@@ -73,6 +117,7 @@ export interface AdminUserPayload {
   first_name: string | null;
   last_name: string | null;
   expires_at: string | null;
+  role?: UserRole;
 }
 
 export interface MessageResponse {
@@ -93,6 +138,8 @@ export interface UploadItem {
   readonly file: File;
   readonly status: UploadItemStatus;
   readonly uploaded: number;
+  /** Server-side id, assigned once the backend has registered the file. Needed to delete it. */
+  readonly attachmentId?: number;
 }
 
 export interface UploadSpeedSample {

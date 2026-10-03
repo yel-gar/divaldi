@@ -39,6 +39,7 @@ dev = [
     "httpx (>=0.28.1,<0.29.0)",
     "testcontainers[postgres] (>=4.15.0,<5.0.0)",
     "pre-commit (>=4.6.2,<5.0.0)",
+    "pytest-cov (>=7.1.0,<8.0.0)",
 ]
 
 [tool.black]
@@ -51,7 +52,10 @@ line-length = 120
 target-version = "py314"
 exclude = [
     "alembic/versions",
-    "./createsuperuser.py"
+    # One-shot operator scripts, not application code: they print progress to
+    # the container log, which is the whole point.
+    "./createsuperuser.py",
+    "./apply_s3_lifecycle.py"
 ]
 
 [tool.ruff.lint]
@@ -94,3 +98,37 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
+# `live` marks tests that talk to the real GigaChat API. They are deselected by
+# default because every call costs money and needs a real SBER_API_KEY. Run them
+# explicitly with:  MOCK_PROVIDER_MODE= unset, SBER_API_KEY=<real> pytest -m live
+addopts = "-m 'not live'"
+markers = [
+    "live: hits the real GigaChat API; deselected by default because it costs money (run with -m live)",
+]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+omit = [
+    "*/__main__.py",
+    "*/alembic/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+precision = 2
+# The gate. 90% was reached on 2026-09-29 by adding suites for the chat routes,
+# every TaskIQ worker, the providers, and the user/admin routes, backed by real
+# PostgreSQL, Redis and MinIO testcontainers and an offline mock provider.
+# pytest-cov reads this and turns the run's exit code on it, so the pre-push hook
+# and the backend-coverage workflow enforce it without naming a number.
+fail_under = 90
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abstractmethod",
+]
+
+[tool.coverage.json]
+output = "coverage.json"

@@ -1,0 +1,55 @@
+name: Frontend Coverage
+
+on:
+  pull_request:
+    paths: ["frontend/**"]
+  push:
+    branches: [main]
+    paths: ["frontend/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    name: Test coverage report
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Coverage is configured in angular.json under the `test` target, using
+      # the builder's native `coverage` options, which require
+      # @vitest/coverage-v8. There is no vitest.config.ts in this project.
+      #
+      # The threshold lives in ONE place: `coverageThresholds` in
+      # frontend/angular.json, which the builder enforces. It is currently
+      # absent, so this step reports without blocking. To make 90% the gate,
+      # add coverageThresholds there and change nothing in this file.
+      - name: Test with coverage
+        run: npx ng test --coverage --watch=false
+
+      - name: Upload coverage summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: |
+            frontend/coverage/**/coverage-summary.json
+            frontend/coverage/**/*.html
+          retention-days: 14
+          if-no-files-found: warn
