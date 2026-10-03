@@ -252,6 +252,18 @@
     color: var(--color-gray);
   }
 
+  &__file-status {
+    flex-shrink: 0;
+
+    color: var(--color-gray);
+
+    font-size: 12px;
+
+    &--error {
+      color: var(--color-danger);
+    }
+  }
+
   &__actions {
     margin-top: auto;
 

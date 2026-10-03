@@ -14,6 +14,19 @@ export interface ChatUploadParams {
 
 export type ChatAttachmentStatus = 'uploading' | 'processing' | 'completed' | 'error';
 
+/** Same states as `ChatAttachmentStatus`, plus the case where the status key has expired. */
+export type ChatSessionAttachmentStatus = ChatAttachmentStatus | 'unknown';
+
+/** A file currently on a chat session, whether or not a message references it yet. */
+export interface ChatSessionAttachment {
+  id: number;
+  filename: string;
+  status: ChatSessionAttachmentStatus;
+  ready: boolean;
+  chat_message_id: number | null;
+  timestamp: string;
+}
+
 export interface ChatAttachmentUrl {
   attachment_url: string;
   filename: string;
@@ -111,6 +124,8 @@ export interface UploadItem {
   readonly file: File;
   readonly status: UploadItemStatus;
   readonly uploaded: number;
+  /** Server-side id, assigned once the backend has registered the file. Needed to delete it. */
+  readonly attachmentId?: number;
 }
 
 export interface UploadSpeedSample {

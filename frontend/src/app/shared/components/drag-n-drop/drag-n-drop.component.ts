@@ -196,6 +196,7 @@ export class DragNDropComponent implements OnDestroy {
   }
 
   removeItem(id: string): void {
+    const removed = this.items().find((item) => item.id === id);
     this.activeUploads.get(id)?.unsubscribe();
     this.activeUploads.delete(id);
     if (this.previewItem()?.id === id) {
@@ -203,6 +204,12 @@ export class DragNDropComponent implements OnDestroy {
     }
     this.items.update((list) => list.filter((item) => item.id !== id));
     this.emitFiles();
+
+    // A file the backend already knows about has to be removed there too, otherwise
+    // it stays on the session and is attached to the next message.
+    if (removed?.attachmentId !== undefined) {
+      this.deleteOnServer(removed.attachmentId);
+    }
 
     if (this.items().length === 0) {
       this.resetToIdle();
@@ -213,6 +220,16 @@ export class DragNDropComponent implements OnDestroy {
       this.pumpQueue();
     }
     this.refreshSpeed();
+  }
+
+  private deleteOnServer(attachmentId: number): void {
+    const sessionId = this.sessionId();
+    if (!sessionId) {
+      return;
+    }
+    this.uploader.remove(sessionId, attachmentId).subscribe({
+      error: () => this.notifications.error('Не удалось удалить файл на сервере')
+    });
   }
 
   retryItem(id: string): void {
@@ -345,7 +362,8 @@ export class DragNDropComponent implements OnDestroy {
     }
     const subscription = this.uploader
       .upload(item, sessionId, {
-        onProgress: (uploaded) => this.patchItem(item.id, { uploaded })
+        onProgress: (uploaded) => this.patchItem(item.id, { uploaded }),
+        onAttachmentId: (attachmentId) => this.patchItem(item.id, { attachmentId })
       })
       .subscribe({
         next: (uploaded) => this.patchItem(item.id, { uploaded }),
@@ -434,7 +452,10 @@ export class DragNDropComponent implements OnDestroy {
     }
   }
 
-  private patchItem(id: string, patch: Partial<Pick<UploadItem, 'status' | 'uploaded'>>): void {
+  private patchItem(
+    id: string,
+    patch: Partial<Pick<UploadItem, 'status' | 'uploaded' | 'attachmentId'>>
+  ): void {
     this.items.update((list) =>
       list.map((item) => (item.id === id ? { ...item, ...patch } : item))
     );

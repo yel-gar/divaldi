@@ -222,6 +222,52 @@ describe('ChatService', () => {
     expect(result?.deleted).toBe(true);
   });
 
+  it('lists the files on the session, uploads included', () => {
+    let result: unknown;
+
+    service.attachments(SESSION_ID).subscribe((attachments) => {
+      result = attachments;
+    });
+
+    const req = http.expectOne(`${environment.apiUrl}/chats/${SESSION_ID}/attachments`);
+    expect(req.request.method).toBe('GET');
+    req.flush([
+      {
+        id: 7,
+        filename: 'деталь.pdf',
+        status: 'uploading',
+        ready: false,
+        chat_message_id: null,
+        timestamp: '2026-09-12T12:18:35.689095Z'
+      }
+    ]);
+
+    expect(result).toEqual([
+      {
+        id: 7,
+        filename: 'деталь.pdf',
+        status: 'uploading',
+        ready: false,
+        chat_message_id: null,
+        timestamp: '2026-09-12T12:18:35.689095Z'
+      }
+    ]);
+  });
+
+  it('deletes a single attachment', () => {
+    let result: { deleted: boolean } | undefined;
+
+    service.deleteAttachment(SESSION_ID, 7).subscribe((response) => {
+      result = response;
+    });
+
+    const req = http.expectOne(`${environment.apiUrl}/chats/${SESSION_ID}/attachments/7`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush({ deleted: true });
+
+    expect(result?.deleted).toBe(true);
+  });
+
   it('retries the last generation', () => {
     let result: { message: string } | undefined;
 

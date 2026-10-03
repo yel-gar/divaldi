@@ -31,7 +31,7 @@ import { AgentStatusComponent } from './agent-status.component';
 import { FilePreviewComponent } from '../../shared/components/drag-n-drop/file-preview.component';
 import { NotificationService } from '../../core/services/notification.service';
 import { InitialChatStateService } from '../../core/services/initial-chat-state.service';
-import { ChatMessageApi, KP_FILENAME } from '../../core/models/models';
+import { ChatMessageApi, ChatSessionAttachment, KP_FILENAME } from '../../core/models/models';
 import { ChatService } from '../../core/services/chat.service';
 import { AttachmentDownloadService } from '../../core/services/attachment-download.service';
 import { extractApiErrorMessage } from '../../shared/utils/api-error';
@@ -79,6 +79,13 @@ export class CalculationChatComponent {
   readonly isSending = signal(false);
   readonly lastMessageFailed = signal(false);
   readonly previewedFile = signal<File | null>(null);
+  /**
+   * Files the session is holding that no message references yet, which is what
+   * "still uploading" means from the user's side. Fetched from the backend rather
+   * than derived from `sessionFiles()`, so a page reload or a second tab sees
+   * the same list.
+   */
+  readonly pendingAttachments = signal<ChatSessionAttachment[]>([]);
 
   readonly sessionFiles = computed(() => {
     const seen = new Set<number>();
@@ -101,6 +108,59 @@ export class CalculationChatComponent {
 
   fileColorFor(name: string): string {
     return fileTypeStyleFor(getFileExtension(name)).color;
+  }
+
+  attachmentStatusLabel(attachment: ChatSessionAttachment): string {
+    switch (attachment.status) {
+      case 'uploading':
+        return 'Загружается';
+      case 'processing':
+        return 'Обрабатывается';
+      case 'error':
+        return 'Ошибка';
+      case 'completed':
+        return 'Готово';
+      default:
+        // The status key has a TTL, so an uploaded file can outlive it. The
+        // durable `ready` flag still says whether the file may be sent.
+        return attachment.ready ? 'Готово' : 'Статус неизвестен';
+    }
+  }
+
+  deletePendingAttachment(attachment: ChatSessionAttachment): void {
+    this.chatService
+      .deleteAttachment(this.id(), attachment.id)
+      .pipe(
+        catchError((err: HttpErrorResponse) => {
+          this.notifications.error('Не удалось удалить файл: ' + extractApiErrorMessage(err));
+          return EMPTY;
+        })
+      )
+      .subscribe(() => {
+        this.pendingAttachments.update((list) => list.filter((item) => item.id !== attachment.id));
+        this.notifications.success(`Файл «${attachment.filename}» удалён`);
+      });
+  }
+
+  private loadPendingAttachments(sessionId: string): void {
+    this.chatService
+      .attachments(sessionId)
+      .pipe(
+        catchError((err: HttpErrorResponse) => {
+          this.notifications.error(
+            'Не удалось загрузить список файлов: ' + extractApiErrorMessage(err)
+          );
+          return EMPTY;
+        })
+      )
+      .subscribe((attachments) => {
+        if (this.id() !== sessionId) {
+          return;
+        }
+        this.pendingAttachments.set(
+          attachments.filter((attachment) => attachment.chat_message_id === null)
+        );
+      });
   }
 
   openAttachmentPreview(attachment: ChatMessageAttachment) {
@@ -300,6 +360,17 @@ export class CalculationChatComponent {
 
   handleResultsOpen() {
     this.isResultsOpen.set(!this.isResultsOpen());
+    if (this.isResultsOpen()) {
+      this.loadPendingAttachments(this.id());
+    }
+  }
+
+  onUploadingChange(uploading: boolean) {
+    this.isUploading.set(uploading);
+    if (!uploading) {
+      // A finished batch changes what the session is holding.
+      this.loadPendingAttachments(this.id());
+    }
   }
 
   onMessageInput(event: Event) {

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 from datetime import timedelta
@@ -10,10 +11,12 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import aliased, selectinload
 
 from app.cache import (
+    get_attachment_ownership_key,
     get_attachment_status_key,
     get_attachment_url_key,
     get_deletion_key,
     get_generation_key,
+    get_pdf_sync_key,
 )
 from app.deps import (
     CurrentUser,
@@ -51,6 +54,8 @@ from app.schemas.chat import (
     UserChatSchema,
 )
 from app.schemas.files import (
+    AttachmentDeletedResponse,
+    ChatSessionAttachmentSchema,
     S3AttachmentSchema,
     S3AttachmentStatusResponse,
     S3ChatUploadParams,
@@ -59,7 +64,7 @@ from app.schemas.files import (
 )
 from app.storage import get_s3_attachment_key
 from app.tasks.api import generate_chat_message
-from app.tasks.files import process_attachment
+from app.tasks.files import _s3_try_delete, process_attachment
 
 log = structlog.stdlib.get_logger(__name__)
 
@@ -75,6 +80,10 @@ CHAT_MAX_UPLOAD_SIZE = 30 * 1024 * 1024
 # suffix is copied into the S3 key and shown back to the user, so it has to be
 # one of these rather than whatever the client felt like asking for.
 ALLOWED_CHAT_FILE_EXTENSIONS = frozenset({".pdf", ".dxf", ".png", ".jpg", ".jpeg"})
+# Values `upload_file` and the attachment workers write to the Redis status key. Anything else
+# found there, including an expired key which reads back as None, is reported as unknown rather
+# than passed to the response schema, which would raise on an unexpected value.
+ATTACHMENT_STATUSES = frozenset({"uploading", "processing", "completed", "error"})
 
 
 def _is_bare_filename(filename: str) -> bool:
@@ -496,6 +505,45 @@ async def upload_file(
 
 
 @router.get(
+    "/{session_id}/attachments",
+    summary="List files on this chat, including the ones still being uploaded",
+    response_model=list[ChatSessionAttachmentSchema],
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "Chat session not found or does not belong to the user"},
+        429: {"description": "Rate limit exceeded (max 100 per minute across all chat endpoints)"},
+    },
+)
+async def list_attachments(session_id: VerifiedMessageSession, db: DbSession, redis: RedisSession):
+    """Return every attachment row on the session, oldest first.
+
+    Files that are still uploading or processing are included, so a client that
+    reopens the chat sees what the session is currently holding rather than only
+    what a message already references. `chat_message_id` distinguishes the two.
+
+    `status` mirrors the Redis upload state and is `unknown` once that key's TTL
+    has run out; `ready` is the durable flag and says whether the file may be sent.
+    """
+    # `.all()` is called exactly once: iterating the result a second time would
+    # silently yield nothing and make the whole list disappear.
+    attachments = (
+        await db.scalars(select(Attachment).where(Attachment.session_id == session_id).order_by(Attachment.id))
+    ).all()
+    statuses = await redis.mget([get_attachment_status_key(attachment.id) for attachment in attachments])
+    return [
+        ChatSessionAttachmentSchema(
+            id=attachment.id,
+            filename=attachment.name,
+            status=status if status in ATTACHMENT_STATUSES else "unknown",
+            ready=attachment.ready,
+            chat_message_id=attachment.chat_message_id,
+            timestamp=attachment.timestamp,
+        )
+        for attachment, status in zip(attachments, statuses, strict=True)
+    ]
+
+
+@router.get(
     "/{session_id}/attachments/{attachment_id}",
     summary="Get link to download file from chat",
     response_model=S3AttachmentSchema,
@@ -543,6 +591,51 @@ async def get_attachment(
     )
     await redis.set(cache_key, json.dumps({"url": url, "filename": attachment.name}), nx=False, ex=3600)
     return S3AttachmentSchema(attachment_url=url, filename=attachment.name)
+
+
+@router.delete(
+    "/{session_id}/attachments/{attachment_id}",
+    summary="Delete file uploaded to chat",
+    response_model=AttachmentDeletedResponse,
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "Attachment not found, or does not belong to the user"},
+        404: {"description": "Attachment row is gone, only its storage object may be left behind"},
+        429: {"description": "Rate limit exceeded (max 100 per minute across all chat endpoints)"},
+    },
+)
+async def delete_attachment(
+    session_id: VerifiedMessageSession,
+    attachment_id: VerifiedAttachmentId,
+    db: DbSession,
+    redis: RedisSession,
+):
+    """Delete an attachment of the session: the row, its storage objects, and its cached state.
+
+    Removing the row cascades to the processing results and to the per-page
+    artifacts a PDF produced, and the ownership cache entry goes with it so a
+    repeated delete is refused by the dependency rather than served from cache.
+    A storage object that is already gone is not an error: the row is still deleted.
+    """
+    attachment = await db.scalar(
+        select(Attachment)
+        .where(Attachment.id == attachment_id, Attachment.session_id == session_id)
+        .options(selectinload(Attachment.processing_result_uploadables))
+    )
+    if attachment is None:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+
+    s3_keys = [attachment.s3_key, *(uploadable.s3_key for uploadable in attachment.processing_result_uploadables)]
+    await asyncio.gather(*(_s3_try_delete(key) for key in s3_keys))
+    await db.delete(attachment)
+    await db.commit()
+    await redis.delete(
+        get_attachment_status_key(attachment_id),
+        get_attachment_url_key(attachment_id),
+        get_attachment_ownership_key(session_id, attachment_id),
+        get_pdf_sync_key(attachment_id),
+    )
+    return AttachmentDeletedResponse(deleted=True)
 
 
 @router.post(

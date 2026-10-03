@@ -3,7 +3,7 @@
 Rewritten in place on each update. Do not append. Keep it short and current; detail belongs
 in `DECISIONS.md` (rationale) or `AGENTS.md` (procedure).
 
-Last updated: **2026-10-03** (issues #44, #46, #51 and #59 merged)
+Last updated: **2026-10-03** (issues #47 and #51 merged)
 
 ---
 
@@ -51,19 +51,19 @@ instance, created by `conf/postgres-init/01-taskiq-dashboard.sql`.
 
 | Suite | Command | Notes |
 |---|---|---|
-| Backend | `poetry -C backend run pytest` | 337 tests; needs a Docker daemon |
-| Backend coverage | `poetry -C backend run pytest --cov` | **98.81%**, gated at 90% by `fail_under` |
+| Backend | `poetry -C backend run pytest` | 349 tests; needs a Docker daemon |
+| Backend coverage | `poetry -C backend run pytest --cov` | **98.83%**, gated at 90% by `fail_under` |
 | Processing | `poetry -C processing run pytest -v` | 85 tests; DXF, PDF, calculator; pure, no Docker |
 | Processing coverage | `poetry -C processing run pytest --cov` | **95.73%**, gated at 90% by `fail_under` |
-| Frontend | `npm --prefix frontend test` | Vitest, 314 tests; runs in `frontend-ci.yml` |
-| Frontend coverage | `npx ng test --coverage` | 90.29% stmts, 85.22% branches, 90.20% funcs; gated at 90% |
+| Frontend | `npm --prefix frontend test` | Vitest, 330 tests; runs in `frontend-ci.yml` |
+| Frontend coverage | `npx ng test --coverage` | 90.47% stmts, 85.36% branches, 90.71% funcs; gated at 90% |
 
 **Backend coverage is enforced at 90%** via `fail_under` in `backend/pyproject.toml`,
-reading **98.81%** across 337 tests with branch coverage. The `pre-push` hook and
+reading **98.83%** across 349 tests with branch coverage. The `pre-push` hook and
 `.github/workflows/backend-coverage.yml` enforce it and neither names a percentage.
 
 **Frontend coverage is enforced at 90%** via `coverageThresholds` on the `test` target in
-`frontend/angular.json`, reading **90.29%** statements across 314 tests. That is only just
+`frontend/angular.json`, reading **90.47%** statements across 330 tests. That is only just
 above the line; branches (85.22%) are deliberately not gated.
 
 **All three Python and TypeScript suites are now gated at 90%**, each with its threshold in
@@ -76,7 +76,7 @@ PostgreSQL, Redis and Garage are real testcontainers on the backend. The LLM is 
 `MOCK_PROVIDER_MODE`; the real GigaChat is only reachable through `@pytest.mark.live`
 tests, which are deselected by default.
 
-**The frontend suite is GREEN.** 314 of 314 tests pass across 33 spec files, up from 154.
+**The frontend suite is GREEN.** 330 of 330 tests pass across 33 spec files, up from 154.
 It was red on `main`: 14 tests in `sidebar.component.spec.ts` failed because the jsdom test
 environment exposes no `localStorage`, and `ThemeService` reads it in a field initializer.
 Fixed by `src/test-setup.ts`, registered through the builder's `setupFiles` option. The
@@ -240,3 +240,27 @@ Ordered by value, not by commitment:
   one small project's Docker Hub namespace; MinIO died the same way. Mirroring the image into
   an organisation-controlled registry and pinning it by digest would make an upstream deletion
   a non-event. Not done: it needs write access to a registry this project does not own yet.
+
+---
+
+## In flight: issue #47, attachment listing and deletion (branch `issue/47`)
+
+Appended rather than folded into the sections above, because several branches are being
+merged in parallel and this file is normally rewritten in place.
+
+- `GET /chats/{session_id}/attachments` lists every attachment row of a session with its
+  Redis upload status, `ready` flag and `chat_message_id`, so a client can show the files a
+  session is currently holding rather than only the ones a message references.
+- `DELETE /chats/{session_id}/attachments/{attachment_id}` removes the row, the stored
+  object, the per-page artifacts of a PDF, and the cached status, URL, ownership and PDF-sync
+  keys. Best effort on storage: an object that already expired does not keep the row.
+- Frontend: `ChatService.attachments` / `deleteAttachment`, an `onAttachmentId` callback on
+  the upload observable, a real delete behind the trash button in the uploader list, and a
+  "Загруженные файлы" section in the results panel with a per-file status label plus preview,
+  download and delete. No new component, so no new file for the coverage gate to count at 0%.
+- 12 backend tests and 16 frontend tests added; backend is 345 tests at **98.83%**, frontend
+  is 321 tests at **90.43%** statements, 85.06% branches, 90.64% functions.
+- **Not fixed, reported instead:** `cleanup_orphan_attachments` in `app/tasks/files.py`
+  iterates an already exhausted `ScalarResult`, so it logs `count=0` and never deletes an S3
+  object. Rows are still deleted; the objects fall to the 7-day lifecycle rule. See
+  `LESSONS.md`.
