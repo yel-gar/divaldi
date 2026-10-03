@@ -35,8 +35,16 @@ router = APIRouter(prefix="/users", tags=["users"])
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
-@router.get("/me", response_model=UserSchema, summary="Get current authenticated user")
+@router.get(
+    "/me",
+    response_model=UserSchema,
+    summary="Get current authenticated user",
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+    },
+)
 async def users_me(user: CurrentUser):
+    """Return the profile of the user owning the current session."""
     return user
 
 
@@ -44,6 +52,11 @@ async def users_me(user: CurrentUser):
     "/me/set-password",
     response_model=MessageResponse,
     summary="Set password of current user",
+    responses={
+        400: {"description": "The current password is wrong"},
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        450: {"description": "Password changing is disabled on a test instance (`TEST_INSTANCE_MODE`)"},
+    },
 )
 async def users_set_password(
     user: CurrentUser,
@@ -51,6 +64,11 @@ async def users_set_password(
     data: SetPasswordSchema,
     session_token: Annotated[str | None, Cookie()] = None,
 ):
+    """Change the current user's password after verifying the old one.
+
+    Every other session of that user is invalidated; the session used for this
+    call stays valid.
+    """
     if os.getenv("TEST_INSTANCE_MODE", "false") in {"true", "yes", "1"}:
         raise HTTPException(status_code=450, detail="Password changing on test instance is not allowed")
     if not verify_password(user.password_hash, data.old_password):
@@ -61,13 +79,25 @@ async def users_set_password(
     return MessageResponse(message="Password changed successfully, all sessions except current are invalidated")
 
 
-@router.get("/me/avatar", response_model=S3AvatarUrlSchema)
+@router.get(
+    "/me/avatar",
+    response_model=S3AvatarUrlSchema,
+    summary="Get a link to download the current user's avatar",
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+    },
+)
 async def users_get_avatar(
     user: CurrentUser,
     s3_public: S3PublicClient,
     s3_internal: S3InternalClient,
     redis: RedisSession,
 ):
+    """Get a presigned URL to download the current user's processed avatar.
+
+    Returns `avatar_url: null` when the user has no avatar. URLs are cached for
+    an hour; call this endpoint again to get a fresh one.
+    """
     redis_cache_key = get_avatar_url_key(user.uuid)
     val: str | None = await redis.get(redis_cache_key)  # type: ignore
     if val is not None:
@@ -99,8 +129,22 @@ async def users_get_avatar(
     "/me/set-avatar",
     dependencies=[Depends(user_rate_limiter(3, timedelta(minutes=5), "user:avatar"))],
     response_model=S3UploadParams,
+    summary="Get a link to upload a new avatar, make sure to confirm the upload afterwards",
+    responses={
+        400: {"description": "Content type not allowed (JPEG, PNG, WebP only), or file size exceeds the 5 MB limit"},
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        429: {"description": "Rate limit exceeded (max 3 requests in 5 minutes per user)"},
+    },
 )
 async def users_set_avatar(user: CurrentUser, s3: S3PublicClient, redis: RedisSession, data: S3UploadRequest):
+    """Get a presigned POST to upload a new avatar directly to storage.
+
+    Allowed content types: JPEG, PNG, WebP. Max file size 5 MB. The upload URL
+    expires after 5 minutes.
+
+    After uploading, call `POST /users/me/set-avatar/complete` to confirm and
+    start processing. Requesting a new upload cancels a previous unconfirmed one.
+    """
     if data.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=400,
@@ -134,8 +178,20 @@ async def users_set_avatar(user: CurrentUser, s3: S3PublicClient, redis: RedisSe
     "/me/set-avatar/complete",
     dependencies=[Depends(user_rate_limiter(1, 60, "user:avatar-complete"))],
     response_model=MessageResponse,
+    summary="Send request here after uploading the avatar to the provided URL",
+    responses={
+        400: {"description": "The avatar hasn't actually been uploaded to storage yet"},
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        404: {"description": "No avatar upload was started, or the upload request expired"},
+        429: {"description": "Rate limit exceeded (max 1 request in 60 seconds per user)"},
+    },
 )
 async def users_set_avatar_complete(user: CurrentUser, s3: S3InternalClient, redis: RedisSession):
+    """Confirm that the avatar was uploaded to the presigned URL and start processing it.
+
+    Call this after successfully uploading to the URL from
+    `POST /users/me/set-avatar`. Processing happens in the background.
+    """
     if not await redis.exists(get_avatar_waiting_key(user.uuid)):
         raise HTTPException(
             status_code=404,

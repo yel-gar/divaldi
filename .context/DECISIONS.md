@@ -488,3 +488,13 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   English. Keep new documentation in English unless it duplicates README content.
 - **`AGENTS.md` documents *how*; `.context/` documents *why*.** Keeping them separate stops
   the harness from bloating with rationale and the context files from going stale.
+- **The `responses={...}` convention is now repo-wide, not chat-only.** `AGENTS.md` still
+  describes it as a chat-route pattern; as of 2026-10-03 (issue #44) every route in
+  `auth.py`, `users.py` and `admin.py` follows it too. Two rules that came out of doing it:
+  an entry that cannot be traced to a real `raise` or dependency is omitted rather than
+  guessed, and the non-standard **450** from `TEST_INSTANCE_MODE` is documented explicitly,
+  because it reads as a typo to anyone seeing the OpenAPI schema without the context above.
+  `422` is deliberately left out of every dict, since FastAPI adds it for request validation.
+- **`responses=` descriptions are inlined, not shared via constants.** Repeating the 401
+  string is deliberate: each dict is read on its own in the generated schema, and a constant
+  would hide which conditions a given route actually documents.
