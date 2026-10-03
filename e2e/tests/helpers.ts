@@ -62,6 +62,27 @@ export async function login(page: Page): Promise<void> {
   await expect(page.locator('.h1:has-text("Divaldi")')).toBeVisible();
 }
 
+/**
+ * Create a chat session and land inside it.
+ *
+ * Several features live only on the chat view, so a spec has to get into a real
+ * session rather than stopping on the create page that `login` lands on.
+ */
+export async function createChat(
+  page: Page,
+  description = "Кронштейн 200x100 мм, ст3 1 мм",
+): Promise<string> {
+  await page.goto("/create");
+  await expect(
+    page.getByRole("heading", { name: "Создать заявку" }),
+  ).toBeVisible();
+  await page.locator("#description").fill(description);
+  await page.getByRole("button", { name: /Создать заявку/ }).click();
+  await expect(page).toHaveURL(/\/chats\/.+/);
+  await expect(page.getByText(description)).toBeVisible();
+  return new URL(page.url()).pathname.split("/").pop() as string;
+}
+
 /** Open the create-request page. */
 export async function gotoCreate(page: Page): Promise<void> {
   await page.goto("/create");

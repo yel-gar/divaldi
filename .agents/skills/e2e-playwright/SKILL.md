@@ -96,6 +96,44 @@ page" — a symptom that points at auth, not at startup. It now also waits for
 A readiness probe that only proves the thing you already know is fine is not a
 probe. Check the dependency the first test actually needs.
 
+## Seeding a large dataset
+
+The history pager only renders above `CHATS_PAGE_SIZE` rows, and chat creation is rate limited
+to 5 per minute with a real generation queued behind each one. Creating 20+ sessions through the
+UI is not viable, so `history-pagination.spec.ts` inserts them straight into PostgreSQL:
+
+```typescript
+execFileSync('docker', ['compose', 'exec', '-T', 'db', 'psql', '-U', 'divaldi', '-d', 'divaldi', '-v', 'ON_ERROR_STOP=1', '-c', sql], { cwd: REPO_ROOT, stdio: 'ignore' });
+```
+
+Two things about that SQL:
+
+- **Enum values are uppercase.** `chat_messages.role` is a Postgres enum holding `USER`,
+  `ASSISTANT`, `SYSTEM`, while the Python side uses a `StrEnum` with lowercase members. `'user'`
+  fails with `invalid input value for enum userrole`.
+- **Capture the generated `session_id` with `RETURNING`.** Looking the session back up by name
+  picks an arbitrary one when several share it, so the message lands in the wrong session.
+
+Seeding this way is fine for e2e because the suite owns the stack. It is not fine for a unit test.
+
+## Traps that cost time here
+
+- **`login()` lands on `/create`, not in a chat.** Anything living only on the chat view — the
+  results panel, the attachment list — needs `createChat()` first, or every locator times out on
+  a page that does not exist there.
+- **The chat's dropzone is given no `inputId`,** so its hidden file input has no id to target.
+  Drive it through `page.waitForEvent('filechooser')` on the "Прикрепить файл" button instead.
+- **The Playwright `request` fixture has its own cookie jar** and does not see the session cookie
+  that `login()` set. For an authenticated API call, either use
+  `browser.newContext({ storageState: await page.context().storageState() })`, or assert through
+  the page instead.
+- **The sidebar and the history page both call `list()`.** Match a request by `items_per_page`
+  to tell them apart; catching the first `/chats/` request usually catches the sidebar's 10-row
+  preview and yields a baffling `Expected "20", Received "10"`.
+- **"Пользователь" is both a role option and the select's placeholder,** so
+  `getByRole('option', { name: 'Пользователь' })` trips strict mode. Scope to
+  `getByRole('listbox').getByRole('option')`.
+
 ## Waiting
 
 Generation is asynchronous: the frontend polls the result every 2 s. Give agent-dependent

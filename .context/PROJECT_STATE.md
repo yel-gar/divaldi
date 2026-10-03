@@ -88,7 +88,7 @@ Fixed by `src/test-setup.ts`, registered through the builder's `setupFiles` opti
 
 | Workflow | Runs |
 |---|---|
-| `e2e.yml` | Playwright against the Compose stack, `SBER_API_KEY=mock` (10 tests) |
+| `e2e.yml` | Playwright against the Compose stack, `SBER_API_KEY=mock` (23 tests) |
 | `processing-coverage.yml` | processing `pytest --cov`, enforces `fail_under` |
 | `backend-ci.yml` | black, ruff, pytest (Python 3.14) |
 | `backend-coverage.yml` | pytest with coverage, uploads `coverage.json` (reporting only) |
@@ -204,10 +204,11 @@ Ordered by value, not by commitment:
    `dxflrs/garage`. Roughly an hour, and it is the only fix that addresses the cause rather
    than the instance.
 
-1. **Extend the e2e suite.** It covers authentication, the request-to-offer journey, a
-   follow-up message, the history list and admin user management. Not yet covered: file
-   upload through the drag-and-drop zone, the docx/xlsx preview, avatar upload, the theme
-   toggle, and the error paths (a generation that fails, a session that was deleted).
+1. **Extend the e2e suite.** 23 specs cover authentication, the request-to-offer journey, a
+   follow-up message, attachment upload and delete, the paginated history list, and admin
+   user management including role tiers. Not yet covered: the docx/xlsx preview, avatar
+   upload, the theme toggle, and the error paths (a generation that fails, a session that was
+   deleted).
 2. **Fill the placeholder sections:** profile, settings, and the admin action log
    (`Журнал действий`) and system info.
 3. **Action log.** The admin nav links to it but nothing backs it; the database has no audit
