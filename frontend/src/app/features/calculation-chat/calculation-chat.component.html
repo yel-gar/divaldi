@@ -125,7 +125,10 @@
       <ul class="calculation-results__files">
         @for (file of pendingAttachments(); track file.id) {
           <li class="calculation-results__file">
-            <span class="calculation-results__file-icon" [style.color]="fileColorFor(file.filename)">
+            <span
+              class="calculation-results__file-icon"
+              [style.color]="fileColorFor(file.filename)"
+            >
               <svg size="18" [lucideIcon]="fileIconFor(file.filename)" aria-hidden="true"></svg>
             </span>
             <span class="calculation-results__file-name">{{ file.filename }}</span>
