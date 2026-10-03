@@ -3,7 +3,7 @@
 Rewritten in place on each update. Do not append. Keep it short and current; detail belongs
 in `DECISIONS.md` (rationale) or `AGENTS.md` (procedure).
 
-Last updated: **2026-09-29** (coverage pipeline added)
+Last updated: **2026-10-03** (attachment filename filtering)
 
 ---
 
@@ -51,15 +51,15 @@ instance, created by `conf/postgres-init/01-taskiq-dashboard.sql`.
 
 | Suite | Command | Notes |
 |---|---|---|
-| Backend | `poetry -C backend run pytest` | 308 tests; needs a Docker daemon |
-| Backend coverage | `poetry -C backend run pytest --cov` | **98.79%**, gated at 90% by `fail_under` |
+| Backend | `poetry -C backend run pytest` | 325 tests; needs a Docker daemon |
+| Backend coverage | `poetry -C backend run pytest --cov` | **98.80%**, gated at 90% by `fail_under` |
 | Processing | `poetry -C processing run pytest -v` | 85 tests; DXF, PDF, calculator; pure, no Docker |
 | Processing coverage | `poetry -C processing run pytest --cov` | **95.73%**, gated at 90% by `fail_under` |
 | Frontend | `npm --prefix frontend test` | Vitest, 305 tests; runs in `frontend-ci.yml` |
 | Frontend coverage | `npx ng test --coverage` | 90.24% stmts, 84.93% branches, 90.13% funcs; gated at 90% |
 
 **Backend coverage is enforced at 90%** via `fail_under` in `backend/pyproject.toml`,
-reading **98.79%** across 308 tests with branch coverage. The `pre-push` hook and
+reading **98.80%** across 325 tests with branch coverage. The `pre-push` hook and
 `.github/workflows/backend-coverage.yml` enforce it and neither names a percentage.
 
 **Frontend coverage is enforced at 90%** via `coverageThresholds` on the `test` target in
@@ -102,6 +102,12 @@ There is no deploy workflow; CI only.
 ---
 
 ## Current work
+
+**Branch `issue/46-filename-filter` (from `feat/ai-refactor`)** — the chat upload route
+(`POST /chats/{id}/uploads`) now rejects a filename that is not a bare name with an
+allowlisted extension (`.pdf`, `.dxf`, `.png`, `.jpg`, `.jpeg`), alongside the existing
+content-type and size checks. 17 tests added; see the "Attachment filename filtering"
+section in `DECISIONS.md`.
 
 **Branch `docs/agent-harness` (from `main`)** — documentation, agent harness, and the
 backend and frontend coverage pipelines:

@@ -488,3 +488,26 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   English. Keep new documentation in English unless it duplicates README content.
 - **`AGENTS.md` documents *how*; `.context/` documents *why*.** Keeping them separate stops
   the harness from bloating with rationale and the context files from going stale.
+
+## Attachment filename filtering (2026-10-03)
+
+- **The upload route validates the filename, not just the content type.** `POST
+  /chats/{id}/uploads` checked `content_type` and `file_size` but accepted any `filename`, and
+  that string is copied into the S3 key by `get_s3_attachment_key`, stored in
+  `attachments.name`, handed back to the browser by the download route, and passed to
+  GigaChat as the upload filename. Two rules close it, both as 400s beside the existing ones
+  rather than as schema validation, so the failure stays a `HTTPException` the `responses`
+  dict documents: the name must be a bare filename (no `/` or `\`, no control characters,
+  which covers the NUL byte asyncpg refuses to write), and its suffix must be in
+  `ALLOWED_CHAT_FILE_EXTENSIONS`.
+- **The allowlist mirrors the frontend's `ACCEPTED_EXTENSIONS`, not a new policy.** `.pdf`,
+  `.dxf`, `.png`, `.jpg`, `.jpeg` are exactly what `drag-n-drop` offers, so nothing the UI can
+  produce is refused. The value of the rule is that the extension in the stored key cannot be
+  `.sh` or `.html` while the object is declared `application/pdf`, which is what
+  `process_attachment` dispatches on. Extensions are compared case-insensitively because
+  `get_s3_attachment_key` lowercases the suffix it writes.
+- **The extension is *not* paired with the content type.** Enforcing `".pdf" implies
+  application/pdf` would be a stronger guarantee, but nothing in the pipeline reads the
+  extension — the Content-Type on the stored object is what selects the processor — so the
+  pairing would add a rule with no consumer behind it. Deliberately left out; revisit if a
+  consumer ever starts trusting the suffix.
