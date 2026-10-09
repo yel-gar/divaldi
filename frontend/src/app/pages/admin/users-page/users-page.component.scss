@@ -261,6 +261,7 @@
 
     &--danger:hover {
       color: var(--color-danger);
+      background: color-mix(in srgb, var(--color-danger) 12%, transparent);
     }
   }
 }
