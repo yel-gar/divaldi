@@ -2,29 +2,20 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { MachineParameters, MachineParametersPayload, SystemPromptSchema } from '../models/models';
+import { InstanceSettings, InstanceSettingsUpdate } from '../models/models';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AdminSettingsService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl}/admin/system-prompt`;
-  private readonly parametersUrl = `${environment.apiUrl}/admin/parameters`;
+  private readonly baseUrl = `${environment.apiUrl}/admin/settings`;
 
-  getSystemPrompt(): Observable<SystemPromptSchema> {
-    return this.http.get<SystemPromptSchema>(this.baseUrl);
+  getSettings(): Observable<InstanceSettings> {
+    return this.http.get<InstanceSettings>(this.baseUrl);
   }
 
-  updateSystemPrompt(prompt: string): Observable<SystemPromptSchema> {
-    return this.http.put<SystemPromptSchema>(this.baseUrl, { prompt });
-  }
-
-  getMachineParameters(): Observable<MachineParameters> {
-    return this.http.get<MachineParameters>(this.parametersUrl);
-  }
-
-  updateMachineParameters(params: MachineParametersPayload): Observable<MachineParameters> {
-    return this.http.put<MachineParameters>(this.parametersUrl, params);
+  updateSettings(patch: InstanceSettingsUpdate): Observable<InstanceSettings> {
+    return this.http.put<InstanceSettings>(this.baseUrl, patch);
   }
 }

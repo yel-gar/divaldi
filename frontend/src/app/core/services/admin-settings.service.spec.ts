@@ -5,15 +5,18 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { AdminSettingsService } from './admin-settings.service';
 import { environment } from '../../../environments/environment';
 
-const BASE_URL = `${environment.apiUrl}/admin/system-prompt`;
-const PARAMS_URL = `${environment.apiUrl}/admin/parameters`;
+const BASE_URL = `${environment.apiUrl}/admin/settings`;
 
-const MACHINE_PARAMS = {
-  laser_speed_m_per_hour: 10,
-  welding_speed_m_per_hour: 2,
-  bending_rate_per_hour: 84,
-  painting_rate_m2_per_hour: 5.53,
-  max_positions: 10
+const SETTINGS = {
+  prompt_extension: 'Не использовать Ст3.',
+  parameters: {
+    laser_speed_m_per_hour: 10,
+    welding_speed_m_per_hour: 2,
+    bending_rate_per_hour: 84,
+    painting_rate_m2_per_hour: 5.53
+  },
+  last_update_by: 1,
+  last_update_at: '2026-10-09T12:00:00Z'
 };
 
 describe('AdminSettingsService', () => {
@@ -32,55 +35,44 @@ describe('AdminSettingsService', () => {
     http.verify();
   });
 
-  it('gets the system prompt', () => {
+  it('gets the instance settings', () => {
     let result: unknown;
 
-    service.getSystemPrompt().subscribe((schema) => (result = schema));
+    service.getSettings().subscribe((settings) => (result = settings));
 
     const req = http.expectOne((r) => r.url === BASE_URL && r.method === 'GET');
-    req.flush({ prompt: 'Ты — ассистент.' });
+    req.flush(SETTINGS);
 
-    expect(result).toEqual({ prompt: 'Ты — ассистент.' });
+    expect(result).toEqual(SETTINGS);
   });
 
-  it('updates the system prompt', () => {
+  it('updates the prompt extension with a partial body', () => {
     let result: unknown;
 
-    service.updateSystemPrompt('Новый промпт').subscribe((schema) => (result = schema));
+    service.updateSettings({ prompt_extension: 'Новый промпт' }).subscribe((s) => (result = s));
 
     const req = http.expectOne((r) => r.url === BASE_URL && r.method === 'PUT');
-    expect(req.request.body).toEqual({ prompt: 'Новый промпт' });
-    req.flush({ prompt: 'Новый промпт' });
+    expect(req.request.body).toEqual({ prompt_extension: 'Новый промпт' });
+    req.flush({ ...SETTINGS, prompt_extension: 'Новый промпт' });
 
-    expect(result).toEqual({ prompt: 'Новый промпт' });
+    expect(result).toEqual({ ...SETTINGS, prompt_extension: 'Новый промпт' });
   });
 
-  it('gets the machine parameters', () => {
+  it('updates the machine parameters wrapped in a parameters key', () => {
     let result: unknown;
-
-    service.getMachineParameters().subscribe((params) => (result = params));
-
-    const req = http.expectOne((r) => r.url === PARAMS_URL && r.method === 'GET');
-    req.flush(MACHINE_PARAMS);
-
-    expect(result).toEqual(MACHINE_PARAMS);
-  });
-
-  it('updates the machine parameters', () => {
-    let result: unknown;
-    const payload = {
+    const parameters = {
       laser_speed_m_per_hour: 12.5,
       welding_speed_m_per_hour: 2,
       bending_rate_per_hour: 84,
       painting_rate_m2_per_hour: 5.53
     };
 
-    service.updateMachineParameters(payload).subscribe((params) => (result = params));
+    service.updateSettings({ parameters }).subscribe((s) => (result = s));
 
-    const req = http.expectOne((r) => r.url === PARAMS_URL && r.method === 'PUT');
-    expect(req.request.body).toEqual(payload);
-    req.flush({ ...payload, max_positions: 10 });
+    const req = http.expectOne((r) => r.url === BASE_URL && r.method === 'PUT');
+    expect(req.request.body).toEqual({ parameters });
+    req.flush({ ...SETTINGS, parameters });
 
-    expect(result).toEqual({ ...payload, max_positions: 10 });
+    expect(result).toEqual({ ...SETTINGS, parameters });
   });
 });

@@ -811,5 +811,32 @@ panel is `display: none`, otherwise its invisible content would hold open an emp
   sending the four rates without their `parameters` wrapper. With extras allowed those keys were
   ignored, nothing was set, the audit fields were stamped anyway and the caller got a 200 that
   changed nothing — a silent no-op on a settings screen. Rejecting extras turns it into a 422
-  naming the key. This is the same failure this change's own tests hit while being written, so
-  the behaviour is now pinned by a test rather than by luck.
+ naming the key. This is the same failure this change's own tests hit while being written, so
+ the behaviour is now pinned by a test rather than by luck.
+
+## Frontend settings page synced to the unified settings endpoint (2026-10-10)
+
+- **The two provisional frontend endpoints never existed on the backend.** The page was built
+  against `GET/PUT /admin/system-prompt` (`{prompt}`) and `GET/PUT /admin/parameters` (bare
+  rates), while the backend shipped the unified `GET/PUT /admin/settings` carrying
+  `{prompt_extension, parameters, last_update_by, last_update_at}`. The service now exposes
+  `getSettings()` plus `updateSettings(patch)` and each card saves a partial body
+  (`{prompt_extension}` or `{parameters: {...}}`), which the backend's `model_fields_set`
+  handling supports. This supersedes the "backend route is still pending" notes in the two
+  earlier frontend sections above; those describe a contract that was never implemented.
+- **The old shapes would have failed, not degraded.** Bare rates without the `parameters`
+  wrapper are rejected with 422 by `extra="forbid"`, and `{prompt}` names a field the schema
+  does not have, so the mismatch surfaced as errors rather than silent drift. No compatibility
+  shim was added: both sides are owned by this repo and moved together.
+- **An empty prompt extension is a deliberate reset, so the form allows saving it.** The
+  backend stores `""` (stripped) and `build_system_prompt` treats whitespace-only as unset.
+  `canSave` therefore requires dirty + valid rather than non-empty; the "don't wipe an unknown
+  value" rule is still kept by disabling the editor until the settings load.
+- **`MAX_PROMPT_EXTENSION_LENGTH` is 8000 on both sides.** The page previously capped at
+  20000, which would have passed values the server rejects with 422. The counter threshold
+  moved with it (7000), since the old 15000 could never be reached under an 8000 cap.
+- **`max_positions` is gone from the frontend model.** The backend never returns it
+  (`AdminRatesSchema` has four fields), so `MachineParameters` now mirrors those four and
+  `MachineParametersPayload` was removed. The card hint was also corrected: the extension
+  applies to new chats, not to "new messages in all sessions" — in-progress sessions keep the
+  prompt they started with.

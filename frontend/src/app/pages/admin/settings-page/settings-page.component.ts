@@ -17,8 +17,8 @@ import { AdminSettingsService } from '../../../core/services/admin-settings.serv
 import { NotificationService } from '../../../core/services/notification.service';
 import { extractApiErrorMessage } from '../../../shared/utils/api-error';
 
-const MAX_SYSTEM_PROMPT_LENGTH = 20000;
-const COUNTER_VISIBLE_FROM = 15000;
+const MAX_PROMPT_EXTENSION_LENGTH = 8000;
+const COUNTER_VISIBLE_FROM = 7000;
 const POSITIVE_NUMBER_PATTERN = /^\d+(\.\d+)?$/;
 const MIN_MACHINE_RATE = 0.01;
 
@@ -46,12 +46,12 @@ export class AdminSettingsPage {
   readonly paramsLoading = signal(true);
   readonly savingParams = signal(false);
 
-  readonly MAX_SYSTEM_PROMPT_LENGTH = MAX_SYSTEM_PROMPT_LENGTH;
+  readonly MAX_PROMPT_EXTENSION_LENGTH = MAX_PROMPT_EXTENSION_LENGTH;
   readonly COUNTER_VISIBLE_FROM = COUNTER_VISIBLE_FROM;
 
   readonly promptForm = this.fb.group({
     prompt: this.fb.control({ value: '', disabled: true }, [
-      Validators.maxLength(MAX_SYSTEM_PROMPT_LENGTH)
+      Validators.maxLength(MAX_PROMPT_EXTENSION_LENGTH)
     ])
   });
 
@@ -60,9 +60,9 @@ export class AdminSettingsPage {
   });
 
   readonly canSave = computed(() => {
-    const value = this.promptValue();
+    this.promptValue();
     const control = this.promptForm.controls.prompt;
-    return control.enabled && control.dirty && value.length > 0 && !this.saving();
+    return control.enabled && control.dirty && control.valid && !this.saving();
   });
 
   readonly paramsForm = this.fb.group({
@@ -88,39 +88,26 @@ export class AdminSettingsPage {
 
   constructor() {
     this.settingsService
-      .getSystemPrompt()
+      .getSettings()
       .pipe(
-        finalize(() => this.loading.set(false)),
+        finalize(() => {
+          this.loading.set(false);
+          this.paramsLoading.set(false);
+        }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: ({ prompt }) => {
+        next: (settings) => {
           this.promptForm.controls.prompt.enable();
-          this.applyPrompt(prompt);
+          this.paramsForm.enable();
+          this.applyPrompt(settings.prompt_extension);
+          this.applyParams(settings.parameters);
         },
         error: (err: HttpErrorResponse) => {
           this.promptForm.controls.prompt.enable();
-          this.notifications.error(
-            'Не удалось загрузить системный промпт: ' + extractApiErrorMessage(err)
-          );
-        }
-      });
-
-    this.settingsService
-      .getMachineParameters()
-      .pipe(
-        finalize(() => this.paramsLoading.set(false)),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe({
-        next: (params) => {
-          this.paramsForm.enable();
-          this.applyParams(params);
-        },
-        error: (err: HttpErrorResponse) => {
           this.paramsForm.enable();
           this.notifications.error(
-            'Не удалось загрузить параметры станков: ' + extractApiErrorMessage(err)
+            'Не удалось загрузить настройки: ' + extractApiErrorMessage(err)
           );
         }
       });
@@ -134,11 +121,11 @@ export class AdminSettingsPage {
     const prompt = this.promptForm.controls.prompt.getRawValue();
     this.saving.set(true);
     this.settingsService
-      .updateSystemPrompt(prompt)
+      .updateSettings({ prompt_extension: prompt })
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
-        next: ({ prompt: saved }) => {
-          this.applyPrompt(saved);
+        next: (settings) => {
+          this.applyPrompt(settings.prompt_extension);
           this.notifications.success('Системный промпт сохранён');
         },
         error: (err: HttpErrorResponse) => {
@@ -168,16 +155,18 @@ export class AdminSettingsPage {
     } = this.paramsForm.getRawValue();
     this.savingParams.set(true);
     this.settingsService
-      .updateMachineParameters({
-        laser_speed_m_per_hour: Number(laser_speed_m_per_hour),
-        welding_speed_m_per_hour: Number(welding_speed_m_per_hour),
-        bending_rate_per_hour: Number(bending_rate_per_hour),
-        painting_rate_m2_per_hour: Number(painting_rate_m2_per_hour)
+      .updateSettings({
+        parameters: {
+          laser_speed_m_per_hour: Number(laser_speed_m_per_hour),
+          welding_speed_m_per_hour: Number(welding_speed_m_per_hour),
+          bending_rate_per_hour: Number(bending_rate_per_hour),
+          painting_rate_m2_per_hour: Number(painting_rate_m2_per_hour)
+        }
       })
       .pipe(finalize(() => this.savingParams.set(false)))
       .subscribe({
-        next: (saved) => {
-          this.applyParams(saved);
+        next: (settings) => {
+          this.applyParams(settings.parameters);
           this.notifications.success('Параметры станков сохранены');
         },
         error: (err: HttpErrorResponse) => {

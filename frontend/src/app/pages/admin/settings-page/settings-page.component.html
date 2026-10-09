@@ -8,8 +8,9 @@
     <article class="settings-card">
       <h2 class="settings-card__title">Системный промпт</h2>
       <p class="settings-card__hint">
-        Базовая инструкция для ИИ-агента: определяет формат ответов и правила расчёта заявок.
-        Изменения применяются к новым сообщениям во всех сессиях.
+        Дополнительные указания для ИИ-агента: допуски, недоступные материалы, особые требования.
+        Добавляются к базовому промпту новых чатов, текущие сессии продолжают работать со своим
+        промптом. Пустое поле снимает дополнение.
       </p>
 
       <form class="settings-form" [formGroup]="promptForm" (ngSubmit)="save()">
@@ -18,8 +19,8 @@
           <app-textarea
             formControlName="prompt"
             inputId="system-prompt"
-            placeholder="Введите текст системного промпта..."
-            [maxLength]="MAX_SYSTEM_PROMPT_LENGTH"
+            placeholder="Введите дополнительные указания для агента..."
+            [maxLength]="MAX_PROMPT_EXTENSION_LENGTH"
             [counterVisibleFrom]="COUNTER_VISIBLE_FROM"
           />
         </div>
