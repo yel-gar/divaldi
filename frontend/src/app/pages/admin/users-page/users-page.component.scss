@@ -1,11 +1,33 @@
 @use '../../../mixins' as *;
 
+:host {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0px, 0fr);
+  gap: 0;
+
+  transition:
+    grid-template-columns 350ms cubic-bezier(0.4, 0, 0.2, 1),
+    gap 350ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  @include reduced-motion;
+
+  &.user-form-open {
+    // Length floors interpolate everywhere, unlike max-content (needs
+    // interpolate-size, unsupported in Safari). 600px fits the longest panel
+    // title; the table side absorbs the squeeze via its scroll wrapper.
+    grid-template-columns: minmax(0, 1.5fr) minmax(600px, 1fr);
+    gap: 24px;
+  }
+}
+
 .users-add {
   gap: 7px;
+  align-items: center;
 
   & > svg {
     position: relative;
     top: 1px;
+    stroke-width: 2.5;
   }
 }
 
@@ -25,19 +47,12 @@
   }
 }
 
-.users-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
+.users-section {
+  min-width: 0;
+}
+
+.users-table-card {
   margin-top: 24px;
-
-  & > * {
-    min-width: 0;
-  }
-
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-  }
 }
 
 .users-card {
@@ -46,10 +61,6 @@
   background: var(--color-surface);
   border: 1px solid var(--color-outline);
   border-radius: 12px;
-
-  &__title {
-    margin: 0 0 16px;
-  }
 
   &__state {
     display: flex;
@@ -77,6 +88,103 @@
   overflow-x: auto;
 }
 
+.users-aside {
+  overflow: hidden;
+
+  display: flex;
+  flex-direction: column;
+
+  min-width: 0;
+
+  padding: 0;
+
+  width: calc(100% - 5px);
+  height: calc(100dvh - 40px);
+  position: relative;
+  right: 5px;
+  top: 20px;
+
+  opacity: 0;
+  visibility: hidden;
+
+  transition:
+    opacity 250ms ease,
+    visibility 0s linear 350ms,
+    padding 300ms;
+
+  @include reduced-motion;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    & > .h2 {
+      margin: 0;
+
+      white-space: nowrap;
+    }
+  }
+
+  &__close {
+    @include icon-button;
+
+    width: 32px;
+    height: 32px;
+
+    position: relative;
+    left: 10px;
+    top: 1px;
+
+    border-radius: 8px;
+
+    color: var(--color-gray);
+
+    &:hover {
+      color: var(--color-danger);
+      background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+    }
+  }
+}
+
+:host(.user-form-open) .users-aside {
+  overflow: visible;
+
+  padding: 32px 40px;
+
+  opacity: 1;
+  visibility: visible;
+
+  transition:
+    opacity 250ms ease 100ms,
+    visibility 0s;
+}
+
+@media (max-width: 900px) {
+  :host {
+    grid-template-columns: 1fr;
+
+    &.user-form-open {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .users-aside {
+    display: none;
+  }
+
+  .users-aside__header > .h2 {
+    white-space: normal;
+  }
+
+  :host(.user-form-open) .users-aside {
+    display: flex;
+
+    min-width: 0;
+  }
+}
+
 .users-table {
   width: 100%;
 
@@ -102,6 +210,11 @@
 
   & tbody tr:last-child td {
     border-bottom: none;
+  }
+
+  & th:nth-child(n + 2),
+  & td:nth-child(n + 2) {
+    text-align: center;
   }
 
   &__user {
@@ -132,7 +245,7 @@
 
   &__actions {
     display: flex;
-    justify-content: flex-end;
+    justify-content: center;
     gap: 8px;
   }
 
@@ -192,6 +305,8 @@
   flex-direction: column;
   gap: 16px;
 
+  flex: 1;
+
   margin-top: 30px;
 
   &__field {
@@ -205,6 +320,6 @@
     justify-content: flex-end;
     gap: 12px;
 
-    margin-top: 8px;
+    margin-top: auto;
   }
 }

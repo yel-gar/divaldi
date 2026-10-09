@@ -15,8 +15,10 @@ import {
   LucideEye,
   LucideEyeOff,
   LucidePencil,
+  LucidePlus,
   LucideSearch,
-  LucideTrash2
+  LucideTrash2,
+  LucideX
 } from '@lucide/angular';
 import {
   AdminUser,
@@ -53,11 +55,16 @@ function localDateInputValue(iso: string): string {
     Select,
     SkeletonUsersTableComponent,
     LucidePencil,
-    LucideTrash2
+    LucidePlus,
+    LucideTrash2,
+    LucideX
   ],
   templateUrl: './users-page.component.html',
   styleUrl: './users-page.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    '[class.user-form-open]': 'isFormOpen()'
+  }
 })
 export class UsersPage {
   private readonly adminUsersService = inject(AdminUsersService);
@@ -73,6 +80,7 @@ export class UsersPage {
   readonly isSubmitting = signal(false);
   readonly deletingId = signal<number | null>(null);
   readonly showPassword = signal(false);
+  readonly isFormOpen = signal(false);
 
   readonly filteredUsers = computed(() => {
     const query = this.search().trim().toLowerCase();
@@ -146,6 +154,21 @@ export class UsersPage {
     this.showPassword.set(false);
     this.userForm.reset();
     this.updatePasswordValidators();
+  }
+
+  openCreate(): void {
+    this.resetForm();
+    this.isFormOpen.set(true);
+  }
+
+  openEdit(user: AdminUser): void {
+    this.selectUser(user);
+    this.isFormOpen.set(true);
+  }
+
+  closeForm(): void {
+    this.resetForm();
+    this.isFormOpen.set(false);
   }
 
   togglePassword(): void {
@@ -247,19 +270,19 @@ export class UsersPage {
           );
           if (!password) {
             this.notifications.success('Пользователь обновлён');
-            this.resetForm();
+            this.closeForm();
             return;
           }
           this.adminUsersService.setPassword(selected.id, password).subscribe({
             next: () => {
               this.notifications.success('Пользователь обновлён');
-              this.resetForm();
+              this.closeForm();
             },
             error: (err: HttpErrorResponse) => {
               this.notifications.error(
                 'Профиль сохранён, но пароль изменить не удалось: ' + extractApiErrorMessage(err)
               );
-              this.resetForm();
+              this.closeForm();
             }
           });
         },
@@ -280,7 +303,7 @@ export class UsersPage {
         next: (user) => {
           this.notifications.success('Пользователь создан');
           this.users.update((list) => [...list, user]);
-          this.resetForm();
+          this.closeForm();
         },
         error: (err: HttpErrorResponse) => {
           this.notifications.error(

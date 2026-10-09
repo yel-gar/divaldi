@@ -633,3 +633,33 @@ endpoint, return the same schema so the page keeps working unchanged.
   authorization is a one-line `include_router` away and cannot leak to non-admins.
 - **The frontend disables the editor until the prompt loads** instead of showing a blank
   editable field: saving a blank over an unknown prompt would silently wipe the real one.
+## Users form as a slide-over panel (2026-10-09)
+
+The "Новый пользователь" / "Редактирование пользователя" card on the admin users page is no
+longer a second grid column: it is an `<aside>` that slides in over a host grid animating
+`1fr 0fr` to `1.5fr 1fr`, the same mechanism as the "Результаты расчёта" panel in the agent
+chat (`isResultsOpen`, host class binding, opacity/visibility staging, reduced-motion opt-out).
+
+- **A slide-over, not a modal**, because the table stays visible and interactive behind the
+  form, and no overlay/focus-trap machinery is needed — the pattern already exists in the
+  codebase, so it is copied rather than reinvented.
+- **The panel closes on save, cancel and the X button**, all through `closeForm()` (which
+  resets the form). `selectUser()`/`resetForm()` stay pure form logic so existing callers and
+  specs keep working; `openCreate()`/`openEdit()` only add the open step.
+- **The open panel track carries a length floor so it fits its content.** A bare `1fr`
+  track is `minmax(auto, 1fr)`, and the aside's `min-width: 0` (needed for the `0fr` collapse)
+  lets the track shrink past the 32px panel titles — "Редактирование пользователя" spilled
+  ~176px past the card at 1200px viewport, and the chat's "Результаты расчёта" wrapped to two
+  lines for the same reason. The floor makes the table/chat side absorb the squeeze (both
+  scroll internally); verified by Playwright measurements on the dev stack, not by eye.
+- **The floor is a length inside `minmax()`, not `max-content`.** Applied instantly,
+  `min-width: max-content` kills the slide, and animating it needs `interpolate-size`, which
+  Safari lacks — the panel popped to full width there. `minmax(0, 1fr) minmax(0px, 0fr)` opening
+  to `minmax(0, 1.5fr) minmax(600px, 1fr)` (440px in chat) interpolates as plain lengths
+  everywhere; sampled frame widths ramp smoothly in both Chromium and WebKit
+  (82→109→424→540→591→595). 600px fits the longest panel title; below 900px the users grid
+  stacks and the floor is dropped.
+- **The aside is `overflow: visible` only when open** (hidden while closed for the animation):
+  the role `app-select` renders its dropdown as inline `position: absolute`, which a permanent
+  `overflow: hidden` would clip. Below 900px the host stacks to one column and the closed
+  panel is `display: none`, otherwise its invisible content would hold open an empty grid row.

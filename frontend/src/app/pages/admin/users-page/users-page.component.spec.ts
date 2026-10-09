@@ -119,7 +119,7 @@ describe('UsersPage', () => {
     expect(formValue.first_name).toBe('Иван');
     expect(formValue.expires_at).toBe('2100-01-01');
     expect(
-      fixture.debugElement.query(By.css('.users-card__title')).nativeElement.textContent
+      fixture.debugElement.query(By.css('.users-aside__header')).nativeElement.textContent
     ).toContain('Редактирование пользователя');
   });
 
@@ -311,5 +311,56 @@ describe('UsersPage', () => {
 
     const req = http.expectOne(`${environment.apiUrl}/admin/users/2`);
     expect(req.request.body.role).toBeUndefined();
+  });
+
+  it('keeps the user form closed until creation or edit is requested', () => {
+    createPage();
+
+    expect(component.isFormOpen()).toBe(false);
+    expect(fixture.nativeElement.classList.contains('user-form-open')).toBe(false);
+  });
+
+  it('opens the form in create mode from the header button', () => {
+    createPage();
+
+    fixture.debugElement.query(By.css('.users-add')).nativeElement.click();
+    fixture.detectChanges();
+
+    expect(component.isFormOpen()).toBe(true);
+    expect(component.isEditMode()).toBe(false);
+    expect(fixture.nativeElement.classList.contains('user-form-open')).toBe(true);
+    expect(
+      fixture.debugElement.query(By.css('.users-aside__header')).nativeElement.textContent
+    ).toContain('Новый пользователь');
+  });
+
+  it('opens the form in edit mode from a row action', () => {
+    createPage();
+
+    const editButtons = fixture.debugElement.queryAll(
+      By.css('.users-table__action:not(.users-table__action--danger)')
+    );
+    editButtons[1].nativeElement.click();
+    fixture.detectChanges();
+
+    expect(component.isFormOpen()).toBe(true);
+    expect(component.selectedUser()?.username).toBe('ivanov');
+    expect(
+      fixture.debugElement.query(By.css('.users-aside__header')).nativeElement.textContent
+    ).toContain('Редактирование пользователя');
+  });
+
+  it('closes the form from the panel close button', () => {
+    createPage();
+    component.openCreate();
+    fixture.detectChanges();
+    expect(component.isFormOpen()).toBe(true);
+
+    fixture.debugElement.query(By.css('.users-aside__close')).nativeElement.click();
+    fixture.detectChanges();
+
+    expect(component.isFormOpen()).toBe(false);
+    expect(component.selectedUser()).toBeNull();
+    expect(fixture.nativeElement.classList.contains('user-form-open')).toBe(false);
   });
 });
