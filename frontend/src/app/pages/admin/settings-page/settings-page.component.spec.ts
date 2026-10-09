@@ -26,7 +26,9 @@ describe('AdminSettingsPage', () => {
   let http: HttpTestingController;
 
   const flushSettings = (prompt_extension = SETTINGS.prompt_extension): void => {
-    http.expectOne(SETTINGS_URL).flush({ ...SETTINGS, prompt_extension });
+    http
+      .expectOne((req) => req.url === SETTINGS_URL && req.method === 'GET')
+      .flush({ ...SETTINGS, prompt_extension });
   };
 
   const createPage = (prompt_extension = SETTINGS.prompt_extension): void => {
@@ -83,7 +85,7 @@ describe('AdminSettingsPage', () => {
     expect(paramsInput('machine-laser').value).toBe('10');
   });
 
-  it('keeps save disabled while untouched, allows text and empty reset', () => {
+  it('keeps save disabled while untouched, blank or whitespace-only', () => {
     createPage();
     expect(component.canSave()).toBe(false);
 
@@ -91,7 +93,10 @@ describe('AdminSettingsPage', () => {
     expect(component.canSave()).toBe(true);
 
     typePrompt('');
-    expect(component.canSave()).toBe(true);
+    expect(component.canSave()).toBe(false);
+
+    typePrompt('   ');
+    expect(component.canSave()).toBe(false);
   });
 
   it('rejects a prompt extension over the server limit', () => {

@@ -828,10 +828,12 @@ panel is `display: none`, otherwise its invisible content would hold open an emp
   wrapper are rejected with 422 by `extra="forbid"`, and `{prompt}` names a field the schema
   does not have, so the mismatch surfaced as errors rather than silent drift. No compatibility
   shim was added: both sides are owned by this repo and moved together.
-- **An empty prompt extension is a deliberate reset, so the form allows saving it.** The
-  backend stores `""` (stripped) and `build_system_prompt` treats whitespace-only as unset.
-  `canSave` therefore requires dirty + valid rather than non-empty; the "don't wipe an unknown
-  value" rule is still kept by disabling the editor until the settings load.
+- **The form refuses to save a blank prompt extension.** `canSave` requires the trimmed
+  value to be non-empty, so whitespace-only input never reaches the server as a no-op
+  write. The backend still treats `""` as the reset (reachable with a direct `PUT`), but
+  the UI offers no "clear the extension" path: an accidental select-all plus save must not
+  silently drop the site's tolerances. The "don't wipe an unknown value" rule is still kept
+  separately by disabling the editor until the settings load.
 - **`MAX_PROMPT_EXTENSION_LENGTH` is 8000 on both sides.** The page previously capped at
   20000, which would have passed values the server rejects with 422. The counter threshold
   moved with it (7000), since the old 15000 could never be reached under an 8000 cap.

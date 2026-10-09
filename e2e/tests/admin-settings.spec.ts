@@ -47,6 +47,7 @@ test.describe("admin instance settings", () => {
 
   test("updates the system prompt extension and keeps it after reload", async ({
     page,
+    browser,
   }) => {
     await openSettings(page);
 
@@ -69,10 +70,21 @@ test.describe("admin instance settings", () => {
     await page.reload();
     await expect(page.locator("#system-prompt")).toHaveValue(updated);
 
-    await typeInto(page.locator("#system-prompt"), previous);
-    const restored = putResponse(page);
-    await promptCard.getByRole("button", { name: "Сохранить" }).click();
-    expect((await restored).ok()).toBe(true);
+    // Restore through the API: the UI requires non-blank text, so a blank
+    // previous value cannot be saved back through the form. The request
+    // fixture has its own cookie jar, so the call goes through a context
+    // carrying the logged-in storage state.
+    const api = await browser.newContext({
+      storageState: await page.context().storageState(),
+    });
+    try {
+      const restored = await api.request.put("/api/v1/admin/settings", {
+        data: { prompt_extension: previous },
+      });
+      expect(restored.ok()).toBe(true);
+    } finally {
+      await api.close();
+    }
   });
 
   test("updates the machine parameters and keeps them after reload", async ({

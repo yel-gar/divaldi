@@ -352,15 +352,40 @@ describe('UsersPage', () => {
 
   it('closes the form from the panel close button', () => {
     createPage();
-    component.openCreate();
+    component.openEdit(USERS[1]);
     fixture.detectChanges();
     expect(component.isFormOpen()).toBe(true);
+    expect(component.selectedUser()?.username).toBe('ivanov');
 
     fixture.debugElement.query(By.css('.users-aside__close')).nativeElement.click();
     fixture.detectChanges();
 
     expect(component.isFormOpen()).toBe(false);
-    expect(component.selectedUser()).toBeNull();
+    // Closing keeps the selection so the panel title does not flip
+    // mid-animation; the next openCreate()/openEdit() resets or repopulates it.
+    expect(component.selectedUser()?.username).toBe('ivanov');
     expect(fixture.nativeElement.classList.contains('user-form-open')).toBe(false);
+  });
+
+  it('keeps a newly opened form when a stale save response arrives', () => {
+    createPage();
+    component.openEdit(USERS[1]);
+    component.userForm.controls.password.setValue('newpassword1');
+    component.userForm.controls.expires_at.setValue('');
+    component.submit();
+
+    const patchReq = http.expectOne(`${environment.apiUrl}/admin/users/2`);
+    component.openCreate();
+    fixture.detectChanges();
+    expect(component.isFormOpen()).toBe(true);
+    expect(component.selectedUser()).toBeNull();
+
+    patchReq.flush(UPDATED_IVANOV);
+    const passwordReq = http.expectOne(`${environment.apiUrl}/admin/users/2/set-password`);
+    passwordReq.flush({ message: 'Password changed successfully' });
+    fixture.detectChanges();
+
+    expect(component.isFormOpen()).toBe(true);
+    expect(component.selectedUser()).toBeNull();
   });
 });

@@ -60,9 +60,11 @@ export class AdminSettingsPage {
   });
 
   readonly canSave = computed(() => {
-    this.promptValue();
+    const value = this.promptValue();
     const control = this.promptForm.controls.prompt;
-    return control.enabled && control.dirty && control.valid && !this.saving();
+    return (
+      control.enabled && control.dirty && control.valid && value.trim().length > 0 && !this.saving()
+    );
   });
 
   readonly paramsForm = this.fb.group({

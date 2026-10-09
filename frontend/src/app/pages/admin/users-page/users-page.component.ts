@@ -82,6 +82,14 @@ export class UsersPage {
   readonly showPassword = signal(false);
   readonly isFormOpen = signal(false);
 
+  /**
+   * Generation of the currently open form, bumped by every openCreate() /
+   * openEdit(). A save response closes the panel only when its generation is
+   * still current: closing the form mid-request and opening another one must
+   * not let the stale response hide the new form with its unsent edits.
+   */
+  private formSeq = 0;
+
   readonly filteredUsers = computed(() => {
     const query = this.search().trim().toLowerCase();
     if (!query) {
@@ -158,11 +166,13 @@ export class UsersPage {
 
   openCreate(): void {
     this.resetForm();
+    this.formSeq++;
     this.isFormOpen.set(true);
   }
 
   openEdit(user: AdminUser): void {
     this.selectUser(user);
+    this.formSeq++;
     this.isFormOpen.set(true);
   }
 
@@ -171,6 +181,12 @@ export class UsersPage {
     // mid-animation. The next openCreate()/openEdit() resets or repopulates,
     // so stale state is never visible.
     this.isFormOpen.set(false);
+  }
+
+  private closeIfCurrent(seq: number): void {
+    if (seq === this.formSeq) {
+      this.closeForm();
+    }
   }
 
   togglePassword(): void {
@@ -262,6 +278,7 @@ export class UsersPage {
     }
 
     this.isSubmitting.set(true);
+    const seq = this.formSeq;
     this.adminUsersService
       .edit(selected.id, payload)
       .pipe(finalize(() => this.isSubmitting.set(false)))
@@ -272,19 +289,19 @@ export class UsersPage {
           );
           if (!password) {
             this.notifications.success('Пользователь обновлён');
-            this.closeForm();
+            this.closeIfCurrent(seq);
             return;
           }
           this.adminUsersService.setPassword(selected.id, password).subscribe({
             next: () => {
               this.notifications.success('Пользователь обновлён');
-              this.closeForm();
+              this.closeIfCurrent(seq);
             },
             error: (err: HttpErrorResponse) => {
               this.notifications.error(
                 'Профиль сохранён, но пароль изменить не удалось: ' + extractApiErrorMessage(err)
               );
-              this.closeForm();
+              this.closeIfCurrent(seq);
             }
           });
         },
@@ -298,6 +315,7 @@ export class UsersPage {
 
   private sendCreate(payload: AdminUserPayload): void {
     this.isSubmitting.set(true);
+    const seq = this.formSeq;
     this.adminUsersService
       .create(payload)
       .pipe(finalize(() => this.isSubmitting.set(false)))
@@ -305,7 +323,7 @@ export class UsersPage {
         next: (user) => {
           this.notifications.success('Пользователь создан');
           this.users.update((list) => [...list, user]);
-          this.closeForm();
+          this.closeIfCurrent(seq);
         },
         error: (err: HttpErrorResponse) => {
           this.notifications.error(
