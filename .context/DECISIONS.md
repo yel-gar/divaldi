@@ -633,6 +633,20 @@ endpoint, return the same schema so the page keeps working unchanged.
   authorization is a one-line `include_router` away and cannot leak to non-admins.
 - **The frontend disables the editor until the prompt loads** instead of showing a blank
   editable field: saving a blank over an unknown prompt would silently wipe the real one.
+## Admin machine parameters editing (2026-10-09)
+
+The settings page edits production norms over `GET/PUT /api/v1/admin/parameters` with the
+`Parameters` shape from `processing/calculator/calc.py`. Same split as the system prompt:
+the frontend contract is implemented (`AdminSettingsService`, second card on
+`AdminSettingsPage`), the backend route is still pending.
+
+- **`max_positions` is immutable and not rendered at all**, so the PUT body
+  (`MachineParametersPayload`) holds only the four editable rates. If the backend ever accepts
+  it, the contract still matches — the page just never sends it.
+- **The form stays disabled until the parameters load**, same rule as the prompt editor:
+  saving defaults over unknown values would silently reset real norms.
+- **Rates must be positive numbers** (`required` + numeric pattern + `min(0.01)`); the form
+  uses `type="number"` inputs with dot decimals, converted with `Number()` on save.
 ## Users form as a slide-over panel (2026-10-09)
 
 The "Новый пользователь" / "Редактирование пользователя" card on the admin users page is no

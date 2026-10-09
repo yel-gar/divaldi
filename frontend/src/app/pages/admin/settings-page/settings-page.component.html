@@ -31,5 +31,61 @@
         </div>
       </form>
     </article>
+
+    <article class="settings-card">
+      <h2 class="settings-card__title">Параметры станков</h2>
+      <p class="settings-card__hint">
+        Нормы производства для расчёта заявок: скорости переводят метры и гибы в часы.
+      </p>
+
+      <form class="settings-form" [formGroup]="paramsForm" (ngSubmit)="saveParams()">
+        <div class="settings-form__field">
+          <label class="settings-form__label" for="machine-laser"
+            >Скорость лазерной резки (м/ч)</label
+          >
+          <app-input
+            formControlName="laser_speed_m_per_hour"
+            inputId="machine-laser"
+            type="number"
+            placeholder="10"
+          />
+        </div>
+        <div class="settings-form__field">
+          <label class="settings-form__label" for="machine-welding">Скорость сварки (м/ч)</label>
+          <app-input
+            formControlName="welding_speed_m_per_hour"
+            inputId="machine-welding"
+            type="number"
+            placeholder="2"
+          />
+        </div>
+        <div class="settings-form__field">
+          <label class="settings-form__label" for="machine-bending">Скорость гибки (гибов/ч)</label>
+          <app-input
+            formControlName="bending_rate_per_hour"
+            inputId="machine-bending"
+            type="number"
+            placeholder="84"
+          />
+        </div>
+        <div class="settings-form__field">
+          <label class="settings-form__label" for="machine-painting"
+            >Скорость покраски (м²/ч)</label
+          >
+          <app-input
+            formControlName="painting_rate_m2_per_hour"
+            inputId="machine-painting"
+            type="number"
+            placeholder="5.53"
+          />
+        </div>
+
+        <div class="settings-form__actions">
+          <button type="submit" class="button button--main h3" [disabled]="!canSaveParams()">
+            Сохранить
+          </button>
+        </div>
+      </form>
+    </article>
   </div>
 </section>

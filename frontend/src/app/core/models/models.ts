@@ -128,6 +128,16 @@ export interface SystemPromptSchema {
   prompt: string;
 }
 
+export interface MachineParameters {
+  laser_speed_m_per_hour: number;
+  welding_speed_m_per_hour: number;
+  bending_rate_per_hour: number;
+  painting_rate_m2_per_hour: number;
+  max_positions: number;
+}
+
+export type MachineParametersPayload = Omit<MachineParameters, 'max_positions'>;
+
 export const KP_FILENAME = 'kp.xlsx';
 
 export type UploadState = 'idle' | 'uploading' | 'completed';
