@@ -47,18 +47,10 @@ export class AdminSettingsPage {
     initialValue: ''
   });
 
-  private lastSaved = '';
-
   readonly canSave = computed(() => {
     const value = this.promptValue();
     const control = this.promptForm.controls.prompt;
     return control.enabled && control.dirty && value.length > 0 && !this.saving();
-  });
-
-  readonly canCancel = computed(() => {
-    this.promptValue();
-    const control = this.promptForm.controls.prompt;
-    return control.enabled && control.dirty && !this.saving();
   });
 
   constructor() {
@@ -105,12 +97,7 @@ export class AdminSettingsPage {
       });
   }
 
-  revert(): void {
-    this.applyPrompt(this.lastSaved);
-  }
-
   private applyPrompt(prompt: string): void {
-    this.lastSaved = prompt;
     this.promptForm.controls.prompt.setValue(prompt);
     this.promptForm.controls.prompt.markAsPristine();
     this.promptForm.controls.prompt.markAsUntouched();

@@ -25,14 +25,6 @@
         </div>
 
         <div class="settings-form__actions">
-          <button
-            type="button"
-            class="button button--outline h3"
-            [disabled]="!canCancel()"
-            (click)="revert()"
-          >
-            Отменить
-          </button>
           <button type="submit" class="button button--main h3" [disabled]="!canSave()">
             Сохранить
           </button>

@@ -78,17 +78,4 @@ describe('AdminSettingsPage', () => {
     expect(component.promptForm.controls.prompt.pristine).toBe(true);
     expect(component.canSave()).toBe(false);
   });
-
-  it('reverts edits back to the last saved prompt', () => {
-    createPage();
-    typePrompt('Черновик');
-    expect(component.canCancel()).toBe(true);
-
-    component.revert();
-    fixture.detectChanges();
-
-    expect(component.promptForm.getRawValue().prompt).toBe('Ты — ассистент по расчёту КП.');
-    expect(component.promptForm.controls.prompt.pristine).toBe(true);
-    expect(component.canCancel()).toBe(false);
-  });
 });
