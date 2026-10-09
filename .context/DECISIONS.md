@@ -686,3 +686,45 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   the way; the bound exists to stop a pasted document being appended to every prompt the
   instance sends. The server `strip()`s what it stores, so trailing whitespace never becomes a
   dangling heading, and a whitespace-only value is treated as unset by `build_system_prompt`.
+
+## Configurable production rates in the instance settings (2026-10-09, issue #64, follow-up)
+
+- **The four production rates are editable per instance; `max_positions` is not.** The
+  calculator's `Parameters` dataclass has five fields, and only four are exposed. `max_positions`
+  stays fixed at 10 because three separate places assume that number: the backend truncates with
+  `positions[:10]`, `_generate_kp` logs `too_many_positions` above it, and the Russian system
+  prompt tells the model "Позиций может быть максимально 10". Exposing it would have meant an
+  admin-facing field that silently does nothing, or a prompt that contradicts the code. It also
+  drives `range(params.max_positions)` in `_clear_positions`, so a value above 10 reaches parts
+  of the template no test covers. Making it configurable is a separate change that has to move
+  all four together.
+- **Rates live in one JSONB column, not one column per rate.** The set mirrors the `processing`
+  dataclass, and a blob means adding a rate there is a change to that dataclass rather than a
+  migration here. The cost is losing database-level typing on four numbers that are validated by
+  Pydantic and read by one function, which is a trade worth making for a singleton settings row.
+- **A rate set is all-or-nothing, and `null` is the reset.** Every field is required once
+  `parameters` appears, so a payload naming one rate cannot silently return the other three to
+  their defaults — these numbers become prices. Sending `parameters: null` restores the
+  defaults, which is the way back from a bad edit; omitting the key leaves the current rates
+  alone. The route distinguishes the two with `model_fields_set`, so `null` and absent are not
+  conflated.
+- **The API reports the effective rates, not the stored blob.** `GET` on an unconfigured instance
+  returns the calculator's own defaults, so a form renders with real numbers in it. The defaults
+  come from `Parameters` rather than being restated in the schema, and
+  `test_rates_cover_every_editable_parameter` fails if a field is added to the dataclass without a
+  decision about it — otherwise a new rate would be quietly unconfigurable with nothing failing.
+- **Rates reach the workbook through the session, not a fresh query.** `_generate_kp` takes the
+  `AsyncSession` the caller already has and passes a `Parameters` instance into
+  `_generate_kp_job`, which hands it to `process_calculation`. `dataclasses.replace` builds it
+  from `DEFAULT_PARAMETERS`, so a rate the API cannot edit keeps the dataclass value and the reset
+  needs no branch. The dataclass is frozen, which also makes it safe to pass into the worker
+  thread. Nothing is cached: one settings read per generated offer.
+- **`GET /admin/settings` grew a field, so the response shape is no longer just the stored
+  value.** The handler takes the same argument as every other admin mutation and is still not
+  gated by `TEST_INSTANCE_MODE`.
+- **A `RequestValidationError` handler sanitises non-finite numbers.** Starlette's `JSONResponse`
+  writes with `allow_nan=False` and FastAPI's default handler copies the offending input into the
+  error detail, so a body containing a `NaN` literal turned a 422 into a crash — measured, on
+  every route, not only the one that introduced it. The handler replaces non-finite floats with
+  their text form and then applies `jsonable_encoder`, which the default handler also needs and
+  which is what makes error details containing Pydantic objects encodable.

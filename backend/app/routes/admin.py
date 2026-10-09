@@ -15,10 +15,12 @@ from app.schemas import MessageResponse
 from app.schemas.admin import (
     AdminCreateUserSchema,
     AdminEditUserSchema,
+    AdminRatesSchema,
     AdminSetPasswordSchema,
     AdminSettingsResponse,
     AdminSettingsUpdate,
     AdminUserFilters,
+    default_rates,
 )
 from app.schemas.users import AdminUserSchema
 
@@ -252,6 +254,7 @@ async def _get_or_create_settings(db) -> Settings:
 def _as_settings_response(settings: Settings) -> AdminSettingsResponse:
     return AdminSettingsResponse(
         prompt_extension=settings.prompt_extension,
+        parameters=AdminRatesSchema(**settings.parameters) if settings.parameters else default_rates(),
         last_update_by=settings.last_update_by,
         last_update_at=settings.last_update_at,
     )
@@ -270,12 +273,16 @@ async def admin_get_settings(db: DbSession):
     """Return the instance-wide settings.
 
     An instance that has never been configured returns an empty
-    `prompt_extension` and null audit fields rather than 404: there is exactly one
-    settings row conceptually, and it simply holds no value yet.
+    `prompt_extension`, the default rates and null audit fields rather than 404:
+    there is exactly one settings row conceptually, and it simply holds no value
+    yet. The rates reported are the effective ones, so the response is directly
+    renderable as a form.
     """
     settings = await db.get(Settings, SETTINGS_ROW_ID)
     if settings is None:
-        return AdminSettingsResponse(prompt_extension="", last_update_by=None, last_update_at=None)
+        return AdminSettingsResponse(
+            prompt_extension="", parameters=default_rates(), last_update_by=None, last_update_at=None
+        )
     return _as_settings_response(settings)
 
 
@@ -299,13 +306,23 @@ async def admin_update_settings(data: AdminSettingsUpdate, db: DbSession, admin:
     created *after* this call; chats already in progress keep the prompt they
     started with. An empty string is the reset.
 
+    `parameters` replaces the stored rates wholesale and must name all four when
+    present. Sending it as `null` restores the defaults, which is the way back from
+    a bad edit; omitting it leaves the current rates alone.
+
     Deliberately not blocked by `TEST_INSTANCE_MODE`, unlike the account
     mutations: this touches no credentials and no ownership, and is undone by
-    saving an empty string.
+    saving an empty string or `null` rates.
     """
     settings = await _get_or_create_settings(db)
-    for field, value in data.model_dump(exclude_none=True).items():
-        setattr(settings, field, value.strip())
+    sent = data.model_fields_set
+    if "prompt_extension" in sent:
+        settings.prompt_extension = data.prompt_extension.strip()
+    if "parameters" in sent:
+        # An explicit null is the reset; absent is handled by not being in `sent`. A
+        # malformed rate object is rejected by the schema, so this only ever sees a
+        # validated model or a deliberate null.
+        settings.parameters = None if data.parameters is None else data.parameters.model_dump()
     settings.last_update_by = admin.id
     settings.last_update_at = datetime.now(tz=UTC)
     await db.commit()

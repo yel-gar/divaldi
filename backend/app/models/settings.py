@@ -3,6 +3,7 @@ from __future__ import annotations  # required so sqlalchemy doesn't go insane
 from datetime import datetime
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -33,6 +34,12 @@ class Settings(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, default=SETTINGS_ROW_ID, autoincrement=False)
     prompt_extension: Mapped[str] = mapped_column(Text(), nullable=False, default="")
+    #: The edited production rates, or null for "none", which is not the same as an
+    #: empty object. One JSONB column rather than a column per rate, because the set
+    #: mirrors the `processing` `Parameters` dataclass: adding a rate there is a change
+    #: to that dataclass, and a blob means it is not also a migration here. `max_positions`
+    #: is deliberately absent — see `DECISIONS.md`.
+    parameters: Mapped[dict[str, float] | None] = mapped_column(JSONB, nullable=True, default=None)
     #: Null rather than non-null: an admin who saved this may later be deleted,
     #: and the prompt they wrote must survive that. SET NULL keeps the row and
     #: drops only the attribution.

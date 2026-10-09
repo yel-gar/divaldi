@@ -576,3 +576,20 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   failing, so the scripts were innocent and retrying into a sick proxy is what wasted the time.
   `docker compose -p divaldi-e2e -f docker-compose.yaml -f docker-compose.override.yml.e2e down`
   (no `-v`) makes the tooling reliable again.
+
+- **A 422 whose detail quotes a `NaN` cannot be encoded, and the failure looks like a 200 or a
+  crash rather than a validation error.** Python's `json.loads` accepts the `NaN` and `Infinity`
+  literals, so a client can send one; Starlette's `JSONResponse` writes with `allow_nan=False`,
+  and FastAPI's default `RequestValidationError` handler copies the offending input into the
+  detail. The response then fails to serialise. Fixed by a handler in `app.main` that replaces
+  non-finite floats with their text form and then applies `jsonable_encoder` — omitting the
+  latter breaks any error detail containing a Pydantic model, including pre-existing routes.
+  `httpx` cannot *encode* these values, so a test using `json=` proves nothing; send the raw body.
+- **A test that builds a request body from a dict of values can silently omit the wrapper key,
+  and the endpoint then reports success while changing nothing.** The 422-vs-200 confusion while
+  adding the rates was entirely this: the body was the bare rate object, `AdminSettingsUpdate`
+  ignores unknown keys, so `parameters` was absent and the route correctly did nothing. Chasing
+  it through Pydantic unions, `allow_inf_nan`, stale bytecode and installed-package shadowing was
+  the wrong path — the endpoint's own logging of the received body answered it in one run. When a
+  validation test disagrees with the schema, log what the endpoint actually received before
+  theorising about the validation library.

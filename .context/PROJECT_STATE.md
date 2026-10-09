@@ -188,8 +188,17 @@ backend and frontend coverage pipelines:
   renumbering materials, and `create_chat` is the only caller, so the extension is frozen into a
   session at creation. Both admin tiers may write it, reset is an empty string, and it is
   deliberately not gated by `TEST_INSTANCE_MODE`. The dead `SYSTEM_REMINDER` constant was deleted
-  in the same change. 16 new tests; see the section in `DECISIONS.md`. **No admin UI exists yet** —
-  the endpoints are the whole of #64 on the server side.
+  in the same change. **No admin UI exists yet** — the endpoints are the whole of #64 on the
+  server side.
+- **Configurable production rates on the same settings row (issue #64, follow-up).**
+  `parameters` is a JSONB column holding the four editable `processing` `Parameters` rates;
+  `GET` reports the effective rates (defaults on an untouched instance), `PUT` replaces them
+  wholesale, and `null` restores the defaults. `max_positions` is deliberately **not** exposed —
+  the backend truncates to 10 and the system prompt states that limit. `_generate_kp` takes the
+  caller's session, builds a `Parameters` with `dataclasses.replace(DEFAULT_PARAMETERS, ...)` and
+  passes it to `process_calculation`, so the instance rates reach the workbook. A
+  `RequestValidationError` handler was added in `app.main` because a `NaN` in a request body made
+  the 422 itself unserialisable. 20 new tests; coverage 99.35%.
 
 ---
 
