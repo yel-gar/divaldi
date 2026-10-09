@@ -167,7 +167,9 @@ export class UsersPage {
   }
 
   closeForm(): void {
-    this.resetForm();
+    // No resetForm() here: clearing the selection would flip the panel title
+    // mid-animation. The next openCreate()/openEdit() resets or repopulates,
+    // so stale state is never visible.
     this.isFormOpen.set(false);
   }
 
