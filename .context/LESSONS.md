@@ -606,3 +606,13 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   accepted by the API and ignored by the calculator; the other three rates were applied because
   their cells start empty. When a value becomes configurable, check what the artefact already
   encodes — a formula in the sheet outranks the dataclass.
+- **In e2e, edit form fields with real keystrokes, not `fill()`.** The custom `app-input` /
+  `app-textarea` controls propagate only trusted input events to the reactive form: a
+  programmatic `fill()` changes the DOM value while the form stays pristine, so the save
+  button never enables and the failure reads as "button is disabled" with the right text
+  visibly in the field. `fill("")` plus `pressSequentially()` behaves like a user and updates
+  the model. Assert the button is enabled before clicking, or the test passes vacuously.
+- **The e2e override needs the same `linux/amd64` platform pins as the dev override.**
+  Every service built from `backend/Dockerfile` fails to build natively on ARM Macs because
+  pymupdf has no musl/aarch64 wheel; without the pins `setup.sh` dies in `poetry install`.
+  The garage service itself stays unpinned. CI never sees this because its runners are amd64.
