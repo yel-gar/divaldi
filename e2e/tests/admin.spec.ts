@@ -3,9 +3,10 @@ import { expect, login, test } from "./helpers";
 /**
  * The admin area, reached with the superuser created by the e2e setup script.
  *
- * The users table and the create/edit form sit side by side; the form is always
- * visible and switches between "Новый пользователь" and "Редактирование
- * пользователя" rather than opening in a dialog.
+ * The user form lives in a slide-over panel that starts closed: the "Новый
+ * пользователь" button opens it for creation, a row action opens it for
+ * editing, and the panel keeps its selection while closing so the title does
+ * not flip mid-animation.
  */
 test.describe("admin", () => {
   test("lists users and filters them by name", async ({ page }) => {
@@ -32,6 +33,7 @@ test.describe("admin", () => {
 
     const username = `e2e-created-${Date.now()}`;
 
+    await page.getByRole("button", { name: "Новый пользователь" }).click();
     await expect(
       page.getByRole("heading", { name: "Новый пользователь" }),
     ).toBeVisible();
