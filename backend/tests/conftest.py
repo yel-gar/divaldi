@@ -59,8 +59,13 @@ S3_BUCKETS = ("avatars", "uploads")
 
 #: Minimal Garage config for the test container. The test container is a single
 #: node, so `--single-node` assigns the cluster layout at startup and no separate
-#: layout bootstrap is needed. `rpc_public_addr` is deliberately absent: the CLI
-#: runs inside the container, where the default loopback works.
+#: layout bootstrap is needed. `rpc_public_addr` is deliberately loopback: the CLI
+#: runs inside the container, where that is all it needs.
+#:
+#: Garage refuses to start when /etc/garage.toml is missing, so the file has to
+#: exist even though every setting could be passed as a `GARAGE_` environment
+#: variable. It is copied in rather than bind-mounted, which is what keeps this
+#: fixture free of host bind mounts.
 GARAGE_CONFIG = """
 metadata_dir = "/var/lib/garage/meta"
 data_dir = "/var/lib/garage/data"
@@ -76,6 +81,16 @@ root_domain = ".s3.garage.localhost"
 [admin]
 admin_bind_addr = "0.0.0.0:3903"
 """
+
+#: In-memory mounts for the two directories Garage writes. tmpfs rather than a
+#: bind mount out of the pytest temp directory, because on Windows such a mount
+#: makes Docker Desktop ask to share the path, and the run fails when that
+#: prompt is dismissed. Garage creates its own LMDB directory inside the mount
+#: point rather than being handed a pre-made one, so both must be writable.
+GARAGE_TMPFS = {
+    "/var/lib/garage/meta": "size=64m",
+    "/var/lib/garage/data": "size=512m",
+}
 
 
 @pytest.fixture(autouse=True)
@@ -108,27 +123,16 @@ def redis_container() -> Generator[AsyncRedisContainer]:
 
 
 @pytest.fixture(scope="session")
-def garage_container(tmp_path_factory) -> Generator[DockerContainer]:
+def garage_container() -> Generator[DockerContainer]:
     """A real Garage, matching the object storage the Compose stack provides.
 
     Garage differs from MinIO in two ways that shape this fixture. It needs a
-    config file rather than environment-only settings, because ``rpc_secret`` and
-    the metadata paths have no useful default. And it has no root credentials:
+    config file rather than environment-only settings, because it refuses to
+    start when `/etc/garage.toml` is absent. And it has no root credentials:
     access keys are created explicitly, so the key is imported before the S3 API
     is usable and buckets have to be created through the CLI, since an S3
     ``CreateBucket`` needs permissions the key does not have yet.
     """
-    config_dir = tmp_path_factory.mktemp("garage")
-    config = config_dir / "garage.toml"
-    config.write_text(
-        GARAGE_CONFIG.format(rpc_secret=_GARAGE_RPC_SECRET, region=S3_REGION),
-        encoding="utf-8",
-    )
-    # Metadata holds the cluster layout and the key database, so it must survive
-    # independently of the data directory.
-    meta_dir = tmp_path_factory.mktemp("garage-meta")
-    data_dir = tmp_path_factory.mktemp("garage-data")
-
     container = DockerContainer(
         GARAGE_IMAGE,
         # The image has no entrypoint, only a CMD of `/garage server`, so the
@@ -137,13 +141,14 @@ def garage_container(tmp_path_factory) -> Generator[DockerContainer]:
         env={"GARAGE_ADMIN_TOKEN": _GARAGE_ADMIN_TOKEN},
         ports=[GARAGE_S3_PORT, 3903],
     )
-    container.with_volume_mapping(str(config), "/etc/garage.toml", "ro")
-    # Both directories need "rw". testcontainers defaults a volume mapping to
-    # read-only, and Garage creates its own LMDB directory inside the mount point
-    # rather than being handed a pre-made one, so a read-only bind makes it exit
-    # with "Unable to create LMDB data directory: Read-only file system".
-    container.with_volume_mapping(str(meta_dir), "/var/lib/garage/meta", "rw")
-    container.with_volume_mapping(str(data_dir), "/var/lib/garage/data", "rw")
+    # Copied in as bytes rather than mounted from a temporary file, so that no
+    # host path is ever shared with the container.
+    container.with_copy_into_container(
+        GARAGE_CONFIG.format(rpc_secret=_GARAGE_RPC_SECRET, region=S3_REGION).encode(),
+        "/etc/garage.toml",
+    )
+    for path, size in GARAGE_TMPFS.items():
+        container.with_tmpfs_mount(path, size)
     container.start()
     try:
         _wait_for_garage(container)

@@ -51,7 +51,7 @@ x-backend-service: &backend-service
       condition: service_healthy
     garage-bootstrap:
       condition: service_completed_successfully
-    garage-lifecycle:
+    garage-config:
       condition: service_completed_successfully
 
 services:
@@ -234,11 +234,11 @@ services:
     entrypoint: ["/bin/sh", "/init.sh"]
     restart: no
 
-  # Applies the expiration rules. This needs a real S3 client because the
-  # lifecycle API takes XML on the wire and there is no garage CLI command for
-  # it, so it runs on the backend image where aioboto3 already exists rather
-  # than adding a Python dependency to the bootstrap image.
-  garage-lifecycle:
+  # Applies the bucket configuration: expiration and CORS rules. This needs a
+  # real S3 client because both APIs take XML on the wire and there is no garage
+  # CLI command for either, so it runs on the backend image where aioboto3
+  # already exists rather than adding a Python dependency to the bootstrap image.
+  garage-config:
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -248,9 +248,13 @@ services:
     environment:
       <<: *s3-env
       S3_INTERNAL_URL: ${S3_INTERNAL_URL:-http://garage:3900}
+      # Browser origins allowed to call the buckets directly. Defaults to `*`,
+      # which is safe only because the buckets are private and reachable solely
+      # through presigned URLs.
+      S3_CORS_ORIGINS: ${S3_CORS_ORIGINS:-*}
     volumes:
       - ./conf/garage-rules:/rules:ro
-    command: "poetry run python apply_s3_lifecycle.py"
+    command: "poetry run python apply_s3_config.py"
     restart: no
 
 volumes:

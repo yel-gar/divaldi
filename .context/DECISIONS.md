@@ -487,11 +487,30 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   fails loudly rather than leaving the backend unable to authenticate.
 - **Bootstrap is two services, not one.** `garage-bootstrap` runs the CLI for what only the
   CLI can do — key import, bucket creation, key grants — because an S3 `CreateBucket` needs
-  permissions a freshly imported key does not yet have. `garage-lifecycle` runs the backend
-  image to apply expiration rules, because there is no lifecycle CLI command and the API needs
-  XML, which botocore generates from the JSON rule files we already keep. Merging them into
-  one image would have meant either a Python dependency in the bootstrap image or
+  permissions a freshly imported key does not yet have. `garage-config` runs the backend
+  image to apply expiration and CORS rules, because there is no CLI command for either and the
+  APIs need XML, which botocore generates from the JSON rule files we already keep. Merging
+  them into one image would have meant either a Python dependency in the bootstrap image or
   hand-maintained XML.
+- **Bucket CORS is configured, because Garage has no default and a browser always preflights**
+  (2026-10-09). `handle_options_for_bucket` matches the `Origin`, the requested method and every
+  requested header against the bucket's `cors_config`, and answers
+  `403 This CORS request is not allowed.` when there is none or nothing matches. Since uploads
+  and downloads go through presigned URLs, that broke every browser-side transfer. MinIO shipped
+  a permissive default (`MINIO_API_CORS_ALLOW_ORIGIN=*`), which is why the migration looked
+  clean in tests — nothing in the backend exercises a preflight. `garage bucket` has no `cors`
+  subcommand, so `apply_s3_config.py` sets it over the S3 API next to the lifecycle rules;
+  `S3_CORS_ORIGINS` carries the origins, separate from `get_origins()`, which governs the API and
+  not the store. Allowed methods are the ones a presigned URL can produce (POST, GET, HEAD, PUT)
+  and allowed headers are `*`, because the fields of a presigned POST form are not known when the
+  rule is written. **A test asserting a preflight would return 200 belongs with the store, not
+  with the backend suite.**
+- **`S3_CORS_ORIGINS` defaults to `*`, and that is not a shortcut.** A wildcard origin cannot be
+  combined with credentials, and these requests carry their authorisation in the presigned query
+  string rather than in a cookie, so no bucket is readable by origin alone. It is documented as a
+  production override rather than defaulting to the frontend URL, because the e2e stack moves the
+  frontend to 18080 and a dev stack may use any port; listing origins would mean maintaining the
+  same list in `.env`, the e2e workflow and any developer override.
 - **The lifecycle rules stay in JSON and stay unchanged.** Garage implements only
   `Expiration` and `AbortIncompleteMultipartUpload`, which covers all three of our rules.
   Converting them to XML would make them harder to review for no gain.

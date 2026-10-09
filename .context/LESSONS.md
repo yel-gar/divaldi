@@ -299,10 +299,21 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   characters).** The failure is `Invalid RPC secret key: expected 32 bytes of random hex`, which
   does not say the value is the wrong length. `openssl rand -hex 48`, used for every other
   secret in `.env`, produces 96 characters and is rejected.
-- **testcontainers mounts a volume read-only by default**, and Garage creates its own LMDB
-  directory inside the mount point, so the container exits with `Unable to create LMDB data
-  directory: Read-only file system`. Pass `mode="rw"` to `with_volume_mapping`. MinIO tolerated
-  the read-only mount, so this only appeared after the migration.
+- **Do not bind-mount host paths in a testcontainers fixture on Windows.** Docker Desktop asks
+  to share the directory, and when that prompt is dismissed the whole run fails with
+  `pywintypes.error: (109, 'GetOverlappedResult')` at fixture setup — 109 errors that look like
+  application failures and are not. The Garage fixture mounts nothing: `/etc/garage.toml` is
+  copied in with `with_copy_into_container(config_bytes, ...)` (its `Transferable` type accepts
+  raw `bytes`, so no temporary file is needed either) and the metadata and data directories are
+  `with_tmpfs_mount`. Both paths are memory-only and need no host permission. Previously the
+  fixture bind-mounted three pytest `tmp_path` directories, which is where the prompt came from.
+- **`with_kwargs(tmpfs=...)` collides with testcontainers' own `tmpfs` argument**, raising
+  `TypeError: create() got multiple values for keyword argument 'tmpfs'`, because `start()`
+  already passes `tmpfs=self.tmpfs`. Use `with_tmpfs_mount(path, size)` instead.
+- **Garage will not start without `/etc/garage.toml`, even when every setting is supplied as a
+  `GARAGE_` environment variable**; it exits with `Failed to read config file /etc/garage.toml:
+  No such file or directory`. Compose only sets two secrets that way and keeps the file, which is
+  why env-only configuration looks viable until you try it.
 - **A presigned POST rejects any form field that is not also a policy condition**, with
   `Key 'content-type' is not allowed in policy`. The upload routes pass `Content-Type` in both
   `Fields` and `Conditions`, which is why they work; a new call site that adds a field without

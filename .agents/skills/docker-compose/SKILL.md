@@ -24,7 +24,7 @@ application; see the reasoning in `.context/DECISIONS.md`.
 | `rabbitmq` | `rabbitmq:4-management-alpine`, vhost `taskiq` | task broker |
 | `garage` | `dxflrs/garage:v2.4.1`, `--single-node` | S3 object storage |
 | `garage-bootstrap` | busybox + the garage binary | imports the app key, creates buckets, grants access |
-| `garage-lifecycle` | the backend image | applies the expiration rules over the S3 API |
+| `garage-config` | the backend image | applies the expiration and CORS rules over the S3 API |
 
 ## YAML anchors
 
@@ -34,7 +34,7 @@ build, env and `depends_on` for `backend`, `scheduler` and both workers). Add ne
 services through `<<: *backend-service` rather than copying the block.
 
 Startup ordering is healthcheck-gated: the backend waits for `db`, `redis`, `rabbitmq` and
-`garage` to be healthy, and for `migrate`, `garage-bootstrap` and `garage-lifecycle` to
+`garage` to be healthy, and for `migrate`, `garage-bootstrap` and `garage-config` to
 have **completed successfully**.
 If you add a dependency, use the same `condition:` style.
 
@@ -130,9 +130,14 @@ equivalent because there is nothing to turn off.
 
 Lifecycle rules expire unprocessed avatars (1 day), attachments (7 days) and artifacts
 (1 day). They cannot be applied from the garage CLI, which has no lifecycle command, so
-`backend/apply_s3_lifecycle.py` applies them over the S3 API. That is why the rules stay in
+`backend/apply_s3_config.py` applies them over the S3 API. That is why the rules stay in
 JSON: botocore converts them to the XML the wire format requires, and a hand-maintained XML
 file would be worse to review.
+
+The same script sets bucket CORS from `S3_CORS_ORIGINS`, which is not optional: the browser
+reaches the store over presigned URLs, so every request preflights, and Garage has no
+default policy and answers an unmatched preflight with `403`. Add a new browser origin there
+rather than in the backend's own CORS middleware, which governs the API and not the store.
 
 The Garage image contains one static binary and nothing else, which is why the bootstrap has
 its own image. See the `Object storage is Garage` section of `AGENTS.md` before changing any of

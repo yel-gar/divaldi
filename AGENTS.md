@@ -19,7 +19,7 @@ These five rules override any other instinct you have.
 | 1 | **All Python dependencies are added via `poetry add`.** Never hand-edit `pyproject.toml` dependencies, never write a `requirements.txt`. Use `poetry add <pkg>` (runtime) or `poetry add --group dev <pkg>` (dev) from the relevant package directory (`backend/` or `processing/`). Commit the updated `poetry.lock` with it. |
 | 2 | **All frontend dependencies are added via `npm install`.** From `frontend/`, use `npm install <pkg>` (runtime) or `npm install -D <pkg>` (dev). Commit `frontend/package-lock.json` with it. Never hand-edit dependency versions in `package.json`; let npm resolve them and write the lockfile. |
 | 3 | **The full project can only be run via Docker.** `docker compose up -d --build`. There is no supported local run of the application: the backend expects service hostnames (`db`, `redis`, `rabbitmq`, `garage`) and resolves two paths relative to `backend/` as CWD. Never claim the app works without stating how you started it in Docker. |
-| 4 | **Tests may be run locally.** `poetry -C backend run pytest`, `poetry -C processing run pytest -v`, `npm --prefix frontend test`. Backend tests need a running Docker *daemon* (they use testcontainers) but not the full stack. |
+| 4 | **Tests may be run locally.** `poetry -C backend run pytest`, `poetry -C processing run pytest -v`, `npm --prefix frontend test`. Backend tests need a running Docker *daemon* (they use testcontainers) but not the full stack. Testcontainers fixtures must **not bind-mount host paths**: on Windows Docker Desktop prompts to share the directory, and a dismissed prompt fails the run with a `pywintypes` error at fixture setup. Use `with_copy_into_container` and `with_tmpfs_mount`. |
 | 5 | **Update `.context/` as you work.** See [section 7](#7-context-directory). A change with no recorded decision or lesson is a change the next agent will re-litigate. |
 | 6 | **Never destroy Docker volumes.** No `docker compose down -v`, no `docker volume prune`, no `docker system prune`. The named volumes hold real state — the PostgreSQL database can contain a developer's accounts, chats and uploaded attachments, and you cannot see whether it does. Ask before removing a volume, even one that looks disposable. `docker compose down` on its own is fine; it leaves volumes alone. |
 
@@ -235,10 +235,11 @@ route are unaffected; what differs is the bootstrap.
 |---|---|
 | Server config | `conf/garage.toml` (secrets come from the environment, never from this file) |
 | Key import, buckets, grants | `conf/garage-init.sh`, run by the `garage-bootstrap` service |
-| Lifecycle rules | `conf/garage-rules/*.json`, applied by `backend/apply_s3_lifecycle.py` |
+| Lifecycle rules | `conf/garage-rules/*.json`, applied by `backend/apply_s3_config.py` |
+| Bucket CORS rules | set by the same `apply_s3_config.py`, origins from `S3_CORS_ORIGINS` |
 | Bootstrap image | `conf/garage.Dockerfile` — busybox with the garage binary copied in |
 
-Four things about Garage are not obvious and will cost you an hour if you rediscover them:
+Five things about Garage are not obvious and will cost you an hour if you rediscover them:
 
 - **The image has no shell.** Not `/bin/sh`, no `curl`, no `mc`. The old `mc`-based init
   pattern is impossible, which is why `garage.Dockerfile` exists. Note the copy direction:
@@ -255,6 +256,12 @@ Four things about Garage are not obvious and will cost you an hour if you redisc
 - **`GARAGE_RPC_SECRET` and `GARAGE_ADMIN_TOKEN` must be exactly 32 bytes of hex** — 64
   characters. Garage refuses to start otherwise, so generate those two with
   `openssl rand -hex 32`, not the `-hex 48` used for every other secret in `.env`.
+- **There is no default CORS policy, and `OPTIONS` on an existing bucket is answered
+  against its CORS config alone.** A browser talking to a presigned URL always preflights,
+  so a bucket with no CORS configuration is unusable from a browser: you get
+  `403 This CORS request is not allowed.` on every upload and download. MinIO shipped a
+  permissive default, so this only surfaced after the migration. `garage bucket` has no
+  `cors` subcommand; the rules go over the S3 API from `apply_s3_config.py`.
 
 The buckets are still `avatars` and `uploads`, and the lifecycle rules are still the same
 three prefix-scoped expirations. Garage implements `Expiration` and
