@@ -626,5 +626,5 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   before debugging the test.
 - **Open the users slide-over before touching the form in e2e.** The admin specs were
   written when the form was always visible; since it became a panel, its controls exist in
-  the DOM while closed, so visibility assertions fail and count assertions pass vacuously.
-  Click `Новый пользователь` (or the row edit action) first.
+   the DOM while closed, so visibility assertions fail and count assertions pass vacuously.
+   Click `Новый пользователь` (or the row edit action) first.
