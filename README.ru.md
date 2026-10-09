@@ -250,7 +250,7 @@ PS> .\createsuperuser.ps1
 | `rabbitmq` | брокер задач, vhost `taskiq` |
 | `garage` | S3-совместимое хранилище объектов (`--single-node`) |
 | `garage-bootstrap` | импортирует ключ приложения, создаёт бакеты, выдаёт доступ |
-| `garage-lifecycle` | применяет правила жизненного цикла через S3 API |
+| `garage-config` | применяет правила жизненного цикла и CORS через S3 API |
 
 ---
 
@@ -394,6 +394,7 @@ npm --prefix frontend run format
 | `GARAGE_RPC_SECRET`           | RPC-секрет Garage. ⚠️ Ровно **32 байта в hex** — используйте `openssl rand -hex 32`, а не `-hex 48`, иначе Garage не стартует.              | ✅             |                      |
 | `GARAGE_ADMIN_TOKEN`          | Токен admin API Garage. То же ограничение в 32 байта, что и у `GARAGE_RPC_SECRET`.                                                        | ✅             |                      |
 | `GARAGE_ADMIN_PORT`           | Хостовый порт admin API Garage.                                                                                                             | ❌             | `3903`               |
+| `S3_CORS_ORIGINS`             | Origins браузера через запятую, которым разрешено обращаться к бакетам напрямую. Браузер ходит по presigned-ссылкам, поэтому каждая загрузка кросс-доменная, а Garage отклоняет несовпавшие preflight-запросы. ОБЯЗАТЕЛЬНО ОБНОВИТЕ В ПРОДАКШЕНЕ. | ❌ | `*` |
 
 > 🔐 **Имена хостов Redis, RabbitMQ, Garage и панели TaskIQ захардкожены** в бэкенде
 > (`redis://redis:6379`, `amqp://…@rabbitmq:5672/taskiq`, `http://garage:3900`,

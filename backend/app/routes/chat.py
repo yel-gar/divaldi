@@ -30,7 +30,7 @@ from app.deps import (
     require_login,
     user_rate_limiter,
 )
-from app.harness import FILE_ADDED_DESCRIPTION, SYSTEM_PROMPT
+from app.harness import FILE_ADDED_DESCRIPTION, build_system_prompt
 from app.models.chat import (
     Attachment,
     ChatMessage,
@@ -41,6 +41,7 @@ from app.models.chat import (
     ProcessingResultUploadable,
     UserRole,
 )
+from app.models.settings import SETTINGS_ROW_ID, Settings
 from app.schemas import MessageResponse
 from app.schemas.chat import (
     ChatAttachment,
@@ -222,14 +223,18 @@ async def create_chat(user: CurrentUser, db: DbSession):
     """Create a new chat session and return its id.
 
     The session starts with a system prompt only; use `POST /chats/{session_id}`
-    to send the first user message.
+    to send the first user message. The prompt is composed here and stored, so the
+    admin extension is baked in for this session's lifetime and a later settings
+    change does not alter a conversation already in progress.
     """
     session_uuid = uuid.uuid4()
     new_session = ChatSession(session_id=session_uuid, user_id=user.id)
+    # A missing settings row yields None, which is the "no extension" case.
+    prompt_extension = await db.scalar(select(Settings.prompt_extension).where(Settings.id == SETTINGS_ROW_ID))
     system_message = ChatMessage(
         chat_session_id=session_uuid,
         role=UserRole.SYSTEM,
-        content=SYSTEM_PROMPT,
+        content=build_system_prompt(prompt_extension),
     )
     db.add(new_session)
     db.add(system_message)

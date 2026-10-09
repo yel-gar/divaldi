@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,12 +10,17 @@ from starlette import status
 from app.auth import hash_password
 from app.deps import AdminUser, DbSession, ensure_can_assign_roles, ensure_outranks, require_admin
 from app.models.auth import AccountRole, User
+from app.models.settings import SETTINGS_ROW_ID, Settings
 from app.schemas import MessageResponse
 from app.schemas.admin import (
     AdminCreateUserSchema,
     AdminEditUserSchema,
+    AdminRatesSchema,
     AdminSetPasswordSchema,
+    AdminSettingsResponse,
+    AdminSettingsUpdate,
     AdminUserFilters,
+    default_rates,
 )
 from app.schemas.users import AdminUserSchema
 
@@ -235,3 +240,123 @@ async def admin_create_user(db: DbSession, admin: AdminUser, data: AdminCreateUs
 
     await db.refresh(user)
     return user
+
+
+async def _save_settings(db, data: AdminSettingsUpdate, admin: User) -> Settings:
+    """Apply an update to the singleton settings row and persist it.
+
+    The row does not exist until the first PUT, so two admins saving at the same time
+    both read "no row", both add `Settings(id=1)`, and the loser's INSERT trips the
+    primary key. Returning an error there would silently discard that admin's change,
+    so the loser adopts the row the winner just inserted and re-applies its own update
+    on top: the last write wins, which is what two sequential saves would have done.
+    """
+    settings = await db.get(Settings, SETTINGS_ROW_ID)
+    if settings is None:
+        settings = Settings(id=SETTINGS_ROW_ID)
+        db.add(settings)
+    # Read before the rollback, not inside the recovery path: a rollback expires every
+    # instance in the session, and touching `admin.id` afterwards would trigger an
+    # implicit refresh that async SQLAlchemy refuses with MissingGreenlet.
+    admin_id = admin.id
+    stamp = datetime.now(tz=UTC)
+    _apply_settings(settings, data, admin_id, stamp)
+    try:
+        await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        settings = await db.get(Settings, SETTINGS_ROW_ID)
+        if settings is None:
+            # The other transaction rolled back as well, so there is nothing to adopt.
+            # Its author retries and gets the row they expected.
+            raise HTTPException(status_code=409, detail="Settings are being saved at the same time, retry") from e
+        _apply_settings(settings, data, admin_id, stamp)
+        await db.commit()
+    await db.refresh(settings)
+    return settings
+
+
+def _apply_settings(settings: Settings, data: AdminSettingsUpdate, admin_id: int, stamp: datetime) -> None:
+    """Write the requested fields onto a settings row and stamp the audit fields.
+
+    Separate from the commit so the recovery path can re-apply the same changes to the
+    row another request created, and takes plain values rather than the `User` so that
+    nothing here can reach the database.
+    """
+    sent = data.model_fields_set
+    if "prompt_extension" in sent:
+        settings.prompt_extension = data.prompt_extension.strip()
+    if "parameters" in sent:
+        # An explicit null is the reset; absent is handled by not being in `sent`. A
+        # malformed rate object is rejected by the schema, so this only ever sees a
+        # validated model or a deliberate null.
+        settings.parameters = None if data.parameters is None else data.parameters.model_dump()
+    settings.last_update_by = admin_id
+    settings.last_update_at = stamp
+
+
+def _as_settings_response(settings: Settings) -> AdminSettingsResponse:
+    return AdminSettingsResponse(
+        prompt_extension=settings.prompt_extension,
+        parameters=AdminRatesSchema(**settings.parameters) if settings.parameters else default_rates(),
+        last_update_by=settings.last_update_by,
+        last_update_at=settings.last_update_at,
+    )
+
+
+@router.get(
+    "/settings",
+    response_model=AdminSettingsResponse,
+    summary="Get the instance settings",
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "The caller is neither an admin nor a superuser"},
+    },
+)
+async def admin_get_settings(db: DbSession):
+    """Return the instance-wide settings.
+
+    An instance that has never been configured returns an empty
+    `prompt_extension`, the default rates and null audit fields rather than 404:
+    there is exactly one settings row conceptually, and it simply holds no value
+    yet. The rates reported are the effective ones, so the response is directly
+    renderable as a form.
+    """
+    settings = await db.get(Settings, SETTINGS_ROW_ID)
+    if settings is None:
+        return AdminSettingsResponse(
+            prompt_extension="", parameters=default_rates(), last_update_by=None, last_update_at=None
+        )
+    return _as_settings_response(settings)
+
+
+@router.put(
+    "/settings",
+    response_model=AdminSettingsResponse,
+    summary="Update the instance settings",
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "The caller is neither an admin nor a superuser"},
+    },
+)
+async def admin_update_settings(data: AdminSettingsUpdate, db: DbSession, admin: AdminUser):
+    """Update the instance-wide settings and return the stored result.
+
+    Only the fields present in the body are touched, so an option added to the
+    payload later will not disturb this one. Saving stamps both audit fields with
+    the acting account.
+
+    `prompt_extension` is appended to the end of the system prompt of every chat
+    created *after* this call; chats already in progress keep the prompt they
+    started with. An empty string is the reset.
+
+    `parameters` replaces the stored rates wholesale and must name all four when
+    present. Sending it as `null` restores the defaults, which is the way back from
+    a bad edit; omitting it leaves the current rates alone.
+
+    Deliberately not blocked by `TEST_INSTANCE_MODE`, unlike the account
+    mutations: this touches no credentials and no ownership, and is undone by
+    saving an empty string or `null` rates.
+    """
+    settings = await _save_settings(db, data, admin)
+    return _as_settings_response(settings)

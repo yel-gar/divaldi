@@ -299,10 +299,21 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   characters).** The failure is `Invalid RPC secret key: expected 32 bytes of random hex`, which
   does not say the value is the wrong length. `openssl rand -hex 48`, used for every other
   secret in `.env`, produces 96 characters and is rejected.
-- **testcontainers mounts a volume read-only by default**, and Garage creates its own LMDB
-  directory inside the mount point, so the container exits with `Unable to create LMDB data
-  directory: Read-only file system`. Pass `mode="rw"` to `with_volume_mapping`. MinIO tolerated
-  the read-only mount, so this only appeared after the migration.
+- **Do not bind-mount host paths in a testcontainers fixture on Windows.** Docker Desktop asks
+  to share the directory, and when that prompt is dismissed the whole run fails with
+  `pywintypes.error: (109, 'GetOverlappedResult')` at fixture setup — 109 errors that look like
+  application failures and are not. The Garage fixture mounts nothing: `/etc/garage.toml` is
+  copied in with `with_copy_into_container(config_bytes, ...)` (its `Transferable` type accepts
+  raw `bytes`, so no temporary file is needed either) and the metadata and data directories are
+  `with_tmpfs_mount`. Both paths are memory-only and need no host permission. Previously the
+  fixture bind-mounted three pytest `tmp_path` directories, which is where the prompt came from.
+- **`with_kwargs(tmpfs=...)` collides with testcontainers' own `tmpfs` argument**, raising
+  `TypeError: create() got multiple values for keyword argument 'tmpfs'`, because `start()`
+  already passes `tmpfs=self.tmpfs`. Use `with_tmpfs_mount(path, size)` instead.
+- **Garage will not start without `/etc/garage.toml`, even when every setting is supplied as a
+  `GARAGE_` environment variable**; it exits with `Failed to read config file /etc/garage.toml:
+  No such file or directory`. Compose only sets two secrets that way and keeps the file, which is
+  why env-only configuration looks viable until you try it.
 - **A presigned POST rejects any form field that is not also a policy condition**, with
   `Key 'content-type' is not allowed in policy`. The upload routes pass `Content-Type` in both
   `Fields` and `Conditions`, which is why they work; a new call site that adds a field without
@@ -526,3 +537,72 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   fixed it; a plain restart would not have.
 
 - **A `1fr 1fr` grid with a table inside blows out the centered container.** Grid `1fr` tracks are `minmax(auto, 1fr)`, so a wide table (unbreakable badges like `Суперпользователь`) forces the track past its share and the grid spills right past `max-width: 1200px; margin: 0 auto`, making the page look shifted versus single-column pages. Fix is `min-width: 0` on the grid children plus an `overflow-x: auto` wrapper around the table, the same pattern `history-page` already uses. No SCSS gate catches this (ESLint skips `.scss`, no stylelint).
+- **Garage has no default CORS policy, and the 403 it returns does not name the cause.** Every
+  browser upload and download goes through a presigned URL, so each one is preflighted; with no
+  `cors_config` on the bucket, `handle_options_for_bucket` finds no matching rule and answers
+  `403 This CORS request is not allowed.` MinIO allowed `*` by default, so the same buckets were
+  unusable from a browser the moment they moved. Test suites do not catch it: nothing in the
+  backend performs a preflight, and presigned POST and GET both succeed server-side.
+
+- **Garage resolves `OPTIONS` against the bucket's CORS config only, never the key.** It calls
+  `resolve_global_bucket_fast` on an unauthenticated request, so a *local* alias gets a
+  permissive allow-everything answer while a *global* bucket with no CORS config gets a hard
+  403. The failure therefore depends on how the bucket was created, not on what the client did.
+
+- **`garage bucket` has no `cors` subcommand.** Subcommands are alias, allow,
+  cleanup-incomplete-uploads, create, delete, deny, info, inspect-object, list, set-quotas,
+  unalias and website. CORS, like lifecycle, has to go over the S3 API, which is why both live
+  in `backend/apply_s3_config.py`. Run `/garage <group> --help` before assuming a command is
+  missing; the image has no shell, so the binary has to be invoked by absolute path.
+
+- **The e2e attachment specs pass even when the upload never reaches object storage.** The row
+  in "Загруженные файлы" and the `GET /chats/{id}/attachments` listing are both satisfied by the
+  backend registering the attachment, which happens *before* the browser performs the presigned
+  POST. A run on 2026-10-09 passed all three specs with zero `POST` requests in the Garage log.
+  Two causes stacked: the e2e override resets Garage's published ports, so the browser has no S3
+  endpoint in the e2e project at all, and on a developer machine it would reach the *dev* Garage
+  instead, because both stacks read the same `S3_ACCESS_KEY`/`S3_SECRET_KEY` from `.env`. So
+  neither the CORS regression nor a dead store is covered. Asserting the upload finished
+  requires waiting for the status to leave `queued`, and the e2e project needs its own published
+  S3 port and matching `S3_PUBLIC_URL`.
+
+- **A `--cov` run started before an edit finishes measures a half-written tree.** Reading 88.83%
+  and a failing `alembic check` mid-change looked like a collapsed coverage gate; the clean run
+  after the migration landed was 99.34%. Coverage measured concurrently with your own edits is
+  not a baseline, and the `alembic check` failure in it is expected rather than a real drift.
+- **On a 4 GB Docker Desktop, bring the e2e stack down before running Compose tooling.** With
+  `divaldi-e2e` up, `docker compose up -d db` and even a bare `docker compose ps` hung for
+  minutes, in the bash script and in the PowerShell one alike. The giveaway was a
+  `502 Bad Gateway` on `//./pipe/docker_engine` from `docker inspect`: the engine's API proxy was
+  failing, so the scripts were innocent and retrying into a sick proxy is what wasted the time.
+  `docker compose -p divaldi-e2e -f docker-compose.yaml -f docker-compose.override.yml.e2e down`
+  (no `-v`) makes the tooling reliable again.
+
+- **A 422 whose detail quotes a `NaN` cannot be encoded, and the failure looks like a 200 or a
+  crash rather than a validation error.** Python's `json.loads` accepts the `NaN` and `Infinity`
+  literals, so a client can send one; Starlette's `JSONResponse` writes with `allow_nan=False`,
+  and FastAPI's default `RequestValidationError` handler copies the offending input into the
+  detail. The response then fails to serialise. Fixed by a handler in `app.main` that replaces
+  non-finite floats with their text form and then applies `jsonable_encoder` — omitting the
+  latter breaks any error detail containing a Pydantic model, including pre-existing routes.
+  `httpx` cannot *encode* these values, so a test using `json=` proves nothing; send the raw body.
+- **A test that builds a request body from a dict of values can silently omit the wrapper key,
+  and the endpoint then reports success while changing nothing.** The 422-vs-200 confusion while
+  adding the rates was entirely this: the body was the bare rate object, `AdminSettingsUpdate`
+  ignores unknown keys, so `parameters` was absent and the route correctly did nothing. Chasing
+  it through Pydantic unions, `allow_inf_nan`, stale bytecode and installed-package shadowing was
+  the wrong path — the endpoint's own logging of the received body answered it in one run. When a
+  validation test disagrees with the schema, log what the endpoint actually received before
+  theorising about the validation library.
+
+- **A `rollback()` expires every instance in the session, so reading an ORM attribute
+  afterwards raises `MissingGreenlet` in async SQLAlchemy.** It surfaced in the settings
+  concurrency fix: the recovery path re-applied the update after rolling back and touched
+  `admin.id`, which the rollback had expired. The attribute read is a synchronous implicit
+  refresh, and async SQLAlchemy only performs IO inside awaited session methods. Copy anything
+  you need off ORM objects *before* the rollback, or the retry cannot run at all.
+- **A template can hold the rate a setting appears to configure.** `res/calc.xlsx` ships
+  `=E{row}/5.53` in the painting-hours cell, so `Parameters.painting_rate_m2_per_hour` was
+  accepted by the API and ignored by the calculator; the other three rates were applied because
+  their cells start empty. When a value becomes configurable, check what the artefact already
+  encodes — a formula in the sheet outranks the dataclass.

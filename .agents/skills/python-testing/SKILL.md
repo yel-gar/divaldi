@@ -125,6 +125,11 @@ Available from `conftest.py` (see the file for the full set):
   value.
 - **The env is set at the top of `conftest.py`, before the `app` imports**, because
   `app.storage` and `app.providers.containers` read `os.environ` at import time.
+- **No fixture may bind-mount a host path.** On Windows Docker Desktop then prompts to share the
+  directory, and a dismissed prompt fails the run with `pywintypes.error: (109, ...)` at fixture
+  setup. `garage_container` shows the pattern: config copied in with `with_copy_into_container`
+  (which accepts raw `bytes`) and storage on `with_tmpfs_mount`. Use `with_tmpfs_mount`, not
+  `with_kwargs(tmpfs=...)`, which collides with testcontainers' own argument.
 
 ## Language version: Python 3.14
 

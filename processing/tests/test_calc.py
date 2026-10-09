@@ -185,8 +185,43 @@ def test_process_calculation_success(calc, sample_data_single):
     assert sheet.cell(row=base + ROW_TURNING, column=COL_HOURS).value == 0.0
     assert sheet.cell(row=base + ROW_WELDING, column=COL_HOURS).value == pytest.approx(0.25)
     assert sheet.cell(row=base + ROW_PAINTING, column=COL_AREA).value == 0.8
+    assert sheet.cell(row=base + ROW_PAINTING, column=COL_HOURS).value == pytest.approx(
+        0.8 / DEFAULT_PARAMETERS.painting_rate_m2_per_hour
+    )
 
     assert "КП с ндс" in wb.sheetnames
+
+
+def test_painting_hours_follow_the_configured_rate(calc, sample_data_single):
+    """The painting rate is applied, not left to the template's own literal.
+
+    The template ships `=E{row}/5.53` in the painting hours cell, so before this was
+    written the configured rate changed nothing the workbook showed.
+    """
+    result = calc(sample_data_single, params=Parameters(painting_rate_m2_per_hour=10.0))
+    _, sheet = _open_calc_sheet(result)
+
+    assert sheet.cell(row=_base_row(0) + ROW_PAINTING, column=COL_HOURS).value == pytest.approx(0.08)
+
+
+def test_painting_hours_are_zero_when_the_rate_is_zero(calc, sample_data_single):
+    """A zero rate yields 0.0 rather than a division by zero, like the other rates."""
+    result = calc(sample_data_single, params=Parameters(painting_rate_m2_per_hour=0))
+    _, sheet = _open_calc_sheet(result)
+
+    assert sheet.cell(row=_base_row(0) + ROW_PAINTING, column=COL_HOURS).value == 0.0
+
+
+def test_cleared_block_has_no_painting_hours(calc, sample_data_multiple):
+    """A block beyond the last position is blank, not left holding the template formula.
+
+    Painting hours are now written per position, so they have to be cleared like the
+    others; otherwise a second run with fewer positions would keep stale hours.
+    """
+    result = calc(sample_data_multiple)
+    _, sheet = _open_calc_sheet(result)
+
+    assert sheet.cell(row=_base_row(3) + ROW_PAINTING, column=COL_HOURS).value is None
 
 
 def test_process_calculation_multiple_positions(calc, sample_data_multiple):

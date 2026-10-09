@@ -250,7 +250,7 @@ Open **http://localhost:8080** and log in with the account you just created. �
 | `rabbitmq` | task broker, vhost `taskiq` |
 | `garage` | S3-compatible object storage (`--single-node`) |
 | `garage-bootstrap` | imports the app key, creates the buckets, grants access |
-| `garage-lifecycle` | applies the expiration rules over the S3 API |
+| `garage-config` | applies the expiration and CORS rules over the S3 API |
 
 ---
 
@@ -394,6 +394,7 @@ You should generally only touch variables marked as **Required**.
 | `GARAGE_RPC_SECRET`           | Garage's RPC secret. ⚠️ Must be **exactly 32 bytes of hex** — use `openssl rand -hex 32`, not `-hex 48`, or Garage refuses to start.         | ✅           |                         |
 | `GARAGE_ADMIN_TOKEN`          | Garage's admin API token. Same 32-byte constraint as `GARAGE_RPC_SECRET`.                                                                    | ✅           |                         |
 | `GARAGE_ADMIN_PORT`           | Host port for the Garage admin API.                                                                                                          | ❌           | `3903`                  |
+| `S3_CORS_ORIGINS`             | Comma-separated browser origins allowed to call the buckets directly. The browser uses presigned URLs, so every upload is cross-origin, and Garage rejects unmatched preflights. UPDATE IN PRODUCTION. | ❌ | `*` |
 
 > 🔐 **Redis, RabbitMQ, Garage and TaskIQ dashboard hostnames are hardcoded** in the
 > backend (`redis://redis:6379`, `amqp://…@rabbitmq:5672/taskiq`, `http://garage:3900`,
