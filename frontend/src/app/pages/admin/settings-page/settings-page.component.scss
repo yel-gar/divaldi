@@ -1,0 +1,62 @@
+@use '../../../mixins' as *;
+
+.settings-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.settings-grid {
+  margin-top: 24px;
+}
+
+.settings-card {
+  padding: 24px;
+
+  background: var(--color-surface);
+  border: 1px solid var(--color-outline);
+  border-radius: 12px;
+
+  &__title {
+    margin: 0;
+
+    font-weight: inherit;
+  }
+
+  &__hint {
+    margin: 8px 0 0;
+
+    font-weight: 400;
+
+    color: var(--color-gray);
+  }
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  margin-top: 20px;
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__label {
+    font-weight: 500;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+
+    margin-top: 8px;
+  }
+
+  app-textarea ::ng-deep textarea {
+    min-height: 320px;
+  }
+}

@@ -621,3 +621,15 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   because the ownership entry is gone and `verify_attachment_id` refuses the id, and the key
   expires with its TTL. Making it airtight would mean a tombstone the workers consult; not
   worth it for a file the user has just removed.
+## Admin system prompt editing (2026-10-06)
+
+The admin settings page edits the system prompt over `GET/PUT /api/v1/admin/system-prompt`
+with body `{ "prompt": string }`. The frontend contract is already implemented
+(`AdminSettingsService`, `AdminSettingsPage`); the backend route is still pending — the
+prompt currently lives as the `SYSTEM_PROMPT` constant in `app/harness.py`. When adding the
+endpoint, return the same schema so the page keeps working unchanged.
+
+- **The contract reuses the admin router** (`prefix="/admin"`, `require_admin` dependency) so
+  authorization is a one-line `include_router` away and cannot leak to non-admins.
+- **The frontend disables the editor until the prompt loads** instead of showing a blank
+  editable field: saving a blank over an unknown prompt would silently wipe the real one.

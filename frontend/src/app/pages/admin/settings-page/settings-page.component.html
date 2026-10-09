@@ -1,0 +1,45 @@
+<section class="section">
+  <div class="settings-container">
+    <header class="section__header">
+      <h1 class="h2">Настройки</h1>
+      <p class="h4">Параметры работы системы</p>
+    </header>
+
+    <div class="settings-grid">
+      <article class="settings-card">
+        <h2 class="settings-card__title">Системный промпт</h2>
+        <p class="settings-card__hint">
+          Базовая инструкция для ИИ-агента: определяет формат ответов и правила расчёта заявок.
+          Изменения применяются к новым сообщениям во всех сессиях.
+        </p>
+
+        <form class="settings-form" [formGroup]="promptForm" (ngSubmit)="save()">
+          <div class="settings-form__field">
+            <label class="settings-form__label" for="system-prompt">Текст промпта</label>
+            <app-textarea
+              formControlName="prompt"
+              inputId="system-prompt"
+              placeholder="Введите текст системного промпта..."
+              [maxLength]="MAX_SYSTEM_PROMPT_LENGTH"
+              [counterVisibleFrom]="COUNTER_VISIBLE_FROM"
+            />
+          </div>
+
+          <div class="settings-form__actions">
+            <button
+              type="button"
+              class="button button--outline h3"
+              [disabled]="!canCancel()"
+              (click)="revert()"
+            >
+              Отменить
+            </button>
+            <button type="submit" class="button button--main h3" [disabled]="!canSave()">
+              Сохранить
+            </button>
+          </div>
+        </form>
+      </article>
+    </div>
+  </div>
+</section>

@@ -124,6 +124,10 @@ export interface MessageResponse {
   message: string;
 }
 
+export interface SystemPromptSchema {
+  prompt: string;
+}
+
 export const KP_FILENAME = 'kp.xlsx';
 
 export type UploadState = 'idle' | 'uploading' | 'completed';
