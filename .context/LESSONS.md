@@ -524,3 +524,5 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   `NetworkSettings.Networks` map, and nginx reported `host not found in upstream "backend"`
   even though the backend container was healthy and correctly aliased. `--force-recreate`
   fixed it; a plain restart would not have.
+
+- **A `1fr 1fr` grid with a table inside blows out the centered container.** Grid `1fr` tracks are `minmax(auto, 1fr)`, so a wide table (unbreakable badges like `Суперпользователь`) forces the track past its share and the grid spills right past `max-width: 1200px; margin: 0 auto`, making the page look shifted versus single-column pages. Fix is `min-width: 0` on the grid children plus an `overflow-x: auto` wrapper around the table, the same pattern `history-page` already uses. No SCSS gate catches this (ESLint skips `.scss`, no stylelint).

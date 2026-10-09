@@ -25,63 +25,65 @@
           {{ search() ? 'Пользователи не найдены' : 'Пока нет пользователей' }}
         </p>
       } @else {
-        <table class="users-table">
-          <thead>
-            <tr>
-              <th scope="col">Пользователь</th>
-              <th scope="col">Имя</th>
-              <th scope="col">Роль</th>
-              <th scope="col">Статус</th>
-              <th scope="col">Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (user of filteredUsers(); track user.id) {
+        <div class="users-table-wrapper">
+          <table class="users-table">
+            <thead>
               <tr>
-                <td>
-                  <div class="users-table__user">
-                    <span class="users-table__avatar">{{ initials(user) }}</span>
-                    <span class="users-table__username">{{ user.username }}</span>
-                  </div>
-                </td>
-                <td>{{ fullName(user) }}</td>
-                <td>
-                  <span class="badge badge--main">{{ roleLabel(user.role) }}</span>
-                </td>
-                <td>
-                  <span
-                    class="badge"
-                    [class.badge--success]="userStatus(user) === 'active'"
-                    [class.badge--warning]="userStatus(user) === 'expiring'"
-                    [class.badge--muted]="userStatus(user) === 'expired'"
-                    >{{ statusLabel(userStatus(user)) }}</span
-                  >
-                </td>
-                <td>
-                  <div class="users-table__actions">
-                    <button
-                      type="button"
-                      class="users-table__action"
-                      (click)="selectUser(user)"
-                      aria-label="Редактировать"
-                    >
-                      <svg size="16" lucidePencil aria-hidden="true"></svg>
-                    </button>
-                    <button
-                      type="button"
-                      class="users-table__action users-table__action--danger"
-                      [disabled]="deletingId() === user.id"
-                      (click)="deleteUser(user)"
-                      aria-label="Удалить"
-                    >
-                      <svg size="16" lucideTrash2 aria-hidden="true"></svg>
-                    </button>
-                  </div>
-                </td>
+                <th scope="col">Пользователь</th>
+                <th scope="col">Имя</th>
+                <th scope="col">Роль</th>
+                <th scope="col">Статус</th>
+                <th scope="col">Действия</th>
               </tr>
-            }
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              @for (user of filteredUsers(); track user.id) {
+                <tr>
+                  <td>
+                    <div class="users-table__user">
+                      <span class="users-table__avatar">{{ initials(user) }}</span>
+                      <span class="users-table__username">{{ user.username }}</span>
+                    </div>
+                  </td>
+                  <td>{{ fullName(user) }}</td>
+                  <td>
+                    <span class="badge badge--main">{{ roleLabel(user.role) }}</span>
+                  </td>
+                  <td>
+                    <span
+                      class="badge"
+                      [class.badge--success]="userStatus(user) === 'active'"
+                      [class.badge--warning]="userStatus(user) === 'expiring'"
+                      [class.badge--muted]="userStatus(user) === 'expired'"
+                      >{{ statusLabel(userStatus(user)) }}</span
+                    >
+                  </td>
+                  <td>
+                    <div class="users-table__actions">
+                      <button
+                        type="button"
+                        class="users-table__action"
+                        (click)="selectUser(user)"
+                        aria-label="Редактировать"
+                      >
+                        <svg size="16" lucidePencil aria-hidden="true"></svg>
+                      </button>
+                      <button
+                        type="button"
+                        class="users-table__action users-table__action--danger"
+                        [disabled]="deletingId() === user.id"
+                        (click)="deleteUser(user)"
+                        aria-label="Удалить"
+                      >
+                        <svg size="16" lucideTrash2 aria-hidden="true"></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
       }
     </article>
 
