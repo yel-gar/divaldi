@@ -299,10 +299,21 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   characters).** The failure is `Invalid RPC secret key: expected 32 bytes of random hex`, which
   does not say the value is the wrong length. `openssl rand -hex 48`, used for every other
   secret in `.env`, produces 96 characters and is rejected.
-- **testcontainers mounts a volume read-only by default**, and Garage creates its own LMDB
-  directory inside the mount point, so the container exits with `Unable to create LMDB data
-  directory: Read-only file system`. Pass `mode="rw"` to `with_volume_mapping`. MinIO tolerated
-  the read-only mount, so this only appeared after the migration.
+- **Do not bind-mount host paths in a testcontainers fixture on Windows.** Docker Desktop asks
+  to share the directory, and when that prompt is dismissed the whole run fails with
+  `pywintypes.error: (109, 'GetOverlappedResult')` at fixture setup — 109 errors that look like
+  application failures and are not. The Garage fixture mounts nothing: `/etc/garage.toml` is
+  copied in with `with_copy_into_container(config_bytes, ...)` (its `Transferable` type accepts
+  raw `bytes`, so no temporary file is needed either) and the metadata and data directories are
+  `with_tmpfs_mount`. Both paths are memory-only and need no host permission. Previously the
+  fixture bind-mounted three pytest `tmp_path` directories, which is where the prompt came from.
+- **`with_kwargs(tmpfs=...)` collides with testcontainers' own `tmpfs` argument**, raising
+  `TypeError: create() got multiple values for keyword argument 'tmpfs'`, because `start()`
+  already passes `tmpfs=self.tmpfs`. Use `with_tmpfs_mount(path, size)` instead.
+- **Garage will not start without `/etc/garage.toml`, even when every setting is supplied as a
+  `GARAGE_` environment variable**; it exits with `Failed to read config file /etc/garage.toml:
+  No such file or directory`. Compose only sets two secrets that way and keeps the file, which is
+  why env-only configuration looks viable until you try it.
 - **A presigned POST rejects any form field that is not also a policy condition**, with
   `Key 'content-type' is not allowed in policy`. The upload routes pass `Content-Type` in both
   `Fields` and `Conditions`, which is why they work; a new call site that adds a field without
@@ -524,3 +535,32 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   `NetworkSettings.Networks` map, and nginx reported `host not found in upstream "backend"`
   even though the backend container was healthy and correctly aliased. `--force-recreate`
   fixed it; a plain restart would not have.
+
+- **Garage has no default CORS policy, and the 403 it returns does not name the cause.** Every
+  browser upload and download goes through a presigned URL, so each one is preflighted; with no
+  `cors_config` on the bucket, `handle_options_for_bucket` finds no matching rule and answers
+  `403 This CORS request is not allowed.` MinIO allowed `*` by default, so the same buckets were
+  unusable from a browser the moment they moved. Test suites do not catch it: nothing in the
+  backend performs a preflight, and presigned POST and GET both succeed server-side.
+
+- **Garage resolves `OPTIONS` against the bucket's CORS config only, never the key.** It calls
+  `resolve_global_bucket_fast` on an unauthenticated request, so a *local* alias gets a
+  permissive allow-everything answer while a *global* bucket with no CORS config gets a hard
+  403. The failure therefore depends on how the bucket was created, not on what the client did.
+
+- **`garage bucket` has no `cors` subcommand.** Subcommands are alias, allow,
+  cleanup-incomplete-uploads, create, delete, deny, info, inspect-object, list, set-quotas,
+  unalias and website. CORS, like lifecycle, has to go over the S3 API, which is why both live
+  in `backend/apply_s3_config.py`. Run `/garage <group> --help` before assuming a command is
+  missing; the image has no shell, so the binary has to be invoked by absolute path.
+
+- **The e2e attachment specs pass even when the upload never reaches object storage.** The row
+  in "Загруженные файлы" and the `GET /chats/{id}/attachments` listing are both satisfied by the
+  backend registering the attachment, which happens *before* the browser performs the presigned
+  POST. A run on 2026-10-09 passed all three specs with zero `POST` requests in the Garage log.
+  Two causes stacked: the e2e override resets Garage's published ports, so the browser has no S3
+  endpoint in the e2e project at all, and on a developer machine it would reach the *dev* Garage
+  instead, because both stacks read the same `S3_ACCESS_KEY`/`S3_SECRET_KEY` from `.env`. So
+  neither the CORS regression nor a dead store is covered. Asserting the upload finished
+  requires waiting for the status to leave `queued`, and the e2e project needs its own published
+  S3 port and matching `S3_PUBLIC_URL`.

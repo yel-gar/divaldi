@@ -150,7 +150,7 @@ backend and frontend coverage pipelines:
   `test_tasks_files.py`. Garage is S3-compatible, so `app/storage.py` only changed to rename
   `MINIO_*` to `S3_*`; the work was Compose plumbing. New: `conf/garage.toml`,
   `conf/garage-init.sh`, `conf/garage.Dockerfile`, `conf/garage-rules/` and
-  `backend/apply_s3_lifecycle.py`. `conf/minio-init.sh` and `conf/minio-rules/` are gone and the
+  `backend/apply_s3_config.py`. `conf/minio-init.sh` and `conf/minio-rules/` are gone and the
   buckets are still `avatars` and `uploads` with the same three expirations. Both buckets, a
   presigned POST upload and a presigned GET were verified against the running stack, and the
   10 e2e specs pass unchanged.
@@ -185,6 +185,13 @@ backend and frontend coverage pipelines:
 
 ## Bug fixes landed since the last rewrite
 
+- **Uploads and downloads from the browser failed with `403 This CORS request is not allowed.`**
+  The MinIO-to-Garage migration left the buckets with no CORS configuration. MinIO allowed `*` by
+  default; Garage has no default and rejects any preflight that matches no rule, which broke
+  every transfer made through a presigned URL. `backend/apply_s3_config.py` (renamed from
+  `apply_s3_lifecycle.py`, service `garage-lifecycle` to `garage-config`) now sets bucket CORS
+  from `S3_CORS_ORIGINS` alongside the expiration rules. Nothing caught it earlier: the backend
+  suite never performs a preflight and both presigned calls succeed server-side.
 - **#59, retry resent the assistant's own message.** `process_response` persists the reply as a
   `ChatMessage`, so the session's last row after an error was the answer being retried, and it
   went back to the provider. `generate_chat_message` now cuts the history after the last user

@@ -55,7 +55,7 @@ exclude = [
     # One-shot operator scripts, not application code: they print progress to
     # the container log, which is the whole point.
     "./createsuperuser.py",
-    "./apply_s3_lifecycle.py"
+    "./apply_s3_config.py"
 ]
 
 [tool.ruff.lint]
