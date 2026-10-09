@@ -198,7 +198,13 @@ backend and frontend coverage pipelines:
   caller's session, builds a `Parameters` with `dataclasses.replace(DEFAULT_PARAMETERS, ...)` and
   passes it to `process_calculation`, so the instance rates reach the workbook. A
   `RequestValidationError` handler was added in `app.main` because a `NaN` in a request body made
-  the 422 itself unserialisable. 20 new tests; coverage 99.35%.
+  the 422 itself unserialisable. **Review fixes:** the painting rate was inert because the
+  template ships `=E{row}/5.53` in that cell and the code never wrote it, so painting hours are
+  now written like the other three rates and cleared on re-run; concurrent first saves no longer
+  500 (the loser of the `Settings(id=1)` insert adopts the winner's row and re-applies its
+  update, or answers 409 if there is nothing to adopt); and `AdminSettingsUpdate` forbids extra
+  keys, so rates sent without their `parameters` wrapper are a 422 rather than a 200 that
+  changed nothing. 24 new tests; backend 99.36%, processing 95.76%.
 
 ---
 

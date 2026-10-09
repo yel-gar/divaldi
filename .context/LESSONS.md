@@ -593,3 +593,15 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   the wrong path — the endpoint's own logging of the received body answered it in one run. When a
   validation test disagrees with the schema, log what the endpoint actually received before
   theorising about the validation library.
+
+- **A `rollback()` expires every instance in the session, so reading an ORM attribute
+  afterwards raises `MissingGreenlet` in async SQLAlchemy.** It surfaced in the settings
+  concurrency fix: the recovery path re-applied the update after rolling back and touched
+  `admin.id`, which the rollback had expired. The attribute read is a synchronous implicit
+  refresh, and async SQLAlchemy only performs IO inside awaited session methods. Copy anything
+  you need off ORM objects *before* the rollback, or the retry cannot run at all.
+- **A template can hold the rate a setting appears to configure.** `res/calc.xlsx` ships
+  `=E{row}/5.53` in the painting-hours cell, so `Parameters.painting_rate_m2_per_hour` was
+  accepted by the API and ignored by the calculator; the other three rates were applied because
+  their cells start empty. When a value becomes configurable, check what the artefact already
+  encodes — a formula in the sheet outranks the dataclass.

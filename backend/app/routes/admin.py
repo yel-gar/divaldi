@@ -242,13 +242,57 @@ async def admin_create_user(db: DbSession, admin: AdminUser, data: AdminCreateUs
     return user
 
 
-async def _get_or_create_settings(db) -> Settings:
-    """Load the singleton settings row, creating it on first use."""
+async def _save_settings(db, data: AdminSettingsUpdate, admin: User) -> Settings:
+    """Apply an update to the singleton settings row and persist it.
+
+    The row does not exist until the first PUT, so two admins saving at the same time
+    both read "no row", both add `Settings(id=1)`, and the loser's INSERT trips the
+    primary key. Returning an error there would silently discard that admin's change,
+    so the loser adopts the row the winner just inserted and re-applies its own update
+    on top: the last write wins, which is what two sequential saves would have done.
+    """
     settings = await db.get(Settings, SETTINGS_ROW_ID)
     if settings is None:
         settings = Settings(id=SETTINGS_ROW_ID)
         db.add(settings)
+    # Read before the rollback, not inside the recovery path: a rollback expires every
+    # instance in the session, and touching `admin.id` afterwards would trigger an
+    # implicit refresh that async SQLAlchemy refuses with MissingGreenlet.
+    admin_id = admin.id
+    stamp = datetime.now(tz=UTC)
+    _apply_settings(settings, data, admin_id, stamp)
+    try:
+        await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        settings = await db.get(Settings, SETTINGS_ROW_ID)
+        if settings is None:
+            # The other transaction rolled back as well, so there is nothing to adopt.
+            # Its author retries and gets the row they expected.
+            raise HTTPException(status_code=409, detail="Settings are being saved at the same time, retry") from e
+        _apply_settings(settings, data, admin_id, stamp)
+        await db.commit()
+    await db.refresh(settings)
     return settings
+
+
+def _apply_settings(settings: Settings, data: AdminSettingsUpdate, admin_id: int, stamp: datetime) -> None:
+    """Write the requested fields onto a settings row and stamp the audit fields.
+
+    Separate from the commit so the recovery path can re-apply the same changes to the
+    row another request created, and takes plain values rather than the `User` so that
+    nothing here can reach the database.
+    """
+    sent = data.model_fields_set
+    if "prompt_extension" in sent:
+        settings.prompt_extension = data.prompt_extension.strip()
+    if "parameters" in sent:
+        # An explicit null is the reset; absent is handled by not being in `sent`. A
+        # malformed rate object is rejected by the schema, so this only ever sees a
+        # validated model or a deliberate null.
+        settings.parameters = None if data.parameters is None else data.parameters.model_dump()
+    settings.last_update_by = admin_id
+    settings.last_update_at = stamp
 
 
 def _as_settings_response(settings: Settings) -> AdminSettingsResponse:
@@ -314,17 +358,5 @@ async def admin_update_settings(data: AdminSettingsUpdate, db: DbSession, admin:
     mutations: this touches no credentials and no ownership, and is undone by
     saving an empty string or `null` rates.
     """
-    settings = await _get_or_create_settings(db)
-    sent = data.model_fields_set
-    if "prompt_extension" in sent:
-        settings.prompt_extension = data.prompt_extension.strip()
-    if "parameters" in sent:
-        # An explicit null is the reset; absent is handled by not being in `sent`. A
-        # malformed rate object is rejected by the schema, so this only ever sees a
-        # validated model or a deliberate null.
-        settings.parameters = None if data.parameters is None else data.parameters.model_dump()
-    settings.last_update_by = admin.id
-    settings.last_update_at = datetime.now(tz=UTC)
-    await db.commit()
-    await db.refresh(settings)
+    settings = await _save_settings(db, data, admin)
     return _as_settings_response(settings)

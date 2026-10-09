@@ -728,3 +728,32 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   every route, not only the one that introduced it. The handler replaces non-finite floats with
   their text form and then applies `jsonable_encoder`, which the default handler also needs and
   which is what makes error details containing Pydantic objects encodable.
+
+## Review fixes to the settings API (2026-10-09, issue #64)
+
+- **The painting rate was inert because the template carried it, not the code.** Laser,
+  bending and welding hours are written into empty cells as `value / rate`, but the template
+  ships `=E{row}/5.53` in every painting-hours cell, and `_write_position` wrote only the area
+  beside it. So `Parameters.painting_rate_m2_per_hour` was configurable in the API and did
+  nothing to any offer. Painting hours are now written like the other three, which makes the
+  template's literal obsolete, and `_clear_positions` clears that cell too — otherwise a second
+  run with fewer positions would keep stale hours, which it could not do while the cell was a
+  formula. The three copies of `res/calc.xlsx` were left alone deliberately: the rate now comes
+  from `Parameters`, so changing the template is no longer how it is configured.
+- **Two concurrent first saves no longer 500.** The singleton row is created by the first PUT,
+  so two admins saving together both read "no row" and both insert `Settings(id=1)`; the loser
+  took a primary-key `IntegrityError` and lost its change to a 500. The loser now rolls back,
+  adopts the row the winner inserted and re-applies its own update, so the last write wins —
+  the same result as two sequential saves. If the competing transaction rolled back too, there
+  is nothing to adopt and the request answers 409 rather than pretending to have saved.
+- **`admin.id` and the timestamp are read before the rollback, not inside the recovery path.**
+  A rollback expires every instance in the session, so touching `admin.id` afterwards triggers
+  an implicit refresh that async SQLAlchemy refuses with `MissingGreenlet`. `_apply_settings`
+  therefore takes the id and the stamp as plain values, which also means nothing in it can reach
+  the database.
+- **`AdminSettingsUpdate` forbids extra fields.** The likeliest mistake in this payload is
+  sending the four rates without their `parameters` wrapper. With extras allowed those keys were
+  ignored, nothing was set, the audit fields were stamped anyway and the caller got a 200 that
+  changed nothing — a silent no-op on a settings screen. Rejecting extras turns it into a 422
+  naming the key. This is the same failure this change's own tests hit while being written, so
+  the behaviour is now pinned by a test rather than by luck.

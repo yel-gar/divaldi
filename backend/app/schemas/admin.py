@@ -95,7 +95,15 @@ class AdminSettingsUpdate(BaseModel):
     an admin reaches for after a bad edit, and forcing them to restate four numbers
     to say "undo that" invites a typo. `model_fields_set` is what tells the route
     which of the two nulls it is looking at.
+
+    `extra="forbid"` is load-bearing, not tidiness. The most likely mistake in this
+    payload is sending the rates without the `parameters` wrapper, and with extras
+    allowed that arrives as four unknown keys: nothing is set, the audit fields are
+    still stamped, and the caller gets a 200 that changed nothing. Rejecting them
+    turns a silent no-op into a 422 naming the offending key.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     prompt_extension: str | None = Field(None, max_length=MAX_PROMPT_EXTENSION_LENGTH)
     parameters: AdminRatesSchema | None = None

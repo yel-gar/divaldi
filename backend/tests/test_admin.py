@@ -5,6 +5,7 @@ import pytest
 from httpx import AsyncClient
 from processing.calculator.calc import DEFAULT_PARAMETERS, Parameters
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import hash_password
@@ -915,6 +916,10 @@ async def test_settings_are_allowed_on_a_test_instance(admin_client: AsyncClient
     response = await admin_client.put("/admin/settings", json={"prompt_extension": "Правило площаха"})
 
     assert response.status_code == 200
+    # Read back: a 200 alone would not show that the write was applied rather than
+    # accepted and dropped.
+    stored = await admin_client.get("/admin/settings")
+    assert stored.json()["prompt_extension"] == "Правило площаха"
 
 
 @pytest.mark.asyncio
@@ -1136,3 +1141,91 @@ async def test_both_settings_can_be_saved_together(admin_client: AsyncClient):
     body = response.json()
     assert body["prompt_extension"] == "Материал 5 недоступен."
     assert body["parameters"] == RATES
+
+
+@pytest.mark.asyncio
+async def test_a_concurrent_first_save_does_not_lose_this_admin_update(
+    admin_client: AsyncClient, db_session: AsyncSession, monkeypatch
+):
+    """Two admins saving before the row exists must both end up applied.
+
+    The singleton is created on first use, so both read "no row" and both try to
+    insert `Settings(id=1)`. The loser's INSERT trips the primary key; the loser then
+    adopts the row the winner inserted and re-applies its own update, so the last
+    write wins. Before this, the loser got a 500 and its change was dropped.
+    """
+    # The other admin's save landed: the row now exists in the database.
+    db_session.add(Settings(id=SETTINGS_ROW_ID, prompt_extension="Первый"))
+    await db_session.commit()
+
+    real_get = db_session.get
+    settings_reads = 0
+
+    async def get_as_if_unwritten(model, ident, **kwargs):
+        """Pretend the first read found nothing, so the route takes the insert path."""
+        nonlocal settings_reads
+        if model is Settings:
+            settings_reads += 1
+            if settings_reads == 1:
+                return None
+        return await real_get(model, ident, **kwargs)
+
+    monkeypatch.setattr(db_session, "get", get_as_if_unwritten)
+
+    response = await admin_client.put("/admin/settings", json={"prompt_extension": "Второй"})
+
+    assert response.status_code == 200
+    assert response.json()["prompt_extension"] == "Второй"
+
+    stored = await real_get(Settings, SETTINGS_ROW_ID)
+    assert stored.prompt_extension == "Второй"
+
+
+@pytest.mark.asyncio
+async def test_update_settings_rejects_an_unknown_setting(admin_client: AsyncClient, db_session: AsyncSession):
+    """The rates without their wrapper is a 422, not a 200 that changed nothing."""
+    response = await admin_client.put(
+        "/admin/settings",
+        json={"laser_speed_m_per_hour": 9.0, "welding_speed_m_per_hour": 2.0},
+    )
+
+    assert response.status_code == 422
+    assert "prompt_extension" not in response.text
+
+    # Nothing was written, so the instance is still unconfigured.
+    settings = await db_session.get(Settings, SETTINGS_ROW_ID)
+    assert settings is None
+
+
+@pytest.mark.asyncio
+async def test_a_race_that_cannot_be_recovered_reports_a_conflict(
+    admin_client: AsyncClient, db_session: AsyncSession, monkeypatch
+):
+    """When the competing insert rolls back too, there is nothing to adopt.
+
+    Both sides failed, so the row does not exist and this admin's change cannot be
+    applied. A 409 tells them to retry, which then succeeds; a 500 would not.
+    """
+    real_commit = db_session.commit
+    real_get = db_session.get
+    commits = 0
+
+    async def commit_failing_once():
+        nonlocal commits
+        commits += 1
+        if commits == 1:
+            raise IntegrityError("INSERT INTO settings", {}, Exception("duplicate key"))
+        await real_commit()
+
+    async def get_never_finding_a_row(model, ident, **kwargs):
+        if model is Settings:
+            return None
+        return await real_get(model, ident, **kwargs)
+
+    monkeypatch.setattr(db_session, "commit", commit_failing_once)
+    monkeypatch.setattr(db_session, "get", get_never_finding_a_row)
+
+    response = await admin_client.put("/admin/settings", json={"prompt_extension": "Ничего"})
+
+    assert response.status_code == 409
+    assert "same time" in response.json()["detail"]
