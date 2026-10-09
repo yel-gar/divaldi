@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,11 +10,14 @@ from starlette import status
 from app.auth import hash_password
 from app.deps import AdminUser, DbSession, ensure_can_assign_roles, ensure_outranks, require_admin
 from app.models.auth import AccountRole, User
+from app.models.settings import SETTINGS_ROW_ID, Settings
 from app.schemas import MessageResponse
 from app.schemas.admin import (
     AdminCreateUserSchema,
     AdminEditUserSchema,
     AdminSetPasswordSchema,
+    AdminSettingsResponse,
+    AdminSettingsUpdate,
     AdminUserFilters,
 )
 from app.schemas.users import AdminUserSchema
@@ -235,3 +238,76 @@ async def admin_create_user(db: DbSession, admin: AdminUser, data: AdminCreateUs
 
     await db.refresh(user)
     return user
+
+
+async def _get_or_create_settings(db) -> Settings:
+    """Load the singleton settings row, creating it on first use."""
+    settings = await db.get(Settings, SETTINGS_ROW_ID)
+    if settings is None:
+        settings = Settings(id=SETTINGS_ROW_ID)
+        db.add(settings)
+    return settings
+
+
+def _as_settings_response(settings: Settings) -> AdminSettingsResponse:
+    return AdminSettingsResponse(
+        prompt_extension=settings.prompt_extension,
+        last_update_by=settings.last_update_by,
+        last_update_at=settings.last_update_at,
+    )
+
+
+@router.get(
+    "/settings",
+    response_model=AdminSettingsResponse,
+    summary="Get the instance settings",
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "The caller is neither an admin nor a superuser"},
+    },
+)
+async def admin_get_settings(db: DbSession):
+    """Return the instance-wide settings.
+
+    An instance that has never been configured returns an empty
+    `prompt_extension` and null audit fields rather than 404: there is exactly one
+    settings row conceptually, and it simply holds no value yet.
+    """
+    settings = await db.get(Settings, SETTINGS_ROW_ID)
+    if settings is None:
+        return AdminSettingsResponse(prompt_extension="", last_update_by=None, last_update_at=None)
+    return _as_settings_response(settings)
+
+
+@router.put(
+    "/settings",
+    response_model=AdminSettingsResponse,
+    summary="Update the instance settings",
+    responses={
+        401: {"description": "Not authenticated, or session expired/invalid"},
+        403: {"description": "The caller is neither an admin nor a superuser"},
+    },
+)
+async def admin_update_settings(data: AdminSettingsUpdate, db: DbSession, admin: AdminUser):
+    """Update the instance-wide settings and return the stored result.
+
+    Only the fields present in the body are touched, so an option added to the
+    payload later will not disturb this one. Saving stamps both audit fields with
+    the acting account.
+
+    `prompt_extension` is appended to the end of the system prompt of every chat
+    created *after* this call; chats already in progress keep the prompt they
+    started with. An empty string is the reset.
+
+    Deliberately not blocked by `TEST_INSTANCE_MODE`, unlike the account
+    mutations: this touches no credentials and no ownership, and is undone by
+    saving an empty string.
+    """
+    settings = await _get_or_create_settings(db)
+    for field, value in data.model_dump(exclude_none=True).items():
+        setattr(settings, field, value.strip())
+    settings.last_update_by = admin.id
+    settings.last_update_at = datetime.now(tz=UTC)
+    await db.commit()
+    await db.refresh(settings)
+    return _as_settings_response(settings)

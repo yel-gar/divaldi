@@ -640,3 +640,49 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   because the ownership entry is gone and `verify_attachment_id` refuses the id, and the key
   expires with its TTL. Making it airtight would mean a tombstone the workers consult; not
   worth it for a file the user has just removed.
+
+## Admin-editable system prompt extension (2026-10-09, issue #64)
+
+- **`SYSTEM_PROMPT` is persisted per session, so the extension is composed at chat
+  creation and frozen for that conversation's life.** `create_chat` is the only place that
+  reads the prompt, storing it as the session's `SYSTEM` `ChatMessage`. Composing it there, via
+  the pure `build_system_prompt(extension)`, means a settings change applies to new chats and
+  never rewrites one in progress. The alternative — injecting the current prompt when the
+  worker builds history — would let a conversation change rules midway, which is worse than a
+  prompt being stale for its duration. `SYSTEM_REMINDER`, which used to sit next to
+  `SYSTEM_PROMPT` and was never imported anywhere, was deleted in the same change: a second
+  prompt constant that looks load-bearing is worse than no constant.
+- **Storage is a singleton row, enforced by a check constraint.** `settings` holds one row with
+  `id` fixed to `SETTINGS_ROW_ID = 1` and `CheckConstraint("id = 1")`, so "singleton" is a
+  database invariant rather than a convention every query has to remember. A key/value table
+  was rejected because each option would need its own accessor, validation and audit handling,
+  and the type would be a guess at read time; a typed column per option arrives as a migration.
+  Reading the value is a single indexed primary-key lookup per chat creation, so nothing is
+  cached and there is no invalidation to get wrong.
+- **Both admin tiers may edit it, and it is not blocked by `TEST_INSTANCE_MODE`.** Unlike the
+  account mutations, this write holds no credential and no ownership, and an empty string undoes
+  it, so the 450 gate would protect nothing while making a shared demo instance unable to tune
+  its prompt. The absence of a 450 on `PUT /admin/settings` is deliberate; every other
+  `POST`/`PATCH`/`DELETE` under `/admin` has one.
+- **The audit columns are nullable.** `last_update_by` is a FK with `ON DELETE SET NULL`, not
+  `RESTRICT`, so deleting an admin keeps the configuration still in force and drops only the
+  attribution; `last_update_at` is null until the first write, because "never set" and "set to
+  the empty extension" are different states and only one of them has a timestamp. `GET` therefore
+  reports nulls rather than 404 on an untouched instance, since there is one settings row
+  conceptually and it simply holds no value yet.
+- **Reset is `PUT` with an empty string, and an explicit `null` is rejected.** The payload fields
+  are optional so the next option can be added without disturbing this one, which makes "field
+  omitted" and "field is null" both reachable — and they mean opposites, so `null` is a 422, the
+  same treatment `AdminEditUserSchema` gives `role` and `username`.
+- **The extension may reference material indices but must not change them, and the prompt says
+  so.** The preamble wrapping the admin's text states that it can override the choice of
+  material (for example by making some unavailable) but cannot add materials or renumber them.
+  This matters because `MATERIALS` order is load-bearing: `material` is an integer index, so a
+  renumbering instruction would corrupt every material in the list for every chat. The bound is
+  the text of the preamble plus the admin tier, not validation — admin-authored prompt text is an
+  accepted prompt-injection surface, limited to accounts that can already reset passwords.
+- **`MAX_PROMPT_EXTENSION_LENGTH` is 8000, which is generous on purpose.** The intended content
+  is site-specific tolerances and a list of unavailable materials, so a tight cap would get in
+  the way; the bound exists to stop a pasted document being appended to every prompt the
+  instance sends. The server `strip()`s what it stores, so trailing whitespace never becomes a
+  dangling heading, and a whitespace-only value is treated as unset by `build_system_prompt`.

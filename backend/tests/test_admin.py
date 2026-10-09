@@ -2,10 +2,12 @@ import datetime
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import hash_password
 from app.models.auth import AccountRole, User
+from app.models.settings import MAX_PROMPT_EXTENSION_LENGTH, SETTINGS_ROW_ID, Settings
 
 # ---------------------------------------------------------------------------
 # GET /admin/users
@@ -773,3 +775,175 @@ async def test_edit_rejects_a_null_role(admin_client: AsyncClient, test_user: Us
     response = await admin_client.patch(f"/admin/users/{test_user.id}", json={"role": None})
 
     assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# GET/PUT /admin/settings
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_settings_defaults_when_never_configured(admin_client: AsyncClient):
+    """An untouched instance reports an empty extension, not a 404.
+
+    There is one settings row conceptually; it simply holds no value yet, so the
+    frontend can render the form without treating absence as an error.
+    """
+    response = await admin_client.get("/admin/settings")
+
+    assert response.status_code == 200
+    assert response.json() == {"prompt_extension": "", "last_update_by": None, "last_update_at": None}
+
+
+@pytest.mark.asyncio
+async def test_update_settings_stores_the_extension_and_stamps_the_audit_fields(
+    admin_client: AsyncClient,
+    test_admin_user: User,
+):
+    response = await admin_client.put(
+        "/admin/settings",
+        json={"prompt_extension": "Материал 24 недоступен для заказа."},
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+    assert body["prompt_extension"] == "Материал 24 недоступен для заказа."
+    assert body["last_update_by"] == test_admin_user.id
+    assert body["last_update_at"] is not None
+
+    # Read back through the API rather than trusting the write.
+    stored = await admin_client.get("/admin/settings")
+    assert stored.json() == body
+
+
+@pytest.mark.asyncio
+async def test_update_settings_strips_trailing_whitespace(admin_client: AsyncClient):
+    response = await admin_client.put("/admin/settings", json={"prompt_extension": "Недоступен материал 3.\n\n  "})
+
+    assert response.status_code == 200
+    assert response.json()["prompt_extension"] == "Недоступен материал 3."
+
+
+@pytest.mark.asyncio
+async def test_update_settings_with_an_empty_string_resets_but_keeps_the_audit_trail(
+    admin_client: AsyncClient,
+    test_admin_user: User,
+):
+    saved = await admin_client.put("/admin/settings", json={"prompt_extension": "Что-то"})
+    assert saved.json()["prompt_extension"] == "Что-то"
+
+    reset = await admin_client.put("/admin/settings", json={"prompt_extension": ""})
+
+    assert reset.status_code == 200
+    body = reset.json()
+    assert body["prompt_extension"] == ""
+    # The reset is itself an edit, so it stays attributable.
+    assert body["last_update_by"] == test_admin_user.id
+    assert body["last_update_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_update_settings_reuses_the_single_row(admin_client: AsyncClient, db_session: AsyncSession):
+    """Two saves must land in one row; the id is the singleton's, not a sequence's."""
+    await admin_client.put("/admin/settings", json={"prompt_extension": "Первый"})
+    await admin_client.put("/admin/settings", json={"prompt_extension": "Второй"})
+
+    rows = (await db_session.execute(select(Settings))).scalars().all()
+
+    assert len(rows) == 1
+    assert rows[0].id == SETTINGS_ROW_ID
+    assert rows[0].prompt_extension == "Второй"
+
+
+@pytest.mark.asyncio
+async def test_update_settings_rejects_an_oversized_extension(admin_client: AsyncClient):
+    response = await admin_client.put(
+        "/admin/settings", json={"prompt_extension": "x" * (MAX_PROMPT_EXTENSION_LENGTH + 1)}
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_settings_accepts_an_extension_at_the_limit(admin_client: AsyncClient):
+    response = await admin_client.put("/admin/settings", json={"prompt_extension": "x" * MAX_PROMPT_EXTENSION_LENGTH})
+
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_update_settings_rejects_a_null_extension(admin_client: AsyncClient):
+    """Explicit null is rejected, unlike omitting the field: the two mean opposites."""
+    response = await admin_client.put("/admin/settings", json={"prompt_extension": None})
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_settings_ignores_an_absent_extension(admin_client: AsyncClient, db_session: AsyncSession):
+    """An empty body is a no-op on the value, which is what lets a later option be
+    added to the payload without this one having to be resent."""
+    await admin_client.put("/admin/settings", json={"prompt_extension": "Оставить"})
+
+    response = await admin_client.put("/admin/settings", json={})
+
+    assert response.status_code == 200
+    assert response.json()["prompt_extension"] == "Оставить"
+
+
+@pytest.mark.asyncio
+async def test_admin_tier_may_edit_the_prompt(tier_admin_client: AsyncClient):
+    """Both elevated tiers can write: the prompt is not an account-level power."""
+    response = await tier_admin_client.put("/admin/settings", json={"prompt_extension": "Материал 7 недоступен."})
+
+    assert response.status_code == 200
+    assert response.json()["prompt_extension"] == "Материал 7 недоступен."
+
+
+@pytest.mark.asyncio
+async def test_settings_are_allowed_on_a_test_instance(admin_client: AsyncClient, monkeypatch):
+    """Unlike the account mutations, this write is not gated: it holds no credential
+    and no ownership, and an empty string undoes it."""
+    monkeypatch.setenv("TEST_INSTANCE_MODE", "true")
+
+    response = await admin_client.put("/admin/settings", json={"prompt_extension": "Правило площаха"})
+
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_plain_user_is_refused_the_settings_api(client: AsyncClient, test_user: User):
+    await client.post("/auth/login", json={"username": "test", "password": "password1234"})
+
+    assert (await client.get("/admin/settings")).status_code == 403
+    assert (await client.put("/admin/settings", json={"prompt_extension": "нет"})).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_settings_require_authentication(client: AsyncClient):
+    assert (await client.get("/admin/settings")).status_code == 401
+    assert (await client.put("/admin/settings", json={"prompt_extension": "нет"})).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_settings_survive_the_admin_who_wrote_them(
+    admin_client: AsyncClient,
+    db_session: AsyncSession,
+    test_admin_user: User,
+):
+    """Deleting an admin nulls the attribution and keeps the prompt.
+
+    SET NULL is the whole reason the column is nullable: the configuration is
+    still in force long after the person who typed it has gone.
+    """
+    await admin_client.put("/admin/settings", json={"prompt_extension": "Материал 12 недоступен."})
+
+    await db_session.delete(test_admin_user)
+    await db_session.commit()
+
+    settings = await db_session.get(Settings, SETTINGS_ROW_ID)
+
+    assert settings is not None
+    assert settings.prompt_extension == "Материал 12 недоступен."
+    assert settings.last_update_by is None

@@ -45,7 +45,12 @@ dev = [
 [tool.black]
 line-length = 120
 target-version = ["py314"]
-extend-exclude = "alembic/versions"
+# Separator-agnostic on purpose, and `force-exclude` rather than `extend-exclude`:
+# black applies a plain exclude only to files found by directory traversal, and the
+# pre-commit shim passes filenames explicitly, so without `force-exclude` a generated
+# migration gets reformatted and the commit fails on every platform. The character
+# class matches both separators, since Windows hands black `alembic\versions\...`.
+force-exclude = 'alembic[\\/]versions'
 
 [tool.ruff]
 line-length = 120

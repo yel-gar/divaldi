@@ -564,3 +564,15 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   neither the CORS regression nor a dead store is covered. Asserting the upload finished
   requires waiting for the status to leave `queued`, and the e2e project needs its own published
   S3 port and matching `S3_PUBLIC_URL`.
+
+- **A `--cov` run started before an edit finishes measures a half-written tree.** Reading 88.83%
+  and a failing `alembic check` mid-change looked like a collapsed coverage gate; the clean run
+  after the migration landed was 99.34%. Coverage measured concurrently with your own edits is
+  not a baseline, and the `alembic check` failure in it is expected rather than a real drift.
+- **On a 4 GB Docker Desktop, bring the e2e stack down before running Compose tooling.** With
+  `divaldi-e2e` up, `docker compose up -d db` and even a bare `docker compose ps` hung for
+  minutes, in the bash script and in the PowerShell one alike. The giveaway was a
+  `502 Bad Gateway` on `//./pipe/docker_engine` from `docker inspect`: the engine's API proxy was
+  failing, so the scripts were innocent and retrying into a sick proxy is what wasted the time.
+  `docker compose -p divaldi-e2e -f docker-compose.yaml -f docker-compose.override.yml.e2e down`
+  (no `-v`) makes the tooling reliable again.

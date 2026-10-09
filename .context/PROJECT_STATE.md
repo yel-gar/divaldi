@@ -181,6 +181,16 @@ backend and frontend coverage pipelines:
   the `localStorage` / `sessionStorage` the jsdom test environment lacks. This unblocked
   14 red tests in `sidebar.component.spec.ts` and took the suite to 154/154 green.
 
+- **Admin-editable system prompt extension (issue #64), backend only.** `GET`/`PUT
+  /admin/settings` read and write `prompt_extension`, stored in a singleton `settings` row
+  (`id` pinned to 1 by a check constraint) with `last_update_by`/`last_update_at` audit fields.
+  `build_system_prompt()` in `harness.py` appends the extension under a preamble that forbids
+  renumbering materials, and `create_chat` is the only caller, so the extension is frozen into a
+  session at creation. Both admin tiers may write it, reset is an empty string, and it is
+  deliberately not gated by `TEST_INSTANCE_MODE`. The dead `SYSTEM_REMINDER` constant was deleted
+  in the same change. 16 new tests; see the section in `DECISIONS.md`. **No admin UI exists yet** —
+  the endpoints are the whole of #64 on the server side.
+
 ---
 
 ## Bug fixes landed since the last rewrite
