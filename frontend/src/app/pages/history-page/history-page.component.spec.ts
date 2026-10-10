@@ -160,11 +160,11 @@ describe('HistoryPage', () => {
   it('shows a skeleton while loading', () => {
     create();
 
-    expect(fixture.debugElement.query(By.css('app-skeleton-history-table'))).not.toBeNull();
+    expect(fixture.debugElement.query(By.css('app-skeleton-users-table'))).not.toBeNull();
 
     flushPage(SESSIONS);
 
-    expect(fixture.debugElement.query(By.css('app-skeleton-history-table'))).toBeNull();
+    expect(fixture.debugElement.query(By.css('app-skeleton-users-table'))).toBeNull();
   });
 
   it('shows an empty state when there are no sessions', () => {

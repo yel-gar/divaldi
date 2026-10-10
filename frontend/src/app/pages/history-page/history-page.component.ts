@@ -12,7 +12,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { LucideChevronRight, LucideSearch } from '@lucide/angular';
 import { CHATS_PAGE_SIZE, ChatService } from '../../core/services/chat.service';
 import { ChatSortKey, SortOrder, UserChat } from '../../core/models/models';
-import { SkeletonHistoryTableComponent } from '../../shared/components/skeleton/skeleton-history-table/skeleton-history-table.component';
+import { SkeletonUsersTableComponent } from '../../shared/components/skeleton/skeleton-users-table/skeleton-users-table.component';
 import { InputComponent } from '../../shared/components/input/input.component';
 import {
   Table,
@@ -26,7 +26,7 @@ import {
   imports: [
     LucideChevronRight,
     LucideSearch,
-    SkeletonHistoryTableComponent,
+    SkeletonUsersTableComponent,
     RouterLink,
     InputComponent,
     Table,

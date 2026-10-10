@@ -7,7 +7,7 @@
     @if (loading() && sessions().length === 0) {
       <div class="history-card__state history-card__state--loading">
         <div class="history-card__search-skeleton skeleton-item skeleton-item--rect"></div>
-        <app-skeleton-history-table [rows]="3" />
+        <app-skeleton-users-table [rows]="3" />
       </div>
     } @else {
       <app-input
