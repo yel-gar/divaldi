@@ -7,7 +7,14 @@ import {
 import { Observable, of, throwError } from 'rxjs';
 import { delay, mergeMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { AdminUser, InstanceSettings, User, UserRole } from '../models/models';
+import {
+  AdminUser,
+  ChatMessageApi,
+  InstanceSettings,
+  User,
+  UserChat,
+  UserRole
+} from '../models/models';
 
 const MOCK_USERNAME = 'admin';
 const MOCK_PASSWORD = 'admin123';
@@ -65,6 +72,56 @@ const settings: InstanceSettings = {
   last_update_at: null
 };
 
+const CHAT_NAMES = [
+  'Кронштейн крепления',
+  'Корпус блока питания',
+  'Пластина монтажная',
+  'Рама стола',
+  'Кожух вентилятора',
+  'Петля дверная',
+  'Труба дымохода'
+];
+
+const CHAT_REQUESTS = [
+  'Нужен КП на 50 штук кронштейнов из стали 3мм, порошковая покраска RAL 7016',
+  'Посчитай корпус 200х150х80 из нержавейки 1.5мм, 10 штук, без покраски',
+  'Монтажная пластина 400х300, сталь 2мм, гибка в двух местах, тираж 200 шт',
+  'Сварная рама под станок, профиль 40х40, сталь 3мм, 5 штук, грунт + эмаль',
+  'Кожух вентилятора из оцинковки 1мм, развёртка прилагается, 100 штук',
+  'Петли дверные усиленные, сталь 4мм, 500 штук, только резка и гибка',
+  'Дымоход из нержавейки 0.8мм, длина 1.2м, диаметр 150мм, 20 штук'
+];
+
+const KP_SUMMARY = (index: number): string =>
+  `Расчёт КП готов: ${CHAT_NAMES[index].toLowerCase()}, позиций — 3, итого ${(index + 1) * 11}.5 тыс. ₽. Файл расчёта приложен.`;
+
+const chats: UserChat[] = CHAT_NAMES.map((name, index) => {
+  const timestamp = new Date(Date.now() - (index + 1) * 36 * 60 * 60 * 1000).toISOString();
+  const lastMessage: ChatMessageApi = {
+    id: (index + 1) * 10,
+    role: 'assistant',
+    content: KP_SUMMARY(index),
+    attachments: [],
+    timestamp
+  };
+  return {
+    session_id: `mock${index}-dead-beef-cafe-00000000000${index}`,
+    name,
+    last_message: lastMessage
+  };
+});
+
+const sessionMessages = (session: UserChat): ChatMessageApi[] => [
+  {
+    id: session.last_message.id - 1,
+    role: 'user',
+    content: CHAT_REQUESTS[Number(session.session_id.slice(-1))],
+    attachments: [],
+    timestamp: new Date(new Date(session.last_message.timestamp).getTime() - 60_000).toISOString()
+  },
+  session.last_message
+];
+
 type MockResponse = Observable<HttpEvent<unknown>>;
 
 const fail = (status: number, message: string): MockResponse =>
@@ -87,7 +144,8 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
 
   const respond = (): MockResponse => {
     const url = req.url.replace(environment.apiUrl, '');
-    const [path, query = ''] = url.split('?');
+    const [rawPath, query = ''] = url.split('?');
+    const path = rawPath.length > 1 && rawPath.endsWith('/') ? rawPath.slice(0, -1) : rawPath;
     const params = new URLSearchParams(query);
     const body = req.body as Record<string, unknown> | null;
 
@@ -117,7 +175,48 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
     }
 
     if (path === '/chats') {
-      return ok({ items: [], total: 0, page: Number(params.get('page') ?? 0) });
+      const page = Number(params.get('page') ?? 0);
+      const itemsPerPage = Number(params.get('items_per_page') ?? 10);
+      const sort = params.get('sort') ?? 'date';
+      const order = params.get('order') ?? 'desc';
+      const sorted = [...chats].sort((a, b) => {
+        const factor = order === 'asc' ? 1 : -1;
+        if (sort === 'number') {
+          return factor * (chats.indexOf(a) - chats.indexOf(b));
+        }
+        return (
+          factor *
+          (new Date(a.last_message.timestamp).getTime() -
+            new Date(b.last_message.timestamp).getTime())
+        );
+      });
+      const items = sorted.slice(page * itemsPerPage, (page + 1) * itemsPerPage).map((chat) => ({
+        ...chat,
+        last_message: { ...chat.last_message }
+      }));
+      return ok({ items, total: chats.length, page, items_per_page: itemsPerPage });
+    }
+
+    const chatMatch = path.match(/^\/chats\/([^/]+)(\/result)?$/);
+    if (chatMatch) {
+      const session = chats.find((candidate) => candidate.session_id === chatMatch[1]);
+      if (!session) {
+        return fail(403, 'Заявка не найдена');
+      }
+      if (chatMatch[2]) {
+        const index = chats.indexOf(session);
+        return ok({
+          running: false,
+          result: {
+            type: 'success',
+            content: KP_SUMMARY(index),
+            timestamp: session.last_message.timestamp,
+            attachment_id: null,
+            update_name: null
+          }
+        });
+      }
+      return ok(sessionMessages(session).map((message) => ({ ...message })));
     }
 
     if (path === '/admin/users' && req.method === 'GET') {
