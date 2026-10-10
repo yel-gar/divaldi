@@ -12,8 +12,6 @@ import { finalize } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   LucideCalendar,
-  LucideChevronDown,
-  LucideChevronUp,
   LucideEye,
   LucideEyeOff,
   LucidePencil,
@@ -35,21 +33,24 @@ import { ProfileService } from '../../../core/services/profile.service';
 import { extractApiErrorMessage } from '../../../shared/utils/api-error';
 import { InputComponent } from '../../../shared/components/input/input.component';
 import { Select, SelectOption } from '../../../shared/components/select/select.component';
+import {
+  Table,
+  TableColumn,
+  TableCell,
+  TableSort
+} from '../../../shared/components/table/table.component';
 import { SkeletonUsersTableComponent } from '../../../shared/components/skeleton/skeleton-users-table/skeleton-users-table.component';
 
 type UserStatus = 'active' | 'expiring' | 'expired';
 
-type UserSortKey = 'username' | 'name' | 'role' | 'status';
-type SortDirection = 'asc' | 'desc';
+const EXPIRING_SOON_DAYS = 7;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const STATUS_ORDER: Record<UserStatus, number> = {
   active: 0,
   expiring: 1,
   expired: 2
 };
-
-const EXPIRING_SOON_DAYS = 7;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 function localDateInputValue(iso: string): string {
   const date = new Date(iso);
@@ -64,9 +65,9 @@ function localDateInputValue(iso: string): string {
     ReactiveFormsModule,
     InputComponent,
     Select,
+    Table,
+    TableCell,
     SkeletonUsersTableComponent,
-    LucideChevronUp,
-    LucideChevronDown,
     LucidePencil,
     LucidePlus,
     LucideTrash2,
@@ -94,8 +95,7 @@ export class UsersPage {
   readonly deletingId = signal<number | null>(null);
   readonly showPassword = signal(false);
   readonly isFormOpen = signal(false);
-  readonly sortColumn = signal<UserSortKey | null>(null);
-  readonly sortDirection = signal<SortDirection>('asc');
+  readonly userSort = signal<TableSort>({ column: null, direction: 'asc' });
 
   /**
    * Generation of the currently open form, bumped by every openCreate() /
@@ -104,6 +104,22 @@ export class UsersPage {
    * not let the stale response hide the new form with its unsent edits.
    */
   private formSeq = 0;
+
+  readonly userColumns: TableColumn<AdminUser>[] = [
+    { key: 'username', label: 'Пользователь', sortable: true },
+    {
+      key: 'name',
+      label: 'Имя',
+      sortable: true,
+      align: 'center',
+      text: (user) => this.fullName(user)
+    },
+    { key: 'role', label: 'Роль', sortable: true, align: 'center' },
+    { key: 'status', label: 'Статус', sortable: true, align: 'center' },
+    { key: 'actions', label: 'Действия', align: 'center', visuallyHidden: true }
+  ];
+
+  readonly rowKey = (user: AdminUser) => user.id;
 
   readonly filteredUsers = computed(() => {
     const query = this.search().trim().toLowerCase();
@@ -114,47 +130,13 @@ export class UsersPage {
             .some((value) => value.toLowerCase().includes(query))
         )
       : this.users();
-    const column = this.sortColumn();
+    const { column, direction } = this.userSort();
     if (!column) {
       return matched;
     }
-    const direction = this.sortDirection() === 'asc' ? 1 : -1;
-    return [...matched].sort((a, b) => direction * this.compareBy(a, b, column));
+    const factor = direction === 'asc' ? 1 : -1;
+    return [...matched].sort((a, b) => factor * this.compareBy(a, b, column));
   });
-
-  private compareBy(a: AdminUser, b: AdminUser, column: UserSortKey): number {
-    switch (column) {
-      case 'username':
-        return a.username.localeCompare(b.username, 'ru');
-      case 'name':
-        return this.fullName(a).localeCompare(this.fullName(b), 'ru');
-      case 'role':
-        return this.roleLabel(a.role).localeCompare(this.roleLabel(b.role), 'ru');
-      case 'status':
-        return STATUS_ORDER[this.userStatus(a)] - STATUS_ORDER[this.userStatus(b)];
-    }
-  }
-
-  toggleSort(column: UserSortKey): void {
-    const nextDirection: SortDirection =
-      this.sortColumn() === column && this.sortDirection() === 'asc' ? 'desc' : 'asc';
-    this.sortColumn.set(column);
-    this.sortDirection.set(nextDirection);
-  }
-
-  ariaSortFor(column: UserSortKey): 'ascending' | 'descending' | 'none' {
-    if (this.sortColumn() !== column) {
-      return 'none';
-    }
-    return this.sortDirection() === 'asc' ? 'ascending' : 'descending';
-  }
-
-  sortIconFor(column: UserSortKey): 'up' | 'down' | null {
-    if (this.sortColumn() !== column) {
-      return null;
-    }
-    return this.sortDirection() === 'asc' ? 'up' : 'down';
-  }
 
   readonly isEditMode = computed(() => this.selectedUser() !== null);
 
@@ -280,6 +262,21 @@ export class UsersPage {
   initials(user: AdminUser): string {
     const fromNames = ((user.first_name?.[0] ?? '') + (user.last_name?.[0] ?? '')).toUpperCase();
     return fromNames || user.username.slice(0, 2).toUpperCase();
+  }
+
+  private compareBy(a: AdminUser, b: AdminUser, column: string): number {
+    switch (column) {
+      case 'username':
+        return a.username.localeCompare(b.username, 'ru');
+      case 'name':
+        return this.fullName(a).localeCompare(this.fullName(b), 'ru');
+      case 'role':
+        return this.roleLabel(a.role).localeCompare(this.roleLabel(b.role), 'ru');
+      case 'status':
+        return STATUS_ORDER[this.userStatus(a)] - STATUS_ORDER[this.userStatus(b)];
+      default:
+        return 0;
+    }
   }
 
   submit(): void {

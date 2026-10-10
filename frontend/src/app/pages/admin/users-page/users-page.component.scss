@@ -186,67 +186,6 @@
 }
 
 .users-table {
-  width: 100%;
-
-  border-collapse: collapse;
-  text-align: left;
-
-  & th {
-    padding: 10px 8px;
-
-    border-bottom: 1px solid var(--color-outline);
-
-    color: var(--color-gray);
-    font-size: 12px;
-    font-weight: 500;
-    letter-spacing: 0.4px;
-
-    & > .th-content {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-
-      padding: 0;
-
-      background: none;
-      border: none;
-
-      font: inherit;
-      color: inherit;
-
-      & > svg {
-        position: relative;
-        top: 1px;
-      }
-
-      @include focus-ring;
-    }
-
-    &.sortable {
-      user-select: none;
-
-      & > .th-content {
-        cursor: pointer;
-      }
-    }
-  }
-
-  & td {
-    padding: 12px 8px;
-
-    border-bottom: 1px solid var(--color-outline);
-  }
-
-  & tbody tr:last-child td {
-    border-bottom: none;
-  }
-
-  & th:nth-child(n + 2),
-  & td:nth-child(n + 2) {
-    text-align: center;
-  }
-
   &__user {
     display: flex;
     align-items: center;

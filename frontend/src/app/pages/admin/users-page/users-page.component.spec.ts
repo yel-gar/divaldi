@@ -113,21 +113,20 @@ describe('UsersPage', () => {
 
     sortButtons()[0].nativeElement.click();
     fixture.detectChanges();
-    expect(component.sortColumn()).toBe('username');
-    expect(component.sortDirection()).toBe('asc');
+    expect(component.userSort()).toEqual({ column: 'username', direction: 'asc' });
     expect(usernames()[0]).toContain('admin');
     expect(usernames()[2]).toContain('petrov');
 
     sortButtons()[0].nativeElement.click();
     fixture.detectChanges();
-    expect(component.sortDirection()).toBe('desc');
+    expect(component.userSort()).toEqual({ column: 'username', direction: 'desc' });
     expect(usernames()[0]).toContain('petrov');
   });
 
   it('sorts by status and keeps the sort applied to filtered users', () => {
     createPage();
 
-    component.toggleSort('status');
+    component.userSort.set({ column: 'status', direction: 'asc' });
     fixture.detectChanges();
 
     let statuses = rows().map((row) =>
@@ -155,8 +154,7 @@ describe('UsersPage', () => {
 
     expect(fixture.debugElement.queryAll(By.css('th.sortable svg')).length).toBe(0);
 
-    component.toggleSort('status');
-    component.toggleSort('status');
+    component.userSort.set({ column: 'status', direction: 'desc' });
     fixture.detectChanges();
 
     const icons = fixture.debugElement.queryAll(By.css('th.sortable .th-content svg'));
@@ -175,7 +173,7 @@ describe('UsersPage', () => {
       'none'
     ]);
 
-    component.toggleSort('role');
+    component.userSort.set({ column: 'role', direction: 'asc' });
     fixture.detectChanges();
     expect(headers()[2].nativeElement.getAttribute('aria-sort')).toBe('ascending');
   });

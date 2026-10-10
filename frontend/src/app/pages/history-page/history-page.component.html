@@ -22,67 +22,29 @@
           {{ search() ? 'Заявки не найдены' : 'Пока нет заявок' }}
         </p>
       } @else {
-        <div class="history-table-container">
-          <table>
-            <thead>
-              <tr class="h3">
-                <th scope="col" class="sortable" [attr.aria-sort]="ariaSortFor('number')">
-                  <button type="button" class="th-content" (click)="toggleSort('number')">
-                    <span>№ заявки</span>
-                    @switch (sortIconFor('number')) {
-                      @case ('up') {
-                        <svg size="14" lucideChevronUp aria-hidden="true"></svg>
-                      }
-                      @case ('down') {
-                        <svg size="14" lucideChevronDown aria-hidden="true"></svg>
-                      }
-                    }
-                  </button>
-                </th>
-                <th scope="col" class="sortable" [attr.aria-sort]="ariaSortFor('date')">
-                  <button type="button" class="th-content" (click)="toggleSort('date')">
-                    <span>Дата создания</span>
-                    @switch (sortIconFor('date')) {
-                      @case ('up') {
-                        <svg size="14" lucideChevronUp aria-hidden="true"></svg>
-                      }
-                      @case ('down') {
-                        <svg size="14" lucideChevronDown aria-hidden="true"></svg>
-                      }
-                    }
-                  </button>
-                </th>
-                <th scope="col">
-                  <span>Последнее сообщение</span>
-                </th>
-                <th scope="col">
-                  <span class="visually-hidden">Открыть заявку</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (chat of filteredSessions(); track chat.session_id) {
-                <tr (click)="open(chat.session_id)">
-                  <td>{{ shortId(chat.session_id) }}</td>
-                  <td>{{ formatDate(chat.last_message.timestamp) }}</td>
-                  <td>
-                    <span class="history-message">{{ chat.last_message.content }}</span>
-                  </td>
-                  <td>
-                    <a
-                      class="history-row-link"
-                      [routerLink]="['/chats', chat.session_id]"
-                      (click)="$event.stopPropagation()"
-                    >
-                      <svg lucideChevronRight aria-hidden="true"></svg>
-                      <span class="visually-hidden">Открыть заявку</span>
-                    </a>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
+        <app-table
+          [columns]="historyColumns"
+          [rows]="filteredSessions()"
+          [rowKey]="rowKey"
+          [sort]="historySort()"
+          [interactiveRows]="true"
+          (sortChange)="onSortChange($event)"
+          (rowClick)="open($event.session_id)"
+        >
+          <ng-template appTableCell="message" let-chat>
+            <span class="history-message">{{ chat.last_message.content }}</span>
+          </ng-template>
+          <ng-template appTableCell="open" let-chat>
+            <a
+              class="history-row-link"
+              [routerLink]="['/chats', chat.session_id]"
+              (click)="$event.stopPropagation()"
+            >
+              <svg lucideChevronRight aria-hidden="true"></svg>
+              <span class="visually-hidden">Открыть заявку</span>
+            </a>
+          </ng-template>
+        </app-table>
         @if (total() > itemsPerPage) {
           <nav class="pagination" aria-label="Постраничная навигация по истории заявок">
             <button

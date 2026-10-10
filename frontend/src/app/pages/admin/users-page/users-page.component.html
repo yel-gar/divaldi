@@ -35,113 +35,52 @@
       </p>
     } @else {
       <div class="users-table-wrapper">
-        <table class="users-table">
-          <thead>
-            <tr>
-              <th scope="col" class="sortable" [attr.aria-sort]="ariaSortFor('username')">
-                <button type="button" class="th-content" (click)="toggleSort('username')">
-                  <span>Пользователь</span>
-                  @switch (sortIconFor('username')) {
-                    @case ('up') {
-                      <svg size="14" lucideChevronUp aria-hidden="true"></svg>
-                    }
-                    @case ('down') {
-                      <svg size="14" lucideChevronDown aria-hidden="true"></svg>
-                    }
-                  }
-                </button>
-              </th>
-              <th scope="col" class="sortable" [attr.aria-sort]="ariaSortFor('name')">
-                <button type="button" class="th-content" (click)="toggleSort('name')">
-                  <span>Имя</span>
-                  @switch (sortIconFor('name')) {
-                    @case ('up') {
-                      <svg size="14" lucideChevronUp aria-hidden="true"></svg>
-                    }
-                    @case ('down') {
-                      <svg size="14" lucideChevronDown aria-hidden="true"></svg>
-                    }
-                  }
-                </button>
-              </th>
-              <th scope="col" class="sortable" [attr.aria-sort]="ariaSortFor('role')">
-                <button type="button" class="th-content" (click)="toggleSort('role')">
-                  <span>Роль</span>
-                  @switch (sortIconFor('role')) {
-                    @case ('up') {
-                      <svg size="14" lucideChevronUp aria-hidden="true"></svg>
-                    }
-                    @case ('down') {
-                      <svg size="14" lucideChevronDown aria-hidden="true"></svg>
-                    }
-                  }
-                </button>
-              </th>
-              <th scope="col" class="sortable" [attr.aria-sort]="ariaSortFor('status')">
-                <button type="button" class="th-content" (click)="toggleSort('status')">
-                  <span>Статус</span>
-                  @switch (sortIconFor('status')) {
-                    @case ('up') {
-                      <svg size="14" lucideChevronUp aria-hidden="true"></svg>
-                    }
-                    @case ('down') {
-                      <svg size="14" lucideChevronDown aria-hidden="true"></svg>
-                    }
-                  }
-                </button>
-              </th>
-              <th scope="col">
-                <span class="visually-hidden">Действия</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (user of filteredUsers(); track user.id) {
-              <tr>
-                <td>
-                  <div class="users-table__user">
-                    <span class="users-table__avatar">{{ initials(user) }}</span>
-                    <span class="users-table__username">{{ user.username }}</span>
-                  </div>
-                </td>
-                <td>{{ fullName(user) }}</td>
-                <td>
-                  <span class="badge badge--main">{{ roleLabel(user.role) }}</span>
-                </td>
-                <td>
-                  <span
-                    class="badge"
-                    [class.badge--success]="userStatus(user) === 'active'"
-                    [class.badge--warning]="userStatus(user) === 'expiring'"
-                    [class.badge--muted]="userStatus(user) === 'expired'"
-                    >{{ statusLabel(userStatus(user)) }}</span
-                  >
-                </td>
-                <td>
-                  <div class="users-table__actions">
-                    <button
-                      type="button"
-                      class="users-table__action"
-                      (click)="openEdit(user)"
-                      aria-label="Редактировать"
-                    >
-                      <svg size="16" lucidePencil aria-hidden="true"></svg>
-                    </button>
-                    <button
-                      type="button"
-                      class="users-table__action users-table__action--danger"
-                      [disabled]="deletingId() === user.id"
-                      (click)="deleteUser(user)"
-                      aria-label="Удалить"
-                    >
-                      <svg size="16" lucideTrash2 aria-hidden="true"></svg>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
+        <app-table
+          [columns]="userColumns"
+          [rows]="filteredUsers()"
+          [rowKey]="rowKey"
+          [(sort)]="userSort"
+        >
+          <ng-template appTableCell="username" let-user>
+            <div class="users-table__user">
+              <span class="users-table__avatar">{{ initials(user) }}</span>
+              <span class="users-table__username">{{ user.username }}</span>
+            </div>
+          </ng-template>
+          <ng-template appTableCell="role" let-user>
+            <span class="badge badge--main">{{ roleLabel(user.role) }}</span>
+          </ng-template>
+          <ng-template appTableCell="status" let-user>
+            <span
+              class="badge"
+              [class.badge--success]="userStatus(user) === 'active'"
+              [class.badge--warning]="userStatus(user) === 'expiring'"
+              [class.badge--muted]="userStatus(user) === 'expired'"
+              >{{ statusLabel(userStatus(user)) }}</span
+            >
+          </ng-template>
+          <ng-template appTableCell="actions" let-user>
+            <div class="users-table__actions">
+              <button
+                type="button"
+                class="users-table__action"
+                (click)="openEdit(user)"
+                aria-label="Редактировать"
+              >
+                <svg size="16" lucidePencil aria-hidden="true"></svg>
+              </button>
+              <button
+                type="button"
+                class="users-table__action users-table__action--danger"
+                [disabled]="deletingId() === user.id"
+                (click)="deleteUser(user)"
+                aria-label="Удалить"
+              >
+                <svg size="16" lucideTrash2 aria-hidden="true"></svg>
+              </button>
+            </div>
+          </ng-template>
+        </app-table>
       </div>
     }
   </article>
