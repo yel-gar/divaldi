@@ -85,7 +85,9 @@ describe('UsersPage', () => {
 
     expect(rows().length).toBe(3);
     expect(rows()[0].nativeElement.textContent).toContain('admin');
-    expect(rows()[0].nativeElement.textContent).toContain('AD');
+    expect(
+      (rows()[0].nativeElement as HTMLElement).querySelector('img.users-table__avatar')
+    ).not.toBeNull();
     expect(
       (rows()[1].nativeElement as HTMLElement).querySelector('.badge--success')
     ).not.toBeNull();

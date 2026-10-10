@@ -259,11 +259,6 @@ export class UsersPage {
     return ROLE_LABELS[role];
   }
 
-  initials(user: AdminUser): string {
-    const fromNames = ((user.first_name?.[0] ?? '') + (user.last_name?.[0] ?? '')).toUpperCase();
-    return fromNames || user.username.slice(0, 2).toUpperCase();
-  }
-
   private compareBy(a: AdminUser, b: AdminUser, column: string): number {
     switch (column) {
       case 'username':

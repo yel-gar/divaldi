@@ -193,19 +193,12 @@
   }
 
   &__avatar {
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
     flex-shrink: 0;
 
     width: 32px;
     height: 32px;
 
-    background: var(--color-hover-secondary);
     border-radius: 50%;
-
-    color: var(--color-main);
-    font-size: 12px;
   }
 
   &__username {
