@@ -13,6 +13,12 @@
       margin-top: 40px;
     }
   }
+
+  &:not(:has(.history)) {
+    & .profile {
+      margin-top: auto;
+    }
+  }
 }
 
 .sidebar__header {

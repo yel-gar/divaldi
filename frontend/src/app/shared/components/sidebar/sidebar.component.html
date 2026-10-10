@@ -118,6 +118,16 @@
         <svg size="18" lucideMoon aria-hidden="true"></svg>
       }
     </button>
+    @if (userMenuItem(); as item) {
+      <a
+        class="icon-action"
+        [routerLink]="item.route"
+        [attr.aria-label]="item.label"
+        [title]="item.label"
+      >
+        <svg size="18" [lucideIcon]="item.icon" aria-hidden="true"></svg>
+      </a>
+    }
     @if (adminItem(); as admin) {
       <a
         class="icon-action"

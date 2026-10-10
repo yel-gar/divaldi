@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
+from processing.calculator.calc import DEFAULT_PARAMETERS, Parameters
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
@@ -30,6 +31,7 @@ from app.models.chat import (
     GenerationResultType,
     UserRole,
 )
+from app.models.settings import SETTINGS_ROW_ID, Settings
 from app.providers.models import Message, Position
 from app.storage import storage
 from app.tasks import api
@@ -87,9 +89,11 @@ class JobRecorder:
 
     def __init__(self) -> None:
         self.calls: list[list[Position]] = []
+        self.parameters: list[Parameters] = []
 
-    def __call__(self, positions: list[Position]) -> bytes:
+    def __call__(self, positions: list[Position], parameters: Parameters) -> bytes:
         self.calls.append(positions)
+        self.parameters.append(parameters)
         return b"PK fake workbook"
 
 
@@ -302,17 +306,40 @@ def provider_recorder(monkeypatch) -> ProviderRecorder:
 
 
 def test_generate_kp_job_returns_a_workbook():
-    data = api._generate_kp_job([position()])
+    data = api._generate_kp_job([position()], DEFAULT_PARAMETERS)
 
     assert isinstance(data, bytes)
     assert data[:2] == b"PK", "an xlsx file is a zip archive"
 
 
-async def test_generate_kp_uploads_the_workbook(rows, s3):
+def test_generate_kp_job_honours_custom_rates():
+    """The rates are forwarded to the calculator, not just accepted.
+
+    Asserted on the arguments rather than on workbook cells, because the arithmetic
+    lives in `processing` and is tested there; what is tested here is that the
+    instance setting reaches it.
+    """
+    seen: dict[str, object] = {}
+
+    def capture(data, template_bytes, parameters=None, material_prices=None):
+        seen["parameters"] = parameters
+        return b"PK"
+
+    monkey = api.process_calculation
+    try:
+        api.process_calculation = capture
+        api._generate_kp_job([position()], Parameters(laser_speed_m_per_hour=6.5))
+    finally:
+        api.process_calculation = monkey
+
+    assert seen["parameters"] == Parameters(laser_speed_m_per_hour=6.5)
+
+
+async def test_generate_kp_uploads_the_workbook(rows, s3, db_session):
     user = await rows.user()
     session = await rows.chat_session(user)
 
-    attachment = await api._generate_kp(session.session_id, [position()])
+    attachment = await api._generate_kp(session.session_id, [position()], db_session)
 
     assert attachment.name == "kp.xlsx"
     assert attachment.ready is True
@@ -332,17 +359,84 @@ async def test_generate_kp_uploads_the_workbook(rows, s3):
         assert await db.scalar(select(func.count()).select_from(Attachment)) == 0
 
 
-async def test_generate_kp_truncates_more_than_ten_positions(rows, s3, monkeypatch):
+async def test_generate_kp_truncates_more_than_ten_positions(rows, s3, monkeypatch, db_session):
     recorder = JobRecorder()
     monkeypatch.setattr(api, "_generate_kp_job", recorder)
     user = await rows.user()
     session = await rows.chat_session(user)
 
-    attachment = await api._generate_kp(session.session_id, [position(i) for i in range(12)])
+    attachment = await api._generate_kp(session.session_id, [position(i) for i in range(12)], db_session)
 
     assert len(recorder.calls) == 1
     assert [p.name for p in recorder.calls[0]] == [f"Деталь {i + 1}" for i in range(10)]
     assert attachment.ready is True
+
+
+# --------------------------------------------------------------------------------------
+# _load_parameters: the instance rates reach the workbook
+# --------------------------------------------------------------------------------------
+
+
+async def test_load_parameters_defaults_when_nothing_is_configured(db_session):
+    assert await api._load_parameters(db_session) == DEFAULT_PARAMETERS
+
+
+async def test_load_parameters_defaults_after_a_reset(db_session):
+    """A null blob is the reset, so it must behave like no row at all."""
+    db_session.add(Settings(id=SETTINGS_ROW_ID, parameters=None))
+    await db_session.commit()
+
+    assert await api._load_parameters(db_session) == DEFAULT_PARAMETERS
+
+
+async def test_load_parameters_applies_the_stored_rates(db_session):
+    db_session.add(
+        Settings(
+            id=SETTINGS_ROW_ID,
+            parameters={
+                "laser_speed_m_per_hour": 6.0,
+                "welding_speed_m_per_hour": 3.0,
+                "bending_rate_per_hour": 60.0,
+                "painting_rate_m2_per_hour": 8.0,
+            },
+        )
+    )
+    await db_session.commit()
+
+    loaded = await api._load_parameters(db_session)
+
+    assert loaded.laser_speed_m_per_hour == 6.0
+    assert loaded.welding_speed_m_per_hour == 3.0
+    assert loaded.bending_rate_per_hour == 60.0
+    assert loaded.painting_rate_m2_per_hour == 8.0
+    # Not editable through the API, so it must survive a rate change untouched.
+    assert loaded.max_positions == DEFAULT_PARAMETERS.max_positions
+
+
+async def test_generate_kp_passes_the_stored_rates_to_the_job(rows, s3, monkeypatch, db_session):
+    recorder = JobRecorder()
+    monkeypatch.setattr(api, "_generate_kp_job", recorder)
+    user = await rows.user()
+    session = await rows.chat_session(user)
+
+    db_session.add(
+        Settings(
+            id=SETTINGS_ROW_ID,
+            parameters={
+                "laser_speed_m_per_hour": 7.5,
+                "welding_speed_m_per_hour": 2.5,
+                "bending_rate_per_hour": 70.0,
+                "painting_rate_m2_per_hour": 6.0,
+            },
+        )
+    )
+    await db_session.commit()
+
+    await api._generate_kp(session.session_id, [position()], db_session)
+
+    assert len(recorder.parameters) == 1
+    assert recorder.parameters[0].laser_speed_m_per_hour == 7.5
+    assert recorder.parameters[0].max_positions == DEFAULT_PARAMETERS.max_positions
 
 
 # --------------------------------------------------------------------------------------

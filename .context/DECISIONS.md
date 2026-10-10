@@ -640,3 +640,222 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   because the ownership entry is gone and `verify_attachment_id` refuses the id, and the key
   expires with its TTL. Making it airtight would mean a tombstone the workers consult; not
   worth it for a file the user has just removed.
+## Admin system prompt editing (2026-10-06)
+
+The admin settings page edits the system prompt over `GET/PUT /api/v1/admin/system-prompt`
+with body `{ "prompt": string }`. The frontend contract is already implemented
+(`AdminSettingsService`, `AdminSettingsPage`); the backend route is still pending — the
+prompt currently lives as the `SYSTEM_PROMPT` constant in `app/harness.py`. When adding the
+endpoint, return the same schema so the page keeps working unchanged.
+
+- **The contract reuses the admin router** (`prefix="/admin"`, `require_admin` dependency) so
+  authorization is a one-line `include_router` away and cannot leak to non-admins.
+- **The frontend disables the editor until the prompt loads** instead of showing a blank
+  editable field: saving a blank over an unknown prompt would silently wipe the real one.
+## Admin machine parameters editing (2026-10-09)
+
+The settings page edits production norms over `GET/PUT /api/v1/admin/parameters` with the
+`Parameters` shape from `processing/calculator/calc.py`. Same split as the system prompt:
+the frontend contract is implemented (`AdminSettingsService`, second card on
+`AdminSettingsPage`), the backend route is still pending.
+
+- **`max_positions` is immutable and not rendered at all**, so the PUT body
+  (`MachineParametersPayload`) holds only the four editable rates. If the backend ever accepts
+  it, the contract still matches — the page just never sends it.
+- **The form stays disabled until the parameters load**, same rule as the prompt editor:
+  saving defaults over unknown values would silently reset real norms.
+- **Rates must be positive numbers** (`required` + numeric pattern + `min(0.01)`); the form
+  uses `type="number"` inputs with dot decimals, converted with `Number()` on save.
+## Users form as a slide-over panel (2026-10-09)
+
+The "Новый пользователь" / "Редактирование пользователя" card on the admin users page is no
+longer a second grid column: it is an `<aside>` that slides in over a host grid animating
+`1fr 0fr` to `1.5fr 1fr`, the same mechanism as the "Результаты расчёта" panel in the agent
+chat (`isResultsOpen`, host class binding, opacity/visibility staging, reduced-motion opt-out).
+
+- **A slide-over, not a modal**, because the table stays visible and interactive behind the
+  form, and no overlay/focus-trap machinery is needed — the pattern already exists in the
+  codebase, so it is copied rather than reinvented.
+- **The panel closes on save, cancel and the X button**, all through `closeForm()` (which
+  resets the form). `selectUser()`/`resetForm()` stay pure form logic so existing callers and
+  specs keep working; `openCreate()`/`openEdit()` only add the open step.
+- **The open panel track carries a length floor so it fits its content.** A bare `1fr`
+  track is `minmax(auto, 1fr)`, and the aside's `min-width: 0` (needed for the `0fr` collapse)
+  lets the track shrink past the 32px panel titles — "Редактирование пользователя" spilled
+  ~176px past the card at 1200px viewport, and the chat's "Результаты расчёта" wrapped to two
+  lines for the same reason. The floor makes the table/chat side absorb the squeeze (both
+  scroll internally); verified by Playwright measurements on the dev stack, not by eye.
+- **The floor is a length inside `minmax()`, not `max-content`.** Applied instantly,
+  `min-width: max-content` kills the slide, and animating it needs `interpolate-size`, which
+  Safari lacks — the panel popped to full width there. `minmax(0, 1fr) minmax(0px, 0fr)` opening
+  to `minmax(0, 1.5fr) minmax(600px, 1fr)` (440px in chat) interpolates as plain lengths
+  everywhere; sampled frame widths ramp smoothly in both Chromium and WebKit
+  (82→109→424→540→591→595). 600px fits the longest panel title; below 900px the users grid
+  stacks and the floor is dropped.
+- **The aside is `overflow: visible` only when open** (hidden while closed for the animation):
+  the role `app-select` renders its dropdown as inline `position: absolute`, which a permanent
+  `overflow: hidden` would clip. Below 900px the host stacks to one column and the closed
+panel is `display: none`, otherwise its invisible content would hold open an empty grid row.
+
+## Admin-editable system prompt extension (2026-10-09, issue #64)
+
+- **`SYSTEM_PROMPT` is persisted per session, so the extension is composed at chat
+  creation and frozen for that conversation's life.** `create_chat` is the only place that
+  reads the prompt, storing it as the session's `SYSTEM` `ChatMessage`. Composing it there, via
+  the pure `build_system_prompt(extension)`, means a settings change applies to new chats and
+  never rewrites one in progress. The alternative — injecting the current prompt when the
+  worker builds history — would let a conversation change rules midway, which is worse than a
+  prompt being stale for its duration. `SYSTEM_REMINDER`, which used to sit next to
+  `SYSTEM_PROMPT` and was never imported anywhere, was deleted in the same change: a second
+  prompt constant that looks load-bearing is worse than no constant.
+- **Storage is a singleton row, enforced by a check constraint.** `settings` holds one row with
+  `id` fixed to `SETTINGS_ROW_ID = 1` and `CheckConstraint("id = 1")`, so "singleton" is a
+  database invariant rather than a convention every query has to remember. A key/value table
+  was rejected because each option would need its own accessor, validation and audit handling,
+  and the type would be a guess at read time; a typed column per option arrives as a migration.
+  Reading the value is a single indexed primary-key lookup per chat creation, so nothing is
+  cached and there is no invalidation to get wrong.
+- **Both admin tiers may edit it, and it is not blocked by `TEST_INSTANCE_MODE`.** Unlike the
+  account mutations, this write holds no credential and no ownership, and an empty string undoes
+  it, so the 450 gate would protect nothing while making a shared demo instance unable to tune
+  its prompt. The absence of a 450 on `PUT /admin/settings` is deliberate; every other
+  `POST`/`PATCH`/`DELETE` under `/admin` has one.
+- **The audit columns are nullable.** `last_update_by` is a FK with `ON DELETE SET NULL`, not
+  `RESTRICT`, so deleting an admin keeps the configuration still in force and drops only the
+  attribution; `last_update_at` is null until the first write, because "never set" and "set to
+  the empty extension" are different states and only one of them has a timestamp. `GET` therefore
+  reports nulls rather than 404 on an untouched instance, since there is one settings row
+  conceptually and it simply holds no value yet.
+- **Reset is `PUT` with an empty string, and an explicit `null` is rejected.** The payload fields
+  are optional so the next option can be added without disturbing this one, which makes "field
+  omitted" and "field is null" both reachable — and they mean opposites, so `null` is a 422, the
+  same treatment `AdminEditUserSchema` gives `role` and `username`.
+- **The extension may reference material indices but must not change them, and the prompt says
+  so.** The preamble wrapping the admin's text states that it can override the choice of
+  material (for example by making some unavailable) but cannot add materials or renumber them.
+  This matters because `MATERIALS` order is load-bearing: `material` is an integer index, so a
+  renumbering instruction would corrupt every material in the list for every chat. The bound is
+  the text of the preamble plus the admin tier, not validation — admin-authored prompt text is an
+  accepted prompt-injection surface, limited to accounts that can already reset passwords.
+- **`MAX_PROMPT_EXTENSION_LENGTH` is 8000, which is generous on purpose.** The intended content
+  is site-specific tolerances and a list of unavailable materials, so a tight cap would get in
+  the way; the bound exists to stop a pasted document being appended to every prompt the
+  instance sends. The server `strip()`s what it stores, so trailing whitespace never becomes a
+  dangling heading, and a whitespace-only value is treated as unset by `build_system_prompt`.
+
+## Configurable production rates in the instance settings (2026-10-09, issue #64, follow-up)
+
+- **The four production rates are editable per instance; `max_positions` is not.** The
+  calculator's `Parameters` dataclass has five fields, and only four are exposed. `max_positions`
+  stays fixed at 10 because three separate places assume that number: the backend truncates with
+  `positions[:10]`, `_generate_kp` logs `too_many_positions` above it, and the Russian system
+  prompt tells the model "Позиций может быть максимально 10". Exposing it would have meant an
+  admin-facing field that silently does nothing, or a prompt that contradicts the code. It also
+  drives `range(params.max_positions)` in `_clear_positions`, so a value above 10 reaches parts
+  of the template no test covers. Making it configurable is a separate change that has to move
+  all four together.
+- **Rates live in one JSONB column, not one column per rate.** The set mirrors the `processing`
+  dataclass, and a blob means adding a rate there is a change to that dataclass rather than a
+  migration here. The cost is losing database-level typing on four numbers that are validated by
+  Pydantic and read by one function, which is a trade worth making for a singleton settings row.
+- **A rate set is all-or-nothing, and `null` is the reset.** Every field is required once
+  `parameters` appears, so a payload naming one rate cannot silently return the other three to
+  their defaults — these numbers become prices. Sending `parameters: null` restores the
+  defaults, which is the way back from a bad edit; omitting the key leaves the current rates
+  alone. The route distinguishes the two with `model_fields_set`, so `null` and absent are not
+  conflated.
+- **The API reports the effective rates, not the stored blob.** `GET` on an unconfigured instance
+  returns the calculator's own defaults, so a form renders with real numbers in it. The defaults
+  come from `Parameters` rather than being restated in the schema, and
+  `test_rates_cover_every_editable_parameter` fails if a field is added to the dataclass without a
+  decision about it — otherwise a new rate would be quietly unconfigurable with nothing failing.
+- **Rates reach the workbook through the session, not a fresh query.** `_generate_kp` takes the
+  `AsyncSession` the caller already has and passes a `Parameters` instance into
+  `_generate_kp_job`, which hands it to `process_calculation`. `dataclasses.replace` builds it
+  from `DEFAULT_PARAMETERS`, so a rate the API cannot edit keeps the dataclass value and the reset
+  needs no branch. The dataclass is frozen, which also makes it safe to pass into the worker
+  thread. Nothing is cached: one settings read per generated offer.
+- **`GET /admin/settings` grew a field, so the response shape is no longer just the stored
+  value.** The handler takes the same argument as every other admin mutation and is still not
+  gated by `TEST_INSTANCE_MODE`.
+- **A `RequestValidationError` handler sanitises non-finite numbers.** Starlette's `JSONResponse`
+  writes with `allow_nan=False` and FastAPI's default handler copies the offending input into the
+  error detail, so a body containing a `NaN` literal turned a 422 into a crash — measured, on
+  every route, not only the one that introduced it. The handler replaces non-finite floats with
+  their text form and then applies `jsonable_encoder`, which the default handler also needs and
+  which is what makes error details containing Pydantic objects encodable.
+
+## Review fixes to the settings API (2026-10-09, issue #64)
+
+- **The painting rate was inert because the template carried it, not the code.** Laser,
+  bending and welding hours are written into empty cells as `value / rate`, but the template
+  ships `=E{row}/5.53` in every painting-hours cell, and `_write_position` wrote only the area
+  beside it. So `Parameters.painting_rate_m2_per_hour` was configurable in the API and did
+  nothing to any offer. Painting hours are now written like the other three, which makes the
+  template's literal obsolete, and `_clear_positions` clears that cell too — otherwise a second
+  run with fewer positions would keep stale hours, which it could not do while the cell was a
+  formula. The three copies of `res/calc.xlsx` were left alone deliberately: the rate now comes
+  from `Parameters`, so changing the template is no longer how it is configured.
+- **Two concurrent first saves no longer 500.** The singleton row is created by the first PUT,
+  so two admins saving together both read "no row" and both insert `Settings(id=1)`; the loser
+  took a primary-key `IntegrityError` and lost its change to a 500. The loser now rolls back,
+  adopts the row the winner inserted and re-applies its own update, so the last write wins —
+  the same result as two sequential saves. If the competing transaction rolled back too, there
+  is nothing to adopt and the request answers 409 rather than pretending to have saved.
+- **`admin.id` and the timestamp are read before the rollback, not inside the recovery path.**
+  A rollback expires every instance in the session, so touching `admin.id` afterwards triggers
+  an implicit refresh that async SQLAlchemy refuses with `MissingGreenlet`. `_apply_settings`
+  therefore takes the id and the stamp as plain values, which also means nothing in it can reach
+  the database.
+- **`AdminSettingsUpdate` forbids extra fields.** The likeliest mistake in this payload is
+  sending the four rates without their `parameters` wrapper. With extras allowed those keys were
+  ignored, nothing was set, the audit fields were stamped anyway and the caller got a 200 that
+  changed nothing — a silent no-op on a settings screen. Rejecting extras turns it into a 422
+ naming the key. This is the same failure this change's own tests hit while being written, so
+ the behaviour is now pinned by a test rather than by luck.
+
+## Frontend settings page synced to the unified settings endpoint (2026-10-10)
+
+- **The two provisional frontend endpoints never existed on the backend.** The page was built
+  against `GET/PUT /admin/system-prompt` (`{prompt}`) and `GET/PUT /admin/parameters` (bare
+  rates), while the backend shipped the unified `GET/PUT /admin/settings` carrying
+  `{prompt_extension, parameters, last_update_by, last_update_at}`. The service now exposes
+  `getSettings()` plus `updateSettings(patch)` and each card saves a partial body
+  (`{prompt_extension}` or `{parameters: {...}}`), which the backend's `model_fields_set`
+  handling supports. This supersedes the "backend route is still pending" notes in the two
+  earlier frontend sections above; those describe a contract that was never implemented.
+- **The old shapes would have failed, not degraded.** Bare rates without the `parameters`
+  wrapper are rejected with 422 by `extra="forbid"`, and `{prompt}` names a field the schema
+  does not have, so the mismatch surfaced as errors rather than silent drift. No compatibility
+  shim was added: both sides are owned by this repo and moved together.
+- **The form refuses to save a blank prompt extension.** `canSave` requires the trimmed
+  value to be non-empty, so whitespace-only input never reaches the server as a no-op
+  write. The backend still treats `""` as the reset (reachable with a direct `PUT`), but
+  the UI offers no "clear the extension" path: an accidental select-all plus save must not
+  silently drop the site's tolerances. The "don't wipe an unknown value" rule is still kept
+  separately by disabling the editor until the settings load.
+- **`MAX_PROMPT_EXTENSION_LENGTH` is 8000 on both sides.** The page previously capped at
+  20000, which would have passed values the server rejects with 422. The counter threshold
+  moved with it (7000), since the old 15000 could never be reached under an 8000 cap.
+- **`max_positions` is gone from the frontend model.** The backend never returns it
+  (`AdminRatesSchema` has four fields), so `MachineParameters` now mirrors those four and
+  `MachineParametersPayload` was removed. The card hint was also corrected: the extension
+  applies to new chats, not to "new messages in all sessions" — in-progress sessions keep the
+  prompt they started with.
+
+## Shared table component (`app-table`) (2026-10-10)
+
+The admin users table and the requests history table are visually identical, so the
+styling was extracted into `frontend/src/app/shared/components/table/` instead of being
+duplicated per page.
+
+- The component is deliberately **dumb about data**: it renders `TableColumn<T>[]` and
+  rows, and only *reports* sort intent through the `sort` model — it never sorts itself.
+  The users page sorts client-side (its data is one unpaginated list), the history page
+  re-queries the server (`sort`/`order` on `GET /chats`), and both keep their comparators.
+- Custom cells (avatars, badges, action buttons, links) are projected via
+  `ng-template[appTableCell="<column key>"]` with the row as `$implicit`; text-only cells
+  use `TableColumn.text`.
+- `interactiveRows` opts a table into clickable, hover-highlighted rows (history); the
+  users table stays non-interactive. Class names `th.sortable` / `.th-content` are kept
+  from the pre-refactor markup because both page specs select them.

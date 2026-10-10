@@ -536,6 +536,7 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   even though the backend container was healthy and correctly aliased. `--force-recreate`
   fixed it; a plain restart would not have.
 
+- **A `1fr 1fr` grid with a table inside blows out the centered container.** Grid `1fr` tracks are `minmax(auto, 1fr)`, so a wide table (unbreakable badges like `Суперпользователь`) forces the track past its share and the grid spills right past `max-width: 1200px; margin: 0 auto`, making the page look shifted versus single-column pages. Fix is `min-width: 0` on the grid children plus an `overflow-x: auto` wrapper around the table, the same pattern `history-page` already uses. No SCSS gate catches this (ESLint skips `.scss`, no stylelint).
 - **Garage has no default CORS policy, and the 403 it returns does not name the cause.** Every
   browser upload and download goes through a presigned URL, so each one is preflighted; with no
   `cors_config` on the bucket, `handle_options_for_bucket` finds no matching rule and answers
@@ -564,3 +565,66 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   neither the CORS regression nor a dead store is covered. Asserting the upload finished
   requires waiting for the status to leave `queued`, and the e2e project needs its own published
   S3 port and matching `S3_PUBLIC_URL`.
+
+- **A `--cov` run started before an edit finishes measures a half-written tree.** Reading 88.83%
+  and a failing `alembic check` mid-change looked like a collapsed coverage gate; the clean run
+  after the migration landed was 99.34%. Coverage measured concurrently with your own edits is
+  not a baseline, and the `alembic check` failure in it is expected rather than a real drift.
+- **On a 4 GB Docker Desktop, bring the e2e stack down before running Compose tooling.** With
+  `divaldi-e2e` up, `docker compose up -d db` and even a bare `docker compose ps` hung for
+  minutes, in the bash script and in the PowerShell one alike. The giveaway was a
+  `502 Bad Gateway` on `//./pipe/docker_engine` from `docker inspect`: the engine's API proxy was
+  failing, so the scripts were innocent and retrying into a sick proxy is what wasted the time.
+  `docker compose -p divaldi-e2e -f docker-compose.yaml -f docker-compose.override.yml.e2e down`
+  (no `-v`) makes the tooling reliable again.
+
+- **A 422 whose detail quotes a `NaN` cannot be encoded, and the failure looks like a 200 or a
+  crash rather than a validation error.** Python's `json.loads` accepts the `NaN` and `Infinity`
+  literals, so a client can send one; Starlette's `JSONResponse` writes with `allow_nan=False`,
+  and FastAPI's default `RequestValidationError` handler copies the offending input into the
+  detail. The response then fails to serialise. Fixed by a handler in `app.main` that replaces
+  non-finite floats with their text form and then applies `jsonable_encoder` — omitting the
+  latter breaks any error detail containing a Pydantic model, including pre-existing routes.
+  `httpx` cannot *encode* these values, so a test using `json=` proves nothing; send the raw body.
+- **A test that builds a request body from a dict of values can silently omit the wrapper key,
+  and the endpoint then reports success while changing nothing.** The 422-vs-200 confusion while
+  adding the rates was entirely this: the body was the bare rate object, `AdminSettingsUpdate`
+  ignores unknown keys, so `parameters` was absent and the route correctly did nothing. Chasing
+  it through Pydantic unions, `allow_inf_nan`, stale bytecode and installed-package shadowing was
+  the wrong path — the endpoint's own logging of the received body answered it in one run. When a
+  validation test disagrees with the schema, log what the endpoint actually received before
+  theorising about the validation library.
+
+- **A `rollback()` expires every instance in the session, so reading an ORM attribute
+  afterwards raises `MissingGreenlet` in async SQLAlchemy.** It surfaced in the settings
+  concurrency fix: the recovery path re-applied the update after rolling back and touched
+  `admin.id`, which the rollback had expired. The attribute read is a synchronous implicit
+  refresh, and async SQLAlchemy only performs IO inside awaited session methods. Copy anything
+  you need off ORM objects *before* the rollback, or the retry cannot run at all.
+- **A template can hold the rate a setting appears to configure.** `res/calc.xlsx` ships
+  `=E{row}/5.53` in the painting-hours cell, so `Parameters.painting_rate_m2_per_hour` was
+  accepted by the API and ignored by the calculator; the other three rates were applied because
+  their cells start empty. When a value becomes configurable, check what the artefact already
+  encodes — a formula in the sheet outranks the dataclass.
+- **In e2e, edit form fields with real keystrokes, not `fill()`.** The custom `app-input` /
+  `app-textarea` controls propagate only trusted input events to the reactive form: a
+  programmatic `fill()` changes the DOM value while the form stays pristine, so the save
+  button never enables and the failure reads as "button is disabled" with the right text
+  visibly in the field. `fill("")` plus `pressSequentially()` behaves like a user and updates
+  the model. Assert the button is enabled before clicking, or the test passes vacuously.
+- **The e2e override needs the same `linux/amd64` platform pins as the dev override.**
+  Every service built from `backend/Dockerfile` fails to build natively on ARM Macs because
+  pymupdf has no musl/aarch64 wheel; without the pins `setup.sh` dies in `poetry install`.
+  The garage service itself stays unpinned. CI never sees this because its runners are amd64.
+- **A green DOM is not a quiet backend: wait for `chat:generation:*` between e2e tests.**
+  `POST /chats/` answers 409 while the previous test's generation is still draining the
+  worker pipeline, and a test that only asserts on the DOM finishes long before that. The
+  failure then lands on the *next* test's `createChat` navigation with no mention of a lock.
+  The auto fixture in `tests/helpers.ts` polls the key out of the e2e Redis before every
+  test (bounded, 120 s); on a fast machine it is one round trip. The 429 rate-limit
+  clearing next to it fixes a different symptom — check the backend log for which one fired
+  before debugging the test.
+- **Open the users slide-over before touching the form in e2e.** The admin specs were
+  written when the form was always visible; since it became a panel, its controls exist in
+   the DOM while closed, so visibility assertions fail and count assertions pass vacuously.
+   Click `Новый пользователь` (or the row edit action) first.

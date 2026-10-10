@@ -1,11 +1,12 @@
 import asyncio
 import json
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import structlog.stdlib
-from processing.calculator.calc import process_calculation
+from processing.calculator.calc import DEFAULT_PARAMETERS, Parameters, process_calculation
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +22,7 @@ from app.models.chat import (
     GenerationResultType,
     UserRole,
 )
+from app.models.settings import SETTINGS_ROW_ID, Settings
 from app.providers.containers import provider
 from app.providers.models import (
     HarnessStructuredOutput,
@@ -41,11 +43,14 @@ async def _add_error_result(db: AsyncSession, session: uuid.UUID, error_msg: str
         await redis.delete(get_generation_key(user_uuid))
 
 
-async def _generate_kp(session_id: uuid.UUID, positions: list[Position]) -> Attachment:
+async def _generate_kp(session_id: uuid.UUID, positions: list[Position], db: AsyncSession) -> Attachment:
     if len(positions) > 10:
         log.warning("too_many_positions")
-        # TODO: support more positions
-    data = await asyncio.to_thread(_generate_kp_job, positions[:10])
+        # TODO: support more positions. The slice below and the "максимально 10" in
+        # the system prompt are both fixed at 10, which is why `max_positions` is not
+        # editable in /admin/settings; see DECISIONS.md.
+    parameters = await _load_parameters(db)
+    data = await asyncio.to_thread(_generate_kp_job, positions[:10], parameters)
     s3_key = get_s3_attachment_key(session_id, "kp.xlsx")
     async with storage.internal_client() as s3:
         await s3.put_object(
@@ -58,10 +63,28 @@ async def _generate_kp(session_id: uuid.UUID, positions: list[Position]) -> Atta
     return Attachment(name="kp.xlsx", session_id=session_id, s3_key=s3_key, ready=True)
 
 
-def _generate_kp_job(positions: list[Position]) -> bytes:
+async def _load_parameters(db: AsyncSession) -> Parameters:
+    """The production rates this instance runs with.
+
+    A missing or null settings row means the calculator's own defaults, and the same
+    is true of a rate set that was reset. `replace` rather than `Parameters(**blob)`
+    so that a rate the admin cannot edit keeps the value the dataclass defines, and
+    so the reset needs no separate branch.
+    """
+    stored = await db.scalar(select(Settings.parameters).where(Settings.id == SETTINGS_ROW_ID))
+    if not stored:
+        return DEFAULT_PARAMETERS
+    return replace(DEFAULT_PARAMETERS, **stored)
+
+
+def _generate_kp_job(positions: list[Position], parameters: Parameters) -> bytes:
     # very ugly thanks Andrew but it's ok
     template_sheet = (Path(__file__).parent.parent.parent / "res/calc.xlsx").read_bytes()
-    return process_calculation({"positions": [p.model_dump() for p in positions]}, template_sheet)
+    return process_calculation(
+        {"positions": [p.model_dump() for p in positions]},
+        template_sheet,
+        parameters=parameters,
+    )
 
 
 def _history_up_to_last_user_message(rows: list[ChatMessage]) -> list[ChatMessage]:
@@ -184,7 +207,7 @@ async def process_response(user_uuid: uuid.UUID, session_id: uuid.UUID, response
         async with tsq_db() as db:
             attachment = None
             if output.gen_kp and len(output.positions) > 0:
-                attachment = await _generate_kp(session_id, output.positions)
+                attachment = await _generate_kp(session_id, output.positions, db)
                 db.add(attachment)
             update_name = None
             if output.chat_name:

@@ -3,80 +3,74 @@
     <h1 class="h2">История заявок</h1>
     <p class="h4">Просматривайте статус и детали всех ваших заявок</p>
   </header>
-  @if (loading() && sessions().length === 0) {
-    <div class="history-state">
-      <app-skeleton-history-table [rows]="3" />
-    </div>
-  } @else if (sessions().length === 0) {
-    <p class="history-state history-state--empty">Пока нет заявок</p>
-  } @else {
-    <div class="history-table-container">
-      <table>
-        <thead>
-          <tr class="h3">
-            <th scope="col" class="sortable" [attr.aria-sort]="ariaSortFor('number')">
-              <button type="button" class="th-content" (click)="toggleSort('number')">
-                <span>№ заявки</span>
-                <svg size="14" lucideChevronsUpDown aria-hidden="true"></svg>
-              </button>
-            </th>
-            <th scope="col" class="sortable" [attr.aria-sort]="ariaSortFor('date')">
-              <button type="button" class="th-content" (click)="toggleSort('date')">
-                <span>Дата создания</span>
-                <svg size="14" lucideChevronsUpDown aria-hidden="true"></svg>
-              </button>
-            </th>
-            <th scope="col">
-              <span>Последнее сообщение</span>
-            </th>
-            <th scope="col">
-              <span class="visually-hidden">Открыть заявку</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (chat of sessions(); track chat.session_id) {
-            <tr (click)="open(chat.session_id)">
-              <td>{{ shortId(chat.session_id) }}</td>
-              <td>{{ formatDate(chat.last_message.timestamp) }}</td>
-              <td>
-                <span class="history-message">{{ chat.last_message.content }}</span>
-              </td>
-              <td>
-                <a
-                  class="history-row-link"
-                  [routerLink]="['/chats', chat.session_id]"
-                  (click)="$event.stopPropagation()"
-                >
-                  <svg lucideChevronRight aria-hidden="true"></svg>
-                  <span class="visually-hidden">Открыть заявку</span>
-                </a>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-    @if (total() > itemsPerPage) {
-      <nav class="pagination" aria-label="Постраничная навигация по истории заявок">
-        <button
-          type="button"
-          class="pagination__button"
-          [disabled]="!canGoBack()"
-          (click)="previousPage()"
-        >
-          Назад
-        </button>
-        <span class="pagination__status h4">Страница {{ page() + 1 }} из {{ totalPages() }}</span>
-        <button
-          type="button"
-          class="pagination__button"
-          [disabled]="!canGoForward()"
-          (click)="nextPage()"
-        >
-          Вперёд
-        </button>
-      </nav>
+  <article class="history-card">
+    @if (loading() && sessions().length === 0) {
+      <div class="history-card__state history-card__state--loading">
+        <div class="history-card__search-skeleton skeleton-item skeleton-item--rect"></div>
+        <app-skeleton-users-table [rows]="3" />
+      </div>
+    } @else {
+      <app-input
+        inputId="history-search"
+        placeholder="Поиск заявки..."
+        [leftIcon]="searchIcon"
+        [value]="search()"
+        (valueChange)="search.set($event)"
+      />
+      @if (filteredSessions().length === 0) {
+        <p class="history-card__state history-state--empty">
+          {{ search() ? 'Заявки не найдены' : 'Пока нет заявок' }}
+        </p>
+      } @else {
+        <div class="history-table-wrapper">
+          <app-table
+            [columns]="historyColumns"
+            [rows]="filteredSessions()"
+            [rowKey]="rowKey"
+            [sort]="historySort()"
+            [interactiveRows]="true"
+            (sortChange)="onSortChange($event)"
+            (rowClick)="open($event.session_id)"
+          >
+            <ng-template appTableCell="message" let-chat>
+              <span class="history-message">{{ chat.last_message.content }}</span>
+            </ng-template>
+            <ng-template appTableCell="open" let-chat>
+              <a
+                class="history-row-link"
+                [routerLink]="['/chats', chat.session_id]"
+                (click)="$event.stopPropagation()"
+              >
+                <svg lucideChevronRight aria-hidden="true"></svg>
+                <span class="visually-hidden">Открыть заявку</span>
+              </a>
+            </ng-template>
+          </app-table>
+        </div>
+        @if (total() > itemsPerPage) {
+          <nav class="pagination" aria-label="Постраничная навигация по истории заявок">
+            <button
+              type="button"
+              class="pagination__button"
+              [disabled]="!canGoBack()"
+              (click)="previousPage()"
+            >
+              Назад
+            </button>
+            <span class="pagination__status h4"
+              >Страница {{ page() + 1 }} из {{ totalPages() }}</span
+            >
+            <button
+              type="button"
+              class="pagination__button"
+              [disabled]="!canGoForward()"
+              (click)="nextPage()"
+            >
+              Вперёд
+            </button>
+          </nav>
+        }
+      }
     }
-  }
+  </article>
 </section>

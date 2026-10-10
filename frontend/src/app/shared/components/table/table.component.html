@@ -1,0 +1,64 @@
+<div class="table-wrapper">
+  <table class="table">
+    <thead>
+      <tr>
+        @for (column of columns(); track column.key) {
+          @if (column.sortable) {
+            <th
+              scope="col"
+              class="sortable"
+              [class.table--center]="column.align === 'center'"
+              [class.table--right]="column.align === 'right'"
+              [attr.aria-sort]="ariaSortFor(column)"
+            >
+              <button type="button" class="th-content" (click)="toggleSort(column)">
+                <span [class.visually-hidden]="column.visuallyHidden">{{ column.label }}</span>
+                @switch (sortIconFor(column)) {
+                  @case ('up') {
+                    <svg size="14" lucideChevronUp aria-hidden="true"></svg>
+                  }
+                  @case ('down') {
+                    <svg size="14" lucideChevronDown aria-hidden="true"></svg>
+                  }
+                }
+              </button>
+            </th>
+          } @else {
+            <th
+              scope="col"
+              [class.table--center]="column.align === 'center'"
+              [class.table--right]="column.align === 'right'"
+            >
+              <span [class.visually-hidden]="column.visuallyHidden">{{ column.label }}</span>
+            </th>
+          }
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows(); track rowKey()(row)) {
+        <tr
+          class="table__row"
+          [class.table__row--interactive]="interactiveRows()"
+          (click)="onRowClick(row)"
+        >
+          @for (column of columns(); track column.key) {
+            <td
+              [class.table--center]="column.align === 'center'"
+              [class.table--right]="column.align === 'right'"
+            >
+              @if (cellFor(column); as cell) {
+                <ng-container
+                  [ngTemplateOutlet]="cell.template"
+                  [ngTemplateOutletContext]="{ $implicit: row }"
+                />
+              } @else if (column.text) {
+                {{ column.text(row) }}
+              }
+            </td>
+          }
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

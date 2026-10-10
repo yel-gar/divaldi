@@ -61,7 +61,9 @@ Divaldi is **Angular 21.2** standalone with signals, targeting **ES2022**.
 - **Never hardcode a backend URL.** `environment.prod.ts` holds the placeholder
   `apiUrl: '__BACKEND_URL__/api/v1'`, rewritten at image build time by
   `docker/rewrite-env.mjs` from the `BACKEND_URL` build arg.
-- Dev proxying goes through `proxy.conf.json` (`/api` -> `localhost:3000`).
+- Dev proxying goes through `proxy.conf.js` (`/api` -> `BACKEND_PROXY` or
+  `localhost:3000`). It is a JS module rather than JSON precisely so the target
+  stays overridable via the environment.
 - Auth is cookie-based; `credentialsInterceptor` sets `withCredentials: true`.
 - The backend contract is mirrored by hand in `core/models/models.ts`. There is **no
   generated OpenAPI client**; update both sides together.
