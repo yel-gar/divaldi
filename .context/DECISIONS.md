@@ -842,3 +842,20 @@ panel is `display: none`, otherwise its invisible content would hold open an emp
   `MachineParametersPayload` was removed. The card hint was also corrected: the extension
   applies to new chats, not to "new messages in all sessions" — in-progress sessions keep the
   prompt they started with.
+
+## Shared table component (`app-table`) (2026-10-10)
+
+The admin users table and the requests history table are visually identical, so the
+styling was extracted into `frontend/src/app/shared/components/table/` instead of being
+duplicated per page.
+
+- The component is deliberately **dumb about data**: it renders `TableColumn<T>[]` and
+  rows, and only *reports* sort intent through the `sort` model — it never sorts itself.
+  The users page sorts client-side (its data is one unpaginated list), the history page
+  re-queries the server (`sort`/`order` on `GET /chats`), and both keep their comparators.
+- Custom cells (avatars, badges, action buttons, links) are projected via
+  `ng-template[appTableCell="<column key>"]` with the row as `$implicit`; text-only cells
+  use `TableColumn.text`.
+- `interactiveRows` opts a table into clickable, hover-highlighted rows (history); the
+  users table stays non-interactive. Class names `th.sortable` / `.th-content` are kept
+  from the pre-refactor markup because both page specs select them.
