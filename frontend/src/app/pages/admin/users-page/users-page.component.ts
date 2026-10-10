@@ -12,6 +12,8 @@ import { finalize } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   LucideCalendar,
+  LucideChevronDown,
+  LucideChevronUp,
   LucideEye,
   LucideEyeOff,
   LucidePencil,
@@ -37,6 +39,15 @@ import { SkeletonUsersTableComponent } from '../../../shared/components/skeleton
 
 type UserStatus = 'active' | 'expiring' | 'expired';
 
+type UserSortKey = 'username' | 'name' | 'role' | 'status';
+type SortDirection = 'asc' | 'desc';
+
+const STATUS_ORDER: Record<UserStatus, number> = {
+  active: 0,
+  expiring: 1,
+  expired: 2
+};
+
 const EXPIRING_SOON_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -54,6 +65,8 @@ function localDateInputValue(iso: string): string {
     InputComponent,
     Select,
     SkeletonUsersTableComponent,
+    LucideChevronUp,
+    LucideChevronDown,
     LucidePencil,
     LucidePlus,
     LucideTrash2,
@@ -81,6 +94,8 @@ export class UsersPage {
   readonly deletingId = signal<number | null>(null);
   readonly showPassword = signal(false);
   readonly isFormOpen = signal(false);
+  readonly sortColumn = signal<UserSortKey | null>(null);
+  readonly sortDirection = signal<SortDirection>('asc');
 
   /**
    * Generation of the currently open form, bumped by every openCreate() /
@@ -92,15 +107,54 @@ export class UsersPage {
 
   readonly filteredUsers = computed(() => {
     const query = this.search().trim().toLowerCase();
-    if (!query) {
-      return this.users();
+    const matched = query
+      ? this.users().filter((user) =>
+          [user.username, user.first_name, user.last_name]
+            .filter((value): value is string => value !== null)
+            .some((value) => value.toLowerCase().includes(query))
+        )
+      : this.users();
+    const column = this.sortColumn();
+    if (!column) {
+      return matched;
     }
-    return this.users().filter((user) =>
-      [user.username, user.first_name, user.last_name]
-        .filter((value): value is string => value !== null)
-        .some((value) => value.toLowerCase().includes(query))
-    );
+    const direction = this.sortDirection() === 'asc' ? 1 : -1;
+    return [...matched].sort((a, b) => direction * this.compareBy(a, b, column));
   });
+
+  private compareBy(a: AdminUser, b: AdminUser, column: UserSortKey): number {
+    switch (column) {
+      case 'username':
+        return a.username.localeCompare(b.username, 'ru');
+      case 'name':
+        return this.fullName(a).localeCompare(this.fullName(b), 'ru');
+      case 'role':
+        return this.roleLabel(a.role).localeCompare(this.roleLabel(b.role), 'ru');
+      case 'status':
+        return STATUS_ORDER[this.userStatus(a)] - STATUS_ORDER[this.userStatus(b)];
+    }
+  }
+
+  toggleSort(column: UserSortKey): void {
+    const nextDirection: SortDirection =
+      this.sortColumn() === column && this.sortDirection() === 'asc' ? 'desc' : 'asc';
+    this.sortColumn.set(column);
+    this.sortDirection.set(nextDirection);
+  }
+
+  ariaSortFor(column: UserSortKey): 'ascending' | 'descending' | 'none' {
+    if (this.sortColumn() !== column) {
+      return 'none';
+    }
+    return this.sortDirection() === 'asc' ? 'ascending' : 'descending';
+  }
+
+  sortIconFor(column: UserSortKey): 'up' | 'down' | null {
+    if (this.sortColumn() !== column) {
+      return null;
+    }
+    return this.sortDirection() === 'asc' ? 'up' : 'down';
+  }
 
   readonly isEditMode = computed(() => this.selectedUser() !== null);
 

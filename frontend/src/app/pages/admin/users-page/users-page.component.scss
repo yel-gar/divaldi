@@ -200,6 +200,36 @@
     font-size: 12px;
     font-weight: 500;
     letter-spacing: 0.4px;
+
+    & > .th-content {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+
+      padding: 0;
+
+      background: none;
+      border: none;
+
+      font: inherit;
+      color: inherit;
+
+      & > svg {
+        position: relative;
+        top: 1px;
+      }
+
+      @include focus-ring;
+    }
+
+    &.sortable {
+      user-select: none;
+
+      & > .th-content {
+        cursor: pointer;
+      }
+    }
   }
 
   & td {

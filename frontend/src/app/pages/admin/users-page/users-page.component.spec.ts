@@ -105,6 +105,81 @@ describe('UsersPage', () => {
     expect(rows()[0].nativeElement.textContent).toContain('ivanov');
   });
 
+  it('sorts by a column on header click and toggles direction', () => {
+    createPage();
+
+    const sortButtons = () => fixture.debugElement.queryAll(By.css('th.sortable > .th-content'));
+    const usernames = () => rows().map((row) => row.nativeElement.textContent);
+
+    sortButtons()[0].nativeElement.click();
+    fixture.detectChanges();
+    expect(component.sortColumn()).toBe('username');
+    expect(component.sortDirection()).toBe('asc');
+    expect(usernames()[0]).toContain('admin');
+    expect(usernames()[2]).toContain('petrov');
+
+    sortButtons()[0].nativeElement.click();
+    fixture.detectChanges();
+    expect(component.sortDirection()).toBe('desc');
+    expect(usernames()[0]).toContain('petrov');
+  });
+
+  it('sorts by status and keeps the sort applied to filtered users', () => {
+    createPage();
+
+    component.toggleSort('status');
+    fixture.detectChanges();
+
+    let statuses = rows().map((row) =>
+      (row.nativeElement as HTMLElement)
+        .querySelector('td:nth-child(4) .badge')!
+        .textContent!.trim()
+    );
+    expect(statuses).toEqual(['Активен', 'Активен', 'Неактивен']);
+
+    const searchInput = fixture.debugElement.query(By.css('#user-search')).nativeElement;
+    searchInput.value = 'ов';
+    searchInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    statuses = rows().map((row) =>
+      (row.nativeElement as HTMLElement)
+        .querySelector('td:nth-child(4) .badge')!
+        .textContent!.trim()
+    );
+    expect(statuses).toEqual(['Активен', 'Неактивен']);
+  });
+
+  it('shows a direction chevron only on the sorted column', () => {
+    createPage();
+
+    expect(fixture.debugElement.queryAll(By.css('th.sortable svg')).length).toBe(0);
+
+    component.toggleSort('status');
+    component.toggleSort('status');
+    fixture.detectChanges();
+
+    const icons = fixture.debugElement.queryAll(By.css('th.sortable .th-content svg'));
+    expect(icons.length).toBe(1);
+    expect(icons[0].nativeElement.classList.contains('lucide-chevron-down')).toBe(true);
+  });
+
+  it('exposes aria-sort on sortable headers', () => {
+    createPage();
+
+    const headers = () => fixture.debugElement.queryAll(By.css('th.sortable'));
+    expect(headers().map((header) => header.nativeElement.getAttribute('aria-sort'))).toEqual([
+      'none',
+      'none',
+      'none',
+      'none'
+    ]);
+
+    component.toggleSort('role');
+    fixture.detectChanges();
+    expect(headers()[2].nativeElement.getAttribute('aria-sort')).toBe('ascending');
+  });
+
   it('fills the form with user data on edit', () => {
     createPage();
 
