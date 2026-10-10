@@ -30,3 +30,5 @@ __pycache__/
 coverage.json
 coverage.xml
 htmlcov/
+
+k8s/secrets/
