@@ -56,12 +56,14 @@ export class HistoryPage {
       key: 'number',
       label: '№ заявки',
       sortable: true,
+      align: 'center',
       text: (chat) => this.shortId(chat.session_id)
     },
     {
       key: 'date',
       label: 'Дата создания',
       sortable: true,
+      align: 'center',
       text: (chat) => this.formatDate(chat.last_message.timestamp)
     },
     { key: 'message', label: 'Последнее сообщение' },
