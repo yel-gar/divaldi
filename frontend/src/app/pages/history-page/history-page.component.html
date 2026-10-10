@@ -22,29 +22,31 @@
           {{ search() ? 'Заявки не найдены' : 'Пока нет заявок' }}
         </p>
       } @else {
-        <app-table
-          [columns]="historyColumns"
-          [rows]="filteredSessions()"
-          [rowKey]="rowKey"
-          [sort]="historySort()"
-          [interactiveRows]="true"
-          (sortChange)="onSortChange($event)"
-          (rowClick)="open($event.session_id)"
-        >
-          <ng-template appTableCell="message" let-chat>
-            <span class="history-message">{{ chat.last_message.content }}</span>
-          </ng-template>
-          <ng-template appTableCell="open" let-chat>
-            <a
-              class="history-row-link"
-              [routerLink]="['/chats', chat.session_id]"
-              (click)="$event.stopPropagation()"
-            >
-              <svg lucideChevronRight aria-hidden="true"></svg>
-              <span class="visually-hidden">Открыть заявку</span>
-            </a>
-          </ng-template>
-        </app-table>
+        <div class="history-table-wrapper">
+          <app-table
+            [columns]="historyColumns"
+            [rows]="filteredSessions()"
+            [rowKey]="rowKey"
+            [sort]="historySort()"
+            [interactiveRows]="true"
+            (sortChange)="onSortChange($event)"
+            (rowClick)="open($event.session_id)"
+          >
+            <ng-template appTableCell="message" let-chat>
+              <span class="history-message">{{ chat.last_message.content }}</span>
+            </ng-template>
+            <ng-template appTableCell="open" let-chat>
+              <a
+                class="history-row-link"
+                [routerLink]="['/chats', chat.session_id]"
+                (click)="$event.stopPropagation()"
+              >
+                <svg lucideChevronRight aria-hidden="true"></svg>
+                <span class="visually-hidden">Открыть заявку</span>
+              </a>
+            </ng-template>
+          </app-table>
+        </div>
         @if (total() > itemsPerPage) {
           <nav class="pagination" aria-label="Постраничная навигация по истории заявок">
             <button
