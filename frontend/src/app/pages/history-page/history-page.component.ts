@@ -56,7 +56,6 @@ export class HistoryPage {
       key: 'number',
       label: '№ заявки',
       sortable: true,
-      align: 'center',
       text: (chat) => this.shortId(chat.session_id)
     },
     {
