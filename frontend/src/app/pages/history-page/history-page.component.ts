@@ -9,10 +9,16 @@ import {
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { LucideChevronDown, LucideChevronRight, LucideChevronUp } from '@lucide/angular';
+import {
+  LucideChevronDown,
+  LucideChevronRight,
+  LucideChevronUp,
+  LucideSearch
+} from '@lucide/angular';
 import { CHATS_PAGE_SIZE, ChatService } from '../../core/services/chat.service';
 import { ChatSortKey, SortOrder, UserChat } from '../../core/models/models';
 import { SkeletonHistoryTableComponent } from '../../shared/components/skeleton/skeleton-history-table/skeleton-history-table.component';
+import { InputComponent } from '../../shared/components/input/input.component';
 
 @Component({
   selector: 'app-history-page',
@@ -20,8 +26,10 @@ import { SkeletonHistoryTableComponent } from '../../shared/components/skeleton/
     LucideChevronDown,
     LucideChevronUp,
     LucideChevronRight,
+    LucideSearch,
     SkeletonHistoryTableComponent,
-    RouterLink
+    RouterLink,
+    InputComponent
   ],
   templateUrl: './history-page.component.html',
   styleUrl: './history-page.component.scss',
@@ -35,12 +43,27 @@ export class HistoryPage {
   readonly itemsPerPage = CHATS_PAGE_SIZE;
   readonly loading = signal(true);
   readonly sessions = signal<UserChat[]>([]);
+  readonly search = signal('');
   readonly total = signal(0);
   readonly page = signal(0);
   readonly sortColumn = signal<ChatSortKey>('date');
   readonly sortDirection = signal<SortOrder>('desc');
 
   private lastRequestId = 0;
+
+  readonly filteredSessions = computed(() => {
+    const query = this.search().trim().toLowerCase();
+    if (!query) {
+      return this.sessions();
+    }
+    return this.sessions().filter(
+      (session) =>
+        this.shortId(session.session_id).includes(query) ||
+        session.last_message.content.toLowerCase().includes(query)
+    );
+  });
+
+  readonly searchIcon = LucideSearch;
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.itemsPerPage)));
   readonly canGoBack = computed(() => this.page() > 0);
