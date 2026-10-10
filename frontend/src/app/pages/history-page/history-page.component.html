@@ -17,13 +17,27 @@
             <th scope="col" class="sortable" [attr.aria-sort]="ariaSortFor('number')">
               <button type="button" class="th-content" (click)="toggleSort('number')">
                 <span>№ заявки</span>
-                <svg size="14" lucideChevronsUpDown aria-hidden="true"></svg>
+                @switch (sortIconFor('number')) {
+                  @case ('up') {
+                    <svg size="14" lucideChevronUp aria-hidden="true"></svg>
+                  }
+                  @case ('down') {
+                    <svg size="14" lucideChevronDown aria-hidden="true"></svg>
+                  }
+                }
               </button>
             </th>
             <th scope="col" class="sortable" [attr.aria-sort]="ariaSortFor('date')">
               <button type="button" class="th-content" (click)="toggleSort('date')">
                 <span>Дата создания</span>
-                <svg size="14" lucideChevronsUpDown aria-hidden="true"></svg>
+                @switch (sortIconFor('date')) {
+                  @case ('up') {
+                    <svg size="14" lucideChevronUp aria-hidden="true"></svg>
+                  }
+                  @case ('down') {
+                    <svg size="14" lucideChevronDown aria-hidden="true"></svg>
+                  }
+                }
               </button>
             </th>
             <th scope="col">

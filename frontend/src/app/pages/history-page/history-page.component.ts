@@ -9,14 +9,20 @@ import {
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { LucideChevronRight, LucideChevronsUpDown } from '@lucide/angular';
+import { LucideChevronDown, LucideChevronRight, LucideChevronUp } from '@lucide/angular';
 import { CHATS_PAGE_SIZE, ChatService } from '../../core/services/chat.service';
 import { ChatSortKey, SortOrder, UserChat } from '../../core/models/models';
 import { SkeletonHistoryTableComponent } from '../../shared/components/skeleton/skeleton-history-table/skeleton-history-table.component';
 
 @Component({
   selector: 'app-history-page',
-  imports: [LucideChevronsUpDown, LucideChevronRight, SkeletonHistoryTableComponent, RouterLink],
+  imports: [
+    LucideChevronDown,
+    LucideChevronUp,
+    LucideChevronRight,
+    SkeletonHistoryTableComponent,
+    RouterLink
+  ],
   templateUrl: './history-page.component.html',
   styleUrl: './history-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -112,6 +118,13 @@ export class HistoryPage {
       return 'none';
     }
     return this.sortDirection() === 'asc' ? 'ascending' : 'descending';
+  }
+
+  sortIconFor(column: ChatSortKey): 'up' | 'down' | null {
+    if (this.sortColumn() !== column) {
+      return null;
+    }
+    return this.sortDirection() === 'asc' ? 'up' : 'down';
   }
 
   open(sessionId: string): void {
