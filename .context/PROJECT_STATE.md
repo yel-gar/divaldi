@@ -181,6 +181,31 @@ backend and frontend coverage pipelines:
   the `localStorage` / `sessionStorage` the jsdom test environment lacks. This unblocked
   14 red tests in `sidebar.component.spec.ts` and took the suite to 154/154 green.
 
+- **Admin-editable system prompt extension (issue #64), backend only.** `GET`/`PUT
+  /admin/settings` read and write `prompt_extension`, stored in a singleton `settings` row
+  (`id` pinned to 1 by a check constraint) with `last_update_by`/`last_update_at` audit fields.
+  `build_system_prompt()` in `harness.py` appends the extension under a preamble that forbids
+  renumbering materials, and `create_chat` is the only caller, so the extension is frozen into a
+  session at creation. Both admin tiers may write it, reset is an empty string, and it is
+  deliberately not gated by `TEST_INSTANCE_MODE`. The dead `SYSTEM_REMINDER` constant was deleted
+  in the same change. **No admin UI exists yet** — the endpoints are the whole of #64 on the
+  server side.
+- **Configurable production rates on the same settings row (issue #64, follow-up).**
+  `parameters` is a JSONB column holding the four editable `processing` `Parameters` rates;
+  `GET` reports the effective rates (defaults on an untouched instance), `PUT` replaces them
+  wholesale, and `null` restores the defaults. `max_positions` is deliberately **not** exposed —
+  the backend truncates to 10 and the system prompt states that limit. `_generate_kp` takes the
+  caller's session, builds a `Parameters` with `dataclasses.replace(DEFAULT_PARAMETERS, ...)` and
+  passes it to `process_calculation`, so the instance rates reach the workbook. A
+  `RequestValidationError` handler was added in `app.main` because a `NaN` in a request body made
+  the 422 itself unserialisable. **Review fixes:** the painting rate was inert because the
+  template ships `=E{row}/5.53` in that cell and the code never wrote it, so painting hours are
+  now written like the other three rates and cleared on re-run; concurrent first saves no longer
+  500 (the loser of the `Settings(id=1)` insert adopts the winner's row and re-applies its
+  update, or answers 409 if there is nothing to adopt); and `AdminSettingsUpdate` forbids extra
+  keys, so rates sent without their `parameters` wrapper are a 422 rather than a 200 that
+  changed nothing. 24 new tests; backend 99.36%, processing 95.76%.
+
 ---
 
 ## Bug fixes landed since the last rewrite

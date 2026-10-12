@@ -32,7 +32,7 @@ from app.cache import (
     get_generation_key,
     get_pdf_sync_key,
 )
-from app.harness import FILE_ADDED_DESCRIPTION
+from app.harness import FILE_ADDED_DESCRIPTION, SYSTEM_PROMPT, build_system_prompt
 from app.models.auth import User
 from app.models.chat import (
     Attachment,
@@ -44,6 +44,7 @@ from app.models.chat import (
     ProcessingResultUploadable,
     UserRole,
 )
+from app.models.settings import SETTINGS_ROW_ID, Settings
 from app.routes.chat import delete_chat
 
 #: Fixed base so message ordering in the list endpoint is deterministic.
@@ -284,6 +285,44 @@ async def test_create_chat(auth_client: AsyncClient, db_session: AsyncSession, t
     messages = (await db_session.scalars(select(ChatMessage).where(ChatMessage.chat_session_id == session_id))).all()
     assert len(messages) == 1
     assert messages[0].role == UserRole.SYSTEM
+    # Byte for byte, so an untouched instance stores exactly what it always did.
+    assert messages[0].content == SYSTEM_PROMPT
+
+
+async def test_create_chat_appends_the_admin_prompt_extension(
+    auth_client: AsyncClient, db_session: AsyncSession, redis_session: None
+):
+    """The extension reaches the model only because it is stored with the session."""
+    db_session.add(Settings(id=SETTINGS_ROW_ID, prompt_extension="Материал 24 недоступен для заказа."))
+    await db_session.commit()
+
+    response = await auth_client.post("/chats/")
+
+    assert response.status_code == 202
+    session_id = uuid.UUID(response.json()["session_id"])
+
+    stored = await db_session.scalar(select(ChatMessage.content).where(ChatMessage.chat_session_id == session_id))
+
+    assert stored == build_system_prompt("Материал 24 недоступен для заказа.")
+    assert stored.startswith(SYSTEM_PROMPT)
+    assert "Материал 24 недоступен для заказа." in stored
+
+
+async def test_create_chat_treats_a_whitespace_only_extension_as_unset(
+    auth_client: AsyncClient, db_session: AsyncSession, redis_session: None
+):
+    """A blank extension must not leave a dangling heading in the prompt."""
+    db_session.add(Settings(id=SETTINGS_ROW_ID, prompt_extension="   \n  "))
+    await db_session.commit()
+
+    response = await auth_client.post("/chats/")
+
+    assert response.status_code == 202
+    session_id = uuid.UUID(response.json()["session_id"])
+
+    stored = await db_session.scalar(select(ChatMessage.content).where(ChatMessage.chat_session_id == session_id))
+
+    assert stored == SYSTEM_PROMPT
 
 
 async def test_create_chat_rate_limited(auth_client: AsyncClient, redis_session: None):

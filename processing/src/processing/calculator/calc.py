@@ -200,7 +200,14 @@ def _write_position(
     hours_welding = welding_m / params.welding_speed_m_per_hour if params.welding_speed_m_per_hour > 0 else 0.0
     sheet.cell(row=base + ROW_WELDING, column=COL_HOURS).value = hours_welding
 
-    sheet.cell(row=base + ROW_PAINTING, column=COL_AREA).value = float(pos_data["painting_m2"])
+    # The painting hours cell is pre-filled in the template with `=E{row}/5.53`, so the
+    # rate lived in the workbook and `Parameters.painting_rate_m2_per_hour` was inert.
+    # It is written here like the three rates above, which makes the template's own
+    # literal obsolete; the workbook keeps no rate of its own.
+    painting_m2 = float(pos_data["painting_m2"])
+    hours_painting = painting_m2 / params.painting_rate_m2_per_hour if params.painting_rate_m2_per_hour > 0 else 0.0
+    sheet.cell(row=base + ROW_PAINTING, column=COL_AREA).value = painting_m2
+    sheet.cell(row=base + ROW_PAINTING, column=COL_HOURS).value = hours_painting
 
 
 def _clear_positions(sheet, params: Parameters) -> None:
@@ -209,7 +216,7 @@ def _clear_positions(sheet, params: Parameters) -> None:
         base = FIRST_POSITION_ROW + i * POSITION_BLOCK_HEIGHT
         for col in (COL_MATERIAL, COL_PRICE_PER_M2, COL_AREA, COL_HOURS):
             sheet.cell(row=base + ROW_LASER, column=col).value = None
-        for row_offset in (ROW_BENDING, ROW_TURNING, ROW_WELDING):
+        for row_offset in (ROW_BENDING, ROW_TURNING, ROW_WELDING, ROW_PAINTING):
             sheet.cell(row=base + row_offset, column=COL_HOURS).value = None
         sheet.cell(row=base + ROW_PAINTING, column=COL_AREA).value = None
 

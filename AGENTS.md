@@ -647,8 +647,12 @@ follow.
    `MATERIALS` (27 indexed steel grades) and `HARNESS_STRUCTURED_SCHEMA`. The `material`
    field is an **integer index into that list**, so changing the list order silently
    corrupts every material. If you add one, append and record it in `DECISIONS.md`.
-4. **`TEST_INSTANCE_MODE` blocks admin mutations with HTTP 450.** This non-standard code
-   will look like a typo in any frontend `switch`. It is intentional.
+   Admins can now append their own text to the prompt through `PUT /admin/settings`;
+   `PROMPT_EXTENSION_PREAMBLE` is what stops that text renumbering materials, so do not
+   reword it into something vaguer.
+4. **`TEST_INSTANCE_MODE` blocks admin mutations with HTTP 450**, except `PUT
+   /admin/settings`, which is allowed on purpose. This non-standard code will look like a
+   typo in any frontend `switch`. It is intentional.
 5. **The root `parser/` directory is dead.** It contains only `__pycache__`. The real code
    is in `processing/`. Do not add anything there and do not import from it.
 6. **The frontend suite runs in CI** via `npx ng test --watch=false` in

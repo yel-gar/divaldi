@@ -239,3 +239,37 @@ async def test_redis_pool_is_reused(redis_session):
     assert get_redis_pool() is get_redis_pool()
     async with get_redis_client() as redis:
         assert await redis.ping() is True
+
+
+def test_validation_errors_survive_non_finite_input():
+    """A validation error quoting a NaN must still be serialisable.
+
+    Starlette's `JSONResponse` writes with `allow_nan=False`, and FastAPI's default
+    handler puts the offending input straight into the detail, so a body containing a
+    `NaN` literal turned a clean 422 into a crash: the client got a broken response
+    instead of the message naming the offending field. The handler in `app.main`
+    replaces non-finite numbers with their text form, which is what this pins down.
+    """
+    import asyncio
+    import json as jsonlib
+
+    from fastapi.exceptions import RequestValidationError
+
+    from app.main import validation_exception_handler
+
+    error = RequestValidationError(
+        [
+            {
+                "type": "finite_number",
+                "loc": ("body", "parameters", "bending_rate_per_hour"),
+                "msg": "Input should be a finite number",
+                "input": float("nan"),
+            }
+        ]
+    )
+
+    response = asyncio.run(validation_exception_handler(None, error))
+
+    assert response.status_code == 422
+    body = jsonlib.loads(response.body)
+    assert body["detail"][0]["input"] == "nan"
