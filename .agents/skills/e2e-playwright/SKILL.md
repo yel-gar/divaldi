@@ -102,9 +102,12 @@ await row.getByRole('button', { name: 'Удалить' }).click();
 
 ### Admin specifics
 
-The users table and the create/edit form sit side by side. The form is **always visible**,
-switches between the headings `Новый пользователь` and `Редактирование пользователя`, and
-its submit button reads `Сохранить` in both modes. There is no "create" button.
+The user form lives in a slide-over panel that starts closed. The `Новый пользователь`
+header button opens it for creation, a row action opens it for editing, and it switches
+between the headings `Новый пользователь` and `Редактирование пользователя`. Its submit
+button reads `Сохранить` in both modes. Open the panel before asserting on any field
+inside it: the controls exist in the DOM while closed, so a visibility assertion fails
+and a count assertion passes vacuously.
 
 ## Readiness must include the API
 

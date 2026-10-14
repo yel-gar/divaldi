@@ -1,182 +1,178 @@
-<section class="section">
-  <div class="users-container">
-    <header class="section__header users__header">
-      <div>
-        <h1 class="h2">Пользователи</h1>
-        <p class="h4">Управление учетными записями и правами доступа</p>
-      </div>
-    </header>
-
-    <div class="users-grid">
-      <article class="users-card">
-        <app-input
-          inputId="user-search"
-          placeholder="Поиск пользователя..."
-          [leftIcon]="searchIcon"
-          [value]="search()"
-          (valueChange)="search.set($event)"
-        />
-
-        @if (loading()) {
-          <div class="users-card__state users-card__state--loading">
-            <app-skeleton-users-table [rows]="3" />
-          </div>
-        } @else if (filteredUsers().length === 0) {
-          <p class="users-card__state users-card__state--empty">
-            {{ search() ? 'Пользователи не найдены' : 'Пока нет пользователей' }}
-          </p>
-        } @else {
-          <table class="users-table">
-            <thead>
-              <tr>
-                <th scope="col">Пользователь</th>
-                <th scope="col">Имя</th>
-                <th scope="col">Роль</th>
-                <th scope="col">Статус</th>
-                <th scope="col">Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (user of filteredUsers(); track user.id) {
-                <tr>
-                  <td>
-                    <div class="users-table__user">
-                      <span class="users-table__avatar">{{ initials(user) }}</span>
-                      <span class="users-table__username">{{ user.username }}</span>
-                    </div>
-                  </td>
-                  <td>{{ fullName(user) }}</td>
-                  <td>
-                    <span class="badge badge--main">{{ roleLabel(user.role) }}</span>
-                  </td>
-                  <td>
-                    <span
-                      class="badge"
-                      [class.badge--success]="userStatus(user) === 'active'"
-                      [class.badge--warning]="userStatus(user) === 'expiring'"
-                      [class.badge--muted]="userStatus(user) === 'expired'"
-                      >{{ statusLabel(userStatus(user)) }}</span
-                    >
-                  </td>
-                  <td>
-                    <div class="users-table__actions">
-                      <button
-                        type="button"
-                        class="users-table__action"
-                        (click)="selectUser(user)"
-                        aria-label="Редактировать"
-                      >
-                        <svg size="16" lucidePencil aria-hidden="true"></svg>
-                      </button>
-                      <button
-                        type="button"
-                        class="users-table__action users-table__action--danger"
-                        [disabled]="deletingId() === user.id"
-                        (click)="deleteUser(user)"
-                        aria-label="Удалить"
-                      >
-                        <svg size="16" lucideTrash2 aria-hidden="true"></svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        }
-      </article>
-
-      <article class="users-card">
-        <h2 class="users-card__title">
-          {{ isEditMode() ? 'Редактирование пользователя' : 'Новый пользователь' }}
-        </h2>
-        <form class="users-form" [formGroup]="userForm" (ngSubmit)="submit()">
-          <div class="users-form__field">
-            <label class="users-form__label" for="first-name"
-              >Имя <span class="required">*</span></label
-            >
-            <app-input
-              formControlName="first_name"
-              inputId="first-name"
-              placeholder="Иван"
-              [maxLength]="60"
-            />
-          </div>
-          <div class="users-form__field">
-            <label class="users-form__label" for="last-name"
-              >Фамилия <span class="required">*</span></label
-            >
-            <app-input
-              formControlName="last_name"
-              inputId="last-name"
-              placeholder="Иванов"
-              [maxLength]="60"
-            />
-          </div>
-          <div class="users-form__field">
-            <label class="users-form__label" for="username"
-              >Имя пользователя (username) <span class="required">*</span></label
-            >
-            <app-input
-              formControlName="username"
-              inputId="username"
-              placeholder="ivanov"
-              [maxLength]="32"
-            />
-          </div>
-          <div class="users-form__field">
-            <label class="users-form__label" for="password"
-              >{{ isEditMode() ? 'Новый пароль' : 'Пароль' }}
-              @if (!isEditMode()) {
-                <span class="required">*</span>
-              }
-            </label>
-            <app-input
-              formControlName="password"
-              inputId="password"
-              [type]="showPassword() ? 'text' : 'password'"
-              placeholder="Минимум 8 символов"
-              autocomplete="new-password"
-              [maxLength]="128"
-              [rightIcon]="showPassword() ? eyeOffIcon : eyeIcon"
-              [rightIconInteractive]="true"
-              [rightIconLabel]="showPassword() ? 'Скрыть пароль' : 'Показать пароль'"
-              (rightIconClick)="togglePassword()"
-            />
-          </div>
-          <div class="users-form__field">
-            <label class="users-form__label" for="expires-at"
-              >Дата истечения действия аккаунта</label
-            >
-            <app-input
-              formControlName="expires_at"
-              inputId="expires-at"
-              type="date"
-              [rightIcon]="calendarIcon"
-            />
-          </div>
-          @if (canManageRoles()) {
-            <div class="users-form__field">
-              <span class="users-form__label">Роль</span>
-              <app-select
-                formControlName="role"
-                inputId="user-role"
-                label="Роль"
-                [options]="roleOptions"
-                placeholder="Пользователь"
-              />
-            </div>
-          }
-          <div class="users-form__actions">
-            <button type="button" class="button button--outline h3" (click)="resetForm()">
-              Отмена
-            </button>
-            <button type="submit" class="button button--main h3" [disabled]="isSubmitting()">
-              Сохранить
-            </button>
-          </div>
-        </form>
-      </article>
+<section class="section users-section">
+  <header class="section__header users__header">
+    <div>
+      <h1 class="h2">Пользователи</h1>
+      <p class="h4">Управление учетными записями и правами доступа</p>
     </div>
-  </div>
+    <button
+      type="button"
+      class="button button--main h3 users-add"
+      [attr.aria-expanded]="isFormOpen()"
+      aria-controls="user-form-panel"
+      (click)="openCreate()"
+    >
+      <svg size="18" lucidePlus aria-hidden="true"></svg>
+      Новый пользователь
+    </button>
+  </header>
+
+  <article class="users-card users-table-card">
+    <app-input
+      inputId="user-search"
+      placeholder="Поиск пользователя..."
+      [leftIcon]="searchIcon"
+      [value]="search()"
+      (valueChange)="search.set($event)"
+    />
+
+    @if (loading()) {
+      <div class="users-card__state users-card__state--loading">
+        <app-skeleton-users-table [rows]="3" />
+      </div>
+    } @else if (filteredUsers().length === 0) {
+      <p class="users-card__state users-card__state--empty">
+        {{ search() ? 'Пользователи не найдены' : 'Пока нет пользователей' }}
+      </p>
+    } @else {
+      <div class="users-table-wrapper">
+        <app-table
+          [columns]="userColumns"
+          [rows]="filteredUsers()"
+          [rowKey]="rowKey"
+          [(sort)]="userSort"
+        >
+          <ng-template appTableCell="username" let-user>
+            <div class="users-table__user">
+              <img class="users-table__avatar" src="/assets/imgs/empty-avatar.png" alt="" />
+              <span class="users-table__username">{{ user.username }}</span>
+            </div>
+          </ng-template>
+          <ng-template appTableCell="role" let-user>
+            <span class="badge badge--main">{{ roleLabel(user.role) }}</span>
+          </ng-template>
+          <ng-template appTableCell="status" let-user>
+            <span
+              class="badge"
+              [class.badge--success]="userStatus(user) === 'active'"
+              [class.badge--warning]="userStatus(user) === 'expiring'"
+              [class.badge--muted]="userStatus(user) === 'expired'"
+              >{{ statusLabel(userStatus(user)) }}</span
+            >
+          </ng-template>
+          <ng-template appTableCell="actions" let-user>
+            <div class="users-table__actions">
+              <button
+                type="button"
+                class="users-table__action"
+                (click)="openEdit(user)"
+                aria-label="Редактировать"
+              >
+                <svg size="16" lucidePencil aria-hidden="true"></svg>
+              </button>
+              <button
+                type="button"
+                class="users-table__action users-table__action--danger"
+                [disabled]="deletingId() === user.id"
+                (click)="deleteUser(user)"
+                aria-label="Удалить"
+              >
+                <svg size="16" lucideTrash2 aria-hidden="true"></svg>
+              </button>
+            </div>
+          </ng-template>
+        </app-table>
+      </div>
+    }
+  </article>
 </section>
+
+<aside class="users-card users-aside" id="user-form-panel" aria-label="Форма пользователя">
+  <div class="users-aside__header">
+    <h2 class="h2">
+      {{ isEditMode() ? 'Редактирование пользователя' : 'Новый пользователь' }}
+    </h2>
+    <button type="button" class="users-aside__close" aria-label="Закрыть" (click)="closeForm()">
+      <svg size="18" lucideX aria-hidden="true"></svg>
+    </button>
+  </div>
+  <form class="users-form" [formGroup]="userForm" (ngSubmit)="submit()">
+    <div class="users-form__field">
+      <label class="users-form__label" for="first-name">Имя <span class="required">*</span></label>
+      <app-input
+        formControlName="first_name"
+        inputId="first-name"
+        placeholder="Иван"
+        [maxLength]="60"
+      />
+    </div>
+    <div class="users-form__field">
+      <label class="users-form__label" for="last-name"
+        >Фамилия <span class="required">*</span></label
+      >
+      <app-input
+        formControlName="last_name"
+        inputId="last-name"
+        placeholder="Иванов"
+        [maxLength]="60"
+      />
+    </div>
+    <div class="users-form__field">
+      <label class="users-form__label" for="username"
+        >Имя пользователя <span class="required">*</span></label
+      >
+      <app-input
+        formControlName="username"
+        inputId="username"
+        placeholder="ivanov"
+        [maxLength]="32"
+      />
+    </div>
+    <div class="users-form__field">
+      <label class="users-form__label" for="password"
+        >{{ isEditMode() ? 'Новый пароль' : 'Пароль' }}
+        @if (!isEditMode()) {
+          <span class="required">*</span>
+        }
+      </label>
+      <app-input
+        formControlName="password"
+        inputId="password"
+        [type]="showPassword() ? 'text' : 'password'"
+        placeholder="Минимум 8 символов"
+        autocomplete="new-password"
+        [maxLength]="128"
+        [rightIcon]="showPassword() ? eyeOffIcon : eyeIcon"
+        [rightIconInteractive]="true"
+        [rightIconLabel]="showPassword() ? 'Скрыть пароль' : 'Показать пароль'"
+        (rightIconClick)="togglePassword()"
+      />
+    </div>
+    <div class="users-form__field">
+      <label class="users-form__label" for="expires-at">Дата истечения действия аккаунта</label>
+      <app-input
+        formControlName="expires_at"
+        inputId="expires-at"
+        type="date"
+        [rightIcon]="calendarIcon"
+      />
+    </div>
+    @if (canManageRoles()) {
+      <div class="users-form__field">
+        <span class="users-form__label">Роль</span>
+        <app-select
+          formControlName="role"
+          inputId="user-role"
+          label="Роль"
+          [options]="roleOptions"
+          placeholder="Пользователь"
+        />
+      </div>
+    }
+    <div class="users-form__actions">
+      <button type="button" class="button button--outline h3" (click)="closeForm()">Отмена</button>
+      <button type="submit" class="button button--main h3" [disabled]="isSubmitting()">
+        Сохранить
+      </button>
+    </div>
+  </form>
+</aside>

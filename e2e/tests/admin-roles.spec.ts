@@ -11,6 +11,14 @@ import { expect, login, test } from "./helpers";
 
 const ROLE_CONTROL = "#user-role";
 
+/** The user form lives in a slide-over panel that starts closed. */
+async function openCreateForm(page: import("@playwright/test").Page) {
+  await page.getByRole("button", { name: "Новый пользователь" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Новый пользователь" }),
+  ).toBeVisible();
+}
+
 test.describe("admin role tiers", () => {
   test("a superuser sees the role control", async ({ page }) => {
     await login(page);
@@ -19,6 +27,7 @@ test.describe("admin role tiers", () => {
       page.getByRole("heading", { name: "Пользователи" }),
     ).toBeVisible();
 
+    await openCreateForm(page);
     await expect(page.getByText("Роль", { exact: true }).first()).toBeVisible();
     await expect(page.locator(ROLE_CONTROL)).toBeVisible();
   });
@@ -29,6 +38,7 @@ test.describe("admin role tiers", () => {
     await login(page);
     await page.goto("/admin/users");
 
+    await openCreateForm(page);
     await page.locator(ROLE_CONTROL).click();
     const options = page.getByRole("listbox").getByRole("option");
     await expect(options).toHaveText([
@@ -45,6 +55,7 @@ test.describe("admin role tiers", () => {
     await page.goto("/admin/users");
 
     const username = `e2e-admin-${Date.now()}`;
+    await openCreateForm(page);
     await page.locator("#first-name").fill("Тинь");
     await page.locator("#last-name").fill("Тайнов");
     await page.locator("#username").fill(username);
@@ -67,6 +78,7 @@ test.describe("admin role tiers", () => {
     await login(page);
     await page.goto("/admin/users");
     const username = `e2e-plain-${Date.now()}`;
+    await openCreateForm(page);
     await page.locator("#first-name").fill("Пло");
     await page.locator("#last-name").fill("Ском");
     await page.locator("#username").fill(username);
@@ -92,6 +104,10 @@ test.describe("admin role tiers", () => {
     await expect(
       other.getByRole("heading", { name: "Пользователи" }),
     ).toBeVisible();
+    await other.getByRole("button", { name: "Новый пользователь" }).click();
+    await expect(
+      other.getByRole("heading", { name: "Новый пользователь" }),
+    ).toBeVisible();
     await expect(other.locator(ROLE_CONTROL)).toHaveCount(0);
 
     await ctx.close();
@@ -102,6 +118,7 @@ test.describe("admin role tiers", () => {
     await page.goto("/admin/users");
 
     const username = `e2e-basic-${Date.now()}`;
+    await openCreateForm(page);
     await page.locator("#first-name").fill("Обыч");
     await page.locator("#last-name").fill("Ный");
     await page.locator("#username").fill(username);

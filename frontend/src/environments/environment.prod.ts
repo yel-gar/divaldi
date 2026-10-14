@@ -1,4 +1,5 @@
 export const environment = {
   production: true,
-  apiUrl: '__BACKEND_URL__/api/v1'
+  apiUrl: '__BACKEND_URL__/api/v1',
+  useMocks: false
 };

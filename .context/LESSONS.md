@@ -536,6 +536,7 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   even though the backend container was healthy and correctly aliased. `--force-recreate`
   fixed it; a plain restart would not have.
 
+- **A `1fr 1fr` grid with a table inside blows out the centered container.** Grid `1fr` tracks are `minmax(auto, 1fr)`, so a wide table (unbreakable badges like `Суперпользователь`) forces the track past its share and the grid spills right past `max-width: 1200px; margin: 0 auto`, making the page look shifted versus single-column pages. Fix is `min-width: 0` on the grid children plus an `overflow-x: auto` wrapper around the table, the same pattern `history-page` already uses. No SCSS gate catches this (ESLint skips `.scss`, no stylelint).
 - **Garage has no default CORS policy, and the 403 it returns does not name the cause.** Every
   browser upload and download goes through a presigned URL, so each one is preflighted; with no
   `cors_config` on the bucket, `handle_options_for_bucket` finds no matching rule and answers
@@ -605,3 +606,25 @@ Flat bullet list, append at the bottom. One bullet, one lesson.
   accepted by the API and ignored by the calculator; the other three rates were applied because
   their cells start empty. When a value becomes configurable, check what the artefact already
   encodes — a formula in the sheet outranks the dataclass.
+- **In e2e, edit form fields with real keystrokes, not `fill()`.** The custom `app-input` /
+  `app-textarea` controls propagate only trusted input events to the reactive form: a
+  programmatic `fill()` changes the DOM value while the form stays pristine, so the save
+  button never enables and the failure reads as "button is disabled" with the right text
+  visibly in the field. `fill("")` plus `pressSequentially()` behaves like a user and updates
+  the model. Assert the button is enabled before clicking, or the test passes vacuously.
+- **The e2e override needs the same `linux/amd64` platform pins as the dev override.**
+  Every service built from `backend/Dockerfile` fails to build natively on ARM Macs because
+  pymupdf has no musl/aarch64 wheel; without the pins `setup.sh` dies in `poetry install`.
+  The garage service itself stays unpinned. CI never sees this because its runners are amd64.
+- **A green DOM is not a quiet backend: wait for `chat:generation:*` between e2e tests.**
+  `POST /chats/` answers 409 while the previous test's generation is still draining the
+  worker pipeline, and a test that only asserts on the DOM finishes long before that. The
+  failure then lands on the *next* test's `createChat` navigation with no mention of a lock.
+  The auto fixture in `tests/helpers.ts` polls the key out of the e2e Redis before every
+  test (bounded, 120 s); on a fast machine it is one round trip. The 429 rate-limit
+  clearing next to it fixes a different symptom — check the backend log for which one fired
+  before debugging the test.
+- **Open the users slide-over before touching the form in e2e.** The admin specs were
+  written when the form was always visible; since it became a panel, its controls exist in
+   the DOM while closed, so visibility assertions fail and count assertions pass vacuously.
+   Click `Новый пользователь` (or the row edit action) first.

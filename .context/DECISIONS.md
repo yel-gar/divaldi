@@ -640,6 +640,62 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   because the ownership entry is gone and `verify_attachment_id` refuses the id, and the key
   expires with its TTL. Making it airtight would mean a tombstone the workers consult; not
   worth it for a file the user has just removed.
+## Admin system prompt editing (2026-10-06)
+
+The admin settings page edits the system prompt over `GET/PUT /api/v1/admin/system-prompt`
+with body `{ "prompt": string }`. The frontend contract is already implemented
+(`AdminSettingsService`, `AdminSettingsPage`); the backend route is still pending — the
+prompt currently lives as the `SYSTEM_PROMPT` constant in `app/harness.py`. When adding the
+endpoint, return the same schema so the page keeps working unchanged.
+
+- **The contract reuses the admin router** (`prefix="/admin"`, `require_admin` dependency) so
+  authorization is a one-line `include_router` away and cannot leak to non-admins.
+- **The frontend disables the editor until the prompt loads** instead of showing a blank
+  editable field: saving a blank over an unknown prompt would silently wipe the real one.
+## Admin machine parameters editing (2026-10-09)
+
+The settings page edits production norms over `GET/PUT /api/v1/admin/parameters` with the
+`Parameters` shape from `processing/calculator/calc.py`. Same split as the system prompt:
+the frontend contract is implemented (`AdminSettingsService`, second card on
+`AdminSettingsPage`), the backend route is still pending.
+
+- **`max_positions` is immutable and not rendered at all**, so the PUT body
+  (`MachineParametersPayload`) holds only the four editable rates. If the backend ever accepts
+  it, the contract still matches — the page just never sends it.
+- **The form stays disabled until the parameters load**, same rule as the prompt editor:
+  saving defaults over unknown values would silently reset real norms.
+- **Rates must be positive numbers** (`required` + numeric pattern + `min(0.01)`); the form
+  uses `type="number"` inputs with dot decimals, converted with `Number()` on save.
+## Users form as a slide-over panel (2026-10-09)
+
+The "Новый пользователь" / "Редактирование пользователя" card on the admin users page is no
+longer a second grid column: it is an `<aside>` that slides in over a host grid animating
+`1fr 0fr` to `1.5fr 1fr`, the same mechanism as the "Результаты расчёта" panel in the agent
+chat (`isResultsOpen`, host class binding, opacity/visibility staging, reduced-motion opt-out).
+
+- **A slide-over, not a modal**, because the table stays visible and interactive behind the
+  form, and no overlay/focus-trap machinery is needed — the pattern already exists in the
+  codebase, so it is copied rather than reinvented.
+- **The panel closes on save, cancel and the X button**, all through `closeForm()` (which
+  resets the form). `selectUser()`/`resetForm()` stay pure form logic so existing callers and
+  specs keep working; `openCreate()`/`openEdit()` only add the open step.
+- **The open panel track carries a length floor so it fits its content.** A bare `1fr`
+  track is `minmax(auto, 1fr)`, and the aside's `min-width: 0` (needed for the `0fr` collapse)
+  lets the track shrink past the 32px panel titles — "Редактирование пользователя" spilled
+  ~176px past the card at 1200px viewport, and the chat's "Результаты расчёта" wrapped to two
+  lines for the same reason. The floor makes the table/chat side absorb the squeeze (both
+  scroll internally); verified by Playwright measurements on the dev stack, not by eye.
+- **The floor is a length inside `minmax()`, not `max-content`.** Applied instantly,
+  `min-width: max-content` kills the slide, and animating it needs `interpolate-size`, which
+  Safari lacks — the panel popped to full width there. `minmax(0, 1fr) minmax(0px, 0fr)` opening
+  to `minmax(0, 1.5fr) minmax(600px, 1fr)` (440px in chat) interpolates as plain lengths
+  everywhere; sampled frame widths ramp smoothly in both Chromium and WebKit
+  (82→109→424→540→591→595). 600px fits the longest panel title; below 900px the users grid
+  stacks and the floor is dropped.
+- **The aside is `overflow: visible` only when open** (hidden while closed for the animation):
+  the role `app-select` renders its dropdown as inline `position: absolute`, which a permanent
+  `overflow: hidden` would clip. Below 900px the host stacks to one column and the closed
+panel is `display: none`, otherwise its invisible content would hold open an empty grid row.
 
 ## Admin-editable system prompt extension (2026-10-09, issue #64)
 
@@ -755,5 +811,51 @@ Append new entries at the bottom, one `##` section per topic, chronological.
   sending the four rates without their `parameters` wrapper. With extras allowed those keys were
   ignored, nothing was set, the audit fields were stamped anyway and the caller got a 200 that
   changed nothing — a silent no-op on a settings screen. Rejecting extras turns it into a 422
-  naming the key. This is the same failure this change's own tests hit while being written, so
-  the behaviour is now pinned by a test rather than by luck.
+ naming the key. This is the same failure this change's own tests hit while being written, so
+ the behaviour is now pinned by a test rather than by luck.
+
+## Frontend settings page synced to the unified settings endpoint (2026-10-10)
+
+- **The two provisional frontend endpoints never existed on the backend.** The page was built
+  against `GET/PUT /admin/system-prompt` (`{prompt}`) and `GET/PUT /admin/parameters` (bare
+  rates), while the backend shipped the unified `GET/PUT /admin/settings` carrying
+  `{prompt_extension, parameters, last_update_by, last_update_at}`. The service now exposes
+  `getSettings()` plus `updateSettings(patch)` and each card saves a partial body
+  (`{prompt_extension}` or `{parameters: {...}}`), which the backend's `model_fields_set`
+  handling supports. This supersedes the "backend route is still pending" notes in the two
+  earlier frontend sections above; those describe a contract that was never implemented.
+- **The old shapes would have failed, not degraded.** Bare rates without the `parameters`
+  wrapper are rejected with 422 by `extra="forbid"`, and `{prompt}` names a field the schema
+  does not have, so the mismatch surfaced as errors rather than silent drift. No compatibility
+  shim was added: both sides are owned by this repo and moved together.
+- **The form refuses to save a blank prompt extension.** `canSave` requires the trimmed
+  value to be non-empty, so whitespace-only input never reaches the server as a no-op
+  write. The backend still treats `""` as the reset (reachable with a direct `PUT`), but
+  the UI offers no "clear the extension" path: an accidental select-all plus save must not
+  silently drop the site's tolerances. The "don't wipe an unknown value" rule is still kept
+  separately by disabling the editor until the settings load.
+- **`MAX_PROMPT_EXTENSION_LENGTH` is 8000 on both sides.** The page previously capped at
+  20000, which would have passed values the server rejects with 422. The counter threshold
+  moved with it (7000), since the old 15000 could never be reached under an 8000 cap.
+- **`max_positions` is gone from the frontend model.** The backend never returns it
+  (`AdminRatesSchema` has four fields), so `MachineParameters` now mirrors those four and
+  `MachineParametersPayload` was removed. The card hint was also corrected: the extension
+  applies to new chats, not to "new messages in all sessions" — in-progress sessions keep the
+  prompt they started with.
+
+## Shared table component (`app-table`) (2026-10-10)
+
+The admin users table and the requests history table are visually identical, so the
+styling was extracted into `frontend/src/app/shared/components/table/` instead of being
+duplicated per page.
+
+- The component is deliberately **dumb about data**: it renders `TableColumn<T>[]` and
+  rows, and only *reports* sort intent through the `sort` model — it never sorts itself.
+  The users page sorts client-side (its data is one unpaginated list), the history page
+  re-queries the server (`sort`/`order` on `GET /chats`), and both keep their comparators.
+- Custom cells (avatars, badges, action buttons, links) are projected via
+  `ng-template[appTableCell="<column key>"]` with the row as `$implicit`; text-only cells
+  use `TableColumn.text`.
+- `interactiveRows` opts a table into clickable, hover-highlighted rows (history); the
+  users table stays non-interactive. Class names `th.sortable` / `.th-content` are kept
+  from the pre-refactor markup because both page specs select them.

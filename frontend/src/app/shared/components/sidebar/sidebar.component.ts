@@ -13,6 +13,7 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/ro
 import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import {
+  LucideArrowLeft,
   LucideDynamicIcon,
   LucideLogOut,
   LucideMessageSquare,
@@ -63,6 +64,7 @@ function toHistoryItem(chat: UserChat): SidebarHistoryItem {
     RouterLink,
     RouterLinkActive,
     LucidePlus,
+    LucideArrowLeft,
     LucideMessageSquare,
     LucidePanelLeftClose,
     LucidePanelLeftOpen,
@@ -83,6 +85,12 @@ export class Sidebar implements OnInit {
     label: 'Перейти в админ-панель',
     icon: LucideShieldCheck,
     route: '/admin/users'
+  };
+
+  private static readonly USER_MENU_ITEM: NavItem = {
+    label: 'Вернуться в пользовательское меню',
+    icon: LucideArrowLeft,
+    route: '/chats'
   };
 
   readonly navItems = input<NavItem[]>([]);
@@ -113,6 +121,9 @@ export class Sidebar implements OnInit {
     }
     return Sidebar.ADMIN_PANEL_ITEM;
   });
+  readonly userMenuItem = computed<NavItem | null>(() =>
+    this.role() === 'admin' ? Sidebar.USER_MENU_ITEM : null
+  );
   readonly displayName = computed(() => {
     const user = this.user();
     if (!user) {

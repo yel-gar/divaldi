@@ -13,7 +13,12 @@ services:
     environment:
       E2E: "1"
 
+  # pymupdf has no musl/aarch64 wheel, so every service built from
+  # backend/Dockerfile must build under linux/amd64 (Rosetta on ARM Macs).
+  # The garage image itself stays native, so the platform cannot be forced
+  # globally. Same pins as docker-compose.override.yml.dev.
   backend:
+    platform: linux/amd64
     ports: !reset []
     environment:
       # The offline provider: no GigaChat calls, no credentials, deterministic
@@ -25,24 +30,31 @@ services:
       DEBUG: "0"
 
   migrate:
+    platform: linux/amd64
     environment:
       SBER_API_KEY: "mock"
       SBER_API_SCOPE: "PERS"
 
   scheduler:
+    platform: linux/amd64
     environment:
       SBER_API_KEY: "mock"
       SBER_API_SCOPE: "PERS"
 
   worker_default:
+    platform: linux/amd64
     environment:
       SBER_API_KEY: "mock"
       SBER_API_SCOPE: "PERS"
 
   worker_network:
+    platform: linux/amd64
     environment:
       SBER_API_KEY: "mock"
       SBER_API_SCOPE: "PERS"
+
+  garage-config:
+    platform: linux/amd64
 
   taskiq_dashboard:
     ports: !reset []

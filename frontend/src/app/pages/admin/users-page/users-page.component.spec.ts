@@ -85,7 +85,9 @@ describe('UsersPage', () => {
 
     expect(rows().length).toBe(3);
     expect(rows()[0].nativeElement.textContent).toContain('admin');
-    expect(rows()[0].nativeElement.textContent).toContain('AD');
+    expect(
+      (rows()[0].nativeElement as HTMLElement).querySelector('img.users-table__avatar')
+    ).not.toBeNull();
     expect(
       (rows()[1].nativeElement as HTMLElement).querySelector('.badge--success')
     ).not.toBeNull();
@@ -105,6 +107,79 @@ describe('UsersPage', () => {
     expect(rows()[0].nativeElement.textContent).toContain('ivanov');
   });
 
+  it('sorts by a column on header click and toggles direction', () => {
+    createPage();
+
+    const sortButtons = () => fixture.debugElement.queryAll(By.css('th.sortable > .th-content'));
+    const usernames = () => rows().map((row) => row.nativeElement.textContent);
+
+    sortButtons()[0].nativeElement.click();
+    fixture.detectChanges();
+    expect(component.userSort()).toEqual({ column: 'username', direction: 'asc' });
+    expect(usernames()[0]).toContain('admin');
+    expect(usernames()[2]).toContain('petrov');
+
+    sortButtons()[0].nativeElement.click();
+    fixture.detectChanges();
+    expect(component.userSort()).toEqual({ column: 'username', direction: 'desc' });
+    expect(usernames()[0]).toContain('petrov');
+  });
+
+  it('sorts by status and keeps the sort applied to filtered users', () => {
+    createPage();
+
+    component.userSort.set({ column: 'status', direction: 'asc' });
+    fixture.detectChanges();
+
+    let statuses = rows().map((row) =>
+      (row.nativeElement as HTMLElement)
+        .querySelector('td:nth-child(4) .badge')!
+        .textContent!.trim()
+    );
+    expect(statuses).toEqual(['Активен', 'Активен', 'Неактивен']);
+
+    const searchInput = fixture.debugElement.query(By.css('#user-search')).nativeElement;
+    searchInput.value = 'ов';
+    searchInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    statuses = rows().map((row) =>
+      (row.nativeElement as HTMLElement)
+        .querySelector('td:nth-child(4) .badge')!
+        .textContent!.trim()
+    );
+    expect(statuses).toEqual(['Активен', 'Неактивен']);
+  });
+
+  it('shows a direction chevron only on the sorted column', () => {
+    createPage();
+
+    expect(fixture.debugElement.queryAll(By.css('th.sortable svg')).length).toBe(0);
+
+    component.userSort.set({ column: 'status', direction: 'desc' });
+    fixture.detectChanges();
+
+    const icons = fixture.debugElement.queryAll(By.css('th.sortable .th-content svg'));
+    expect(icons.length).toBe(1);
+    expect(icons[0].nativeElement.classList.contains('lucide-chevron-down')).toBe(true);
+  });
+
+  it('exposes aria-sort on sortable headers', () => {
+    createPage();
+
+    const headers = () => fixture.debugElement.queryAll(By.css('th.sortable'));
+    expect(headers().map((header) => header.nativeElement.getAttribute('aria-sort'))).toEqual([
+      'none',
+      'none',
+      'none',
+      'none'
+    ]);
+
+    component.userSort.set({ column: 'role', direction: 'asc' });
+    fixture.detectChanges();
+    expect(headers()[2].nativeElement.getAttribute('aria-sort')).toBe('ascending');
+  });
+
   it('fills the form with user data on edit', () => {
     createPage();
 
@@ -119,7 +194,7 @@ describe('UsersPage', () => {
     expect(formValue.first_name).toBe('Иван');
     expect(formValue.expires_at).toBe('2100-01-01');
     expect(
-      fixture.debugElement.query(By.css('.users-card__title')).nativeElement.textContent
+      fixture.debugElement.query(By.css('.users-aside__header')).nativeElement.textContent
     ).toContain('Редактирование пользователя');
   });
 
@@ -311,5 +386,81 @@ describe('UsersPage', () => {
 
     const req = http.expectOne(`${environment.apiUrl}/admin/users/2`);
     expect(req.request.body.role).toBeUndefined();
+  });
+
+  it('keeps the user form closed until creation or edit is requested', () => {
+    createPage();
+
+    expect(component.isFormOpen()).toBe(false);
+    expect(fixture.nativeElement.classList.contains('user-form-open')).toBe(false);
+  });
+
+  it('opens the form in create mode from the header button', () => {
+    createPage();
+
+    fixture.debugElement.query(By.css('.users-add')).nativeElement.click();
+    fixture.detectChanges();
+
+    expect(component.isFormOpen()).toBe(true);
+    expect(component.isEditMode()).toBe(false);
+    expect(fixture.nativeElement.classList.contains('user-form-open')).toBe(true);
+    expect(
+      fixture.debugElement.query(By.css('.users-aside__header')).nativeElement.textContent
+    ).toContain('Новый пользователь');
+  });
+
+  it('opens the form in edit mode from a row action', () => {
+    createPage();
+
+    const editButtons = fixture.debugElement.queryAll(
+      By.css('.users-table__action:not(.users-table__action--danger)')
+    );
+    editButtons[1].nativeElement.click();
+    fixture.detectChanges();
+
+    expect(component.isFormOpen()).toBe(true);
+    expect(component.selectedUser()?.username).toBe('ivanov');
+    expect(
+      fixture.debugElement.query(By.css('.users-aside__header')).nativeElement.textContent
+    ).toContain('Редактирование пользователя');
+  });
+
+  it('closes the form from the panel close button', () => {
+    createPage();
+    component.openEdit(USERS[1]);
+    fixture.detectChanges();
+    expect(component.isFormOpen()).toBe(true);
+    expect(component.selectedUser()?.username).toBe('ivanov');
+
+    fixture.debugElement.query(By.css('.users-aside__close')).nativeElement.click();
+    fixture.detectChanges();
+
+    expect(component.isFormOpen()).toBe(false);
+    // Closing keeps the selection so the panel title does not flip
+    // mid-animation; the next openCreate()/openEdit() resets or repopulates it.
+    expect(component.selectedUser()?.username).toBe('ivanov');
+    expect(fixture.nativeElement.classList.contains('user-form-open')).toBe(false);
+  });
+
+  it('keeps a newly opened form when a stale save response arrives', () => {
+    createPage();
+    component.openEdit(USERS[1]);
+    component.userForm.controls.password.setValue('newpassword1');
+    component.userForm.controls.expires_at.setValue('');
+    component.submit();
+
+    const patchReq = http.expectOne(`${environment.apiUrl}/admin/users/2`);
+    component.openCreate();
+    fixture.detectChanges();
+    expect(component.isFormOpen()).toBe(true);
+    expect(component.selectedUser()).toBeNull();
+
+    patchReq.flush(UPDATED_IVANOV);
+    const passwordReq = http.expectOne(`${environment.apiUrl}/admin/users/2/set-password`);
+    passwordReq.flush({ message: 'Password changed successfully' });
+    fixture.detectChanges();
+
+    expect(component.isFormOpen()).toBe(true);
+    expect(component.selectedUser()).toBeNull();
   });
 });

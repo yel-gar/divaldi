@@ -67,6 +67,14 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "mock": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.mock.ts"
+                }
+              ]
             }
           },
           "defaultConfiguration": "production"
@@ -74,7 +82,7 @@
         "serve": {
           "builder": "@angular/build:dev-server",
           "options": {
-            "proxyConfig": "proxy.conf.json"
+            "proxyConfig": "proxy.conf.js"
           },
           "configurations": {
             "production": {
@@ -82,6 +90,9 @@
             },
             "development": {
               "buildTarget": "frontend:build:development"
+            },
+            "mock": {
+              "buildTarget": "frontend:build:mock"
             }
           },
           "defaultConfiguration": "development"
@@ -91,10 +102,19 @@
           "options": {
             "tsConfig": "tsconfig.spec.json",
             "buildTarget": "::development",
-            "setupFiles": ["src/test-setup.ts"],
+            "setupFiles": [
+              "src/test-setup.ts"
+            ],
             "coverage": true,
-            "coverageReporters": ["text-summary", "json-summary", "html"],
-            "coverageInclude": ["src/app/**/*.ts", "src/environments/**/*.ts"],
+            "coverageReporters": [
+              "text-summary",
+              "json-summary",
+              "html"
+            ],
+            "coverageInclude": [
+              "src/app/**/*.ts",
+              "src/environments/**/*.ts"
+            ],
             "coverageExclude": [
               "**/*.spec.ts",
               "**/environments/environment.prod.ts",

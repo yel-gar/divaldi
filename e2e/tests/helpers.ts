@@ -10,6 +10,33 @@ export const E2E_PASSWORD = process.env.E2E_PASSWORD ?? "e2epassword";
 const REPO_ROOT = process.env.E2E_REPO_ROOT ?? `${process.cwd()}/..`;
 
 /**
+ * The compose flags every Docker call in this file must share.
+ *
+ * Must match the project and files `setup.sh` used. Compose resolves named
+ * volumes, and the default project's Redis is the *developer's*: touching that
+ * one leaves the e2e stack unchanged, so the suite trips its own limiter or
+ * polls its own generation while clearing the developer's keys.
+ */
+function composeBase(): string[] {
+  const project = process.env.E2E_PROJECT ?? "divaldi-e2e";
+  if (!project || project === "divaldi") {
+    throw new Error(
+      `Refusing to run: E2E_PROJECT is "${project}", which is the development project. ` +
+        "The e2e suite must run under its own project name or it shares the developer's volumes.",
+    );
+  }
+  return [
+    "compose",
+    "-p",
+    project,
+    "-f",
+    "docker-compose.yaml",
+    "-f",
+    "docker-compose.override.yml.e2e",
+  ];
+}
+
+/**
  * Reset the backend's per-user rate-limit counters.
  *
  * `app/routes/chat.py` limits both chat creation and message sending to 5 per
@@ -20,28 +47,11 @@ const REPO_ROOT = process.env.E2E_REPO_ROOT ?? `${process.cwd()}/..`;
  * rather than a workaround.
  */
 function clearRateLimits(): void {
-  // Must match the project and files `setup.sh` used. Compose resolves named
-  // volumes, and the default project's Redis is the *developer's*: clearing that
-  // one leaves the e2e counters untouched, so the suite trips its own limiter
-  // and the create page never navigates.
-  const project = process.env.E2E_PROJECT ?? "divaldi-e2e";
-  if (!project || project === "divaldi") {
-    throw new Error(
-      `Refusing to run: E2E_PROJECT is "${project}", which is the development project. ` +
-        "The e2e suite must run under its own project name or it shares the developer's volumes.",
-    );
-  }
   try {
     execFileSync(
       "docker",
       [
-        "compose",
-        "-p",
-        project,
-        "-f",
-        "docker-compose.yaml",
-        "-f",
-        "docker-compose.override.yml.e2e",
+        ...composeBase(),
         "exec",
         "-T",
         "redis",
@@ -57,10 +67,60 @@ function clearRateLimits(): void {
   }
 }
 
+/**
+ * Wait for any in-flight generation of the seeded user to finish.
+ *
+ * `POST /chats/` answers 409 while `chat:generation:*` exists, and that key
+ * lives until the worker pipeline (parse, generate, spreadsheet, S3) drains.
+ * A test that only asserts on the DOM can finish while the previous test's
+ * generation is still running, so the next `createChat` is refused and fails
+ * on navigation with no mention of a lock. Polling here serialises the suite
+ * against the backend's own lock; on a fast machine the key is already gone
+ * and this is a single Redis round trip. Bounded: on timeout the test runs
+ * anyway and surfaces the 409 itself.
+ */
+function waitForIdleGeneration(): void {
+  const deadline = Date.now() + 120_000;
+  for (;;) {
+    let outstanding = "";
+    try {
+      outstanding = execFileSync(
+        "docker",
+        [
+          ...composeBase(),
+          "exec",
+          "-T",
+          "redis",
+          "redis-cli",
+          "--scan",
+          "--pattern",
+          "chat:generation:*",
+        ],
+        {
+          cwd: REPO_ROOT,
+          encoding: "utf-8",
+          stdio: ["ignore", "pipe", "ignore"],
+        },
+      ).trim();
+    } catch {
+      // Same reasoning as above: a Docker failure here must not mask the test.
+      return;
+    }
+    if (!outstanding) {
+      return;
+    }
+    if (Date.now() > deadline) {
+      return;
+    }
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2000);
+  }
+}
+
 export const test = base.extend({
   // The app shell's brand mark. It is a `div`, not a heading.
   appReady: [
     async ({ page }, use) => {
+      waitForIdleGeneration();
       clearRateLimits();
       await use(page);
     },

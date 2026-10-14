@@ -9,6 +9,7 @@ import { ProfilePage } from './pages/profile-page/profile-page.component';
 import { LoginPageComponent } from './pages/login-page/login-page.component';
 import { adminGuard, authGuard, publicGuard } from './core/guards/auth.guard';
 import { UsersPage } from './pages/admin/users-page/users-page.component';
+import { AdminSettingsPage } from './pages/admin/settings-page/settings-page.component';
 import { SectionPlaceholder } from './shared/components/section-placeholder/section-placeholder.component';
 
 export const routes: Routes = [
@@ -32,8 +33,7 @@ export const routes: Routes = [
       },
       {
         path: 'settings',
-        component: SectionPlaceholder,
-        data: { title: 'Настройки', subtitle: 'Параметры работы системы' }
+        component: AdminSettingsPage
       },
       {
         path: 'system',

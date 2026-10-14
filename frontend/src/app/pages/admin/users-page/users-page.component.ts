@@ -15,8 +15,10 @@ import {
   LucideEye,
   LucideEyeOff,
   LucidePencil,
+  LucidePlus,
   LucideSearch,
-  LucideTrash2
+  LucideTrash2,
+  LucideX
 } from '@lucide/angular';
 import {
   AdminUser,
@@ -31,12 +33,24 @@ import { ProfileService } from '../../../core/services/profile.service';
 import { extractApiErrorMessage } from '../../../shared/utils/api-error';
 import { InputComponent } from '../../../shared/components/input/input.component';
 import { Select, SelectOption } from '../../../shared/components/select/select.component';
+import {
+  Table,
+  TableColumn,
+  TableCell,
+  TableSort
+} from '../../../shared/components/table/table.component';
 import { SkeletonUsersTableComponent } from '../../../shared/components/skeleton/skeleton-users-table/skeleton-users-table.component';
 
 type UserStatus = 'active' | 'expiring' | 'expired';
 
 const EXPIRING_SOON_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+const STATUS_ORDER: Record<UserStatus, number> = {
+  active: 0,
+  expiring: 1,
+  expired: 2
+};
 
 function localDateInputValue(iso: string): string {
   const date = new Date(iso);
@@ -51,13 +65,20 @@ function localDateInputValue(iso: string): string {
     ReactiveFormsModule,
     InputComponent,
     Select,
+    Table,
+    TableCell,
     SkeletonUsersTableComponent,
     LucidePencil,
-    LucideTrash2
+    LucidePlus,
+    LucideTrash2,
+    LucideX
   ],
   templateUrl: './users-page.component.html',
   styleUrl: './users-page.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    '[class.user-form-open]': 'isFormOpen()'
+  }
 })
 export class UsersPage {
   private readonly adminUsersService = inject(AdminUsersService);
@@ -73,17 +94,48 @@ export class UsersPage {
   readonly isSubmitting = signal(false);
   readonly deletingId = signal<number | null>(null);
   readonly showPassword = signal(false);
+  readonly isFormOpen = signal(false);
+  readonly userSort = signal<TableSort>({ column: null, direction: 'asc' });
+
+  /**
+   * Generation of the currently open form, bumped by every openCreate() /
+   * openEdit(). A save response closes the panel only when its generation is
+   * still current: closing the form mid-request and opening another one must
+   * not let the stale response hide the new form with its unsent edits.
+   */
+  private formSeq = 0;
+
+  readonly userColumns: TableColumn<AdminUser>[] = [
+    { key: 'username', label: 'Пользователь', sortable: true },
+    {
+      key: 'name',
+      label: 'Имя',
+      sortable: true,
+      align: 'center',
+      text: (user) => this.fullName(user)
+    },
+    { key: 'role', label: 'Роль', sortable: true, align: 'center' },
+    { key: 'status', label: 'Статус', sortable: true, align: 'center' },
+    { key: 'actions', label: 'Действия', align: 'center', visuallyHidden: true }
+  ];
+
+  readonly rowKey = (user: AdminUser) => user.id;
 
   readonly filteredUsers = computed(() => {
     const query = this.search().trim().toLowerCase();
-    if (!query) {
-      return this.users();
+    const matched = query
+      ? this.users().filter((user) =>
+          [user.username, user.first_name, user.last_name]
+            .filter((value): value is string => value !== null)
+            .some((value) => value.toLowerCase().includes(query))
+        )
+      : this.users();
+    const { column, direction } = this.userSort();
+    if (!column) {
+      return matched;
     }
-    return this.users().filter((user) =>
-      [user.username, user.first_name, user.last_name]
-        .filter((value): value is string => value !== null)
-        .some((value) => value.toLowerCase().includes(query))
-    );
+    const factor = direction === 'asc' ? 1 : -1;
+    return [...matched].sort((a, b) => factor * this.compareBy(a, b, column));
   });
 
   readonly isEditMode = computed(() => this.selectedUser() !== null);
@@ -148,6 +200,31 @@ export class UsersPage {
     this.updatePasswordValidators();
   }
 
+  openCreate(): void {
+    this.resetForm();
+    this.formSeq++;
+    this.isFormOpen.set(true);
+  }
+
+  openEdit(user: AdminUser): void {
+    this.selectUser(user);
+    this.formSeq++;
+    this.isFormOpen.set(true);
+  }
+
+  closeForm(): void {
+    // No resetForm() here: clearing the selection would flip the panel title
+    // mid-animation. The next openCreate()/openEdit() resets or repopulates,
+    // so stale state is never visible.
+    this.isFormOpen.set(false);
+  }
+
+  private closeIfCurrent(seq: number): void {
+    if (seq === this.formSeq) {
+      this.closeForm();
+    }
+  }
+
   togglePassword(): void {
     this.showPassword.update((visible) => !visible);
   }
@@ -182,9 +259,19 @@ export class UsersPage {
     return ROLE_LABELS[role];
   }
 
-  initials(user: AdminUser): string {
-    const fromNames = ((user.first_name?.[0] ?? '') + (user.last_name?.[0] ?? '')).toUpperCase();
-    return fromNames || user.username.slice(0, 2).toUpperCase();
+  private compareBy(a: AdminUser, b: AdminUser, column: string): number {
+    switch (column) {
+      case 'username':
+        return a.username.localeCompare(b.username, 'ru');
+      case 'name':
+        return this.fullName(a).localeCompare(this.fullName(b), 'ru');
+      case 'role':
+        return this.roleLabel(a.role).localeCompare(this.roleLabel(b.role), 'ru');
+      case 'status':
+        return STATUS_ORDER[this.userStatus(a)] - STATUS_ORDER[this.userStatus(b)];
+      default:
+        return 0;
+    }
   }
 
   submit(): void {
@@ -237,6 +324,7 @@ export class UsersPage {
     }
 
     this.isSubmitting.set(true);
+    const seq = this.formSeq;
     this.adminUsersService
       .edit(selected.id, payload)
       .pipe(finalize(() => this.isSubmitting.set(false)))
@@ -247,19 +335,19 @@ export class UsersPage {
           );
           if (!password) {
             this.notifications.success('Пользователь обновлён');
-            this.resetForm();
+            this.closeIfCurrent(seq);
             return;
           }
           this.adminUsersService.setPassword(selected.id, password).subscribe({
             next: () => {
               this.notifications.success('Пользователь обновлён');
-              this.resetForm();
+              this.closeIfCurrent(seq);
             },
             error: (err: HttpErrorResponse) => {
               this.notifications.error(
                 'Профиль сохранён, но пароль изменить не удалось: ' + extractApiErrorMessage(err)
               );
-              this.resetForm();
+              this.closeIfCurrent(seq);
             }
           });
         },
@@ -273,6 +361,7 @@ export class UsersPage {
 
   private sendCreate(payload: AdminUserPayload): void {
     this.isSubmitting.set(true);
+    const seq = this.formSeq;
     this.adminUsersService
       .create(payload)
       .pipe(finalize(() => this.isSubmitting.set(false)))
@@ -280,7 +369,7 @@ export class UsersPage {
         next: (user) => {
           this.notifications.success('Пользователь создан');
           this.users.update((list) => [...list, user]);
-          this.resetForm();
+          this.closeIfCurrent(seq);
         },
         error: (err: HttpErrorResponse) => {
           this.notifications.error(
