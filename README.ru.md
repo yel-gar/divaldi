@@ -32,6 +32,13 @@ Divaldi — внутреннее веб‑приложение для **ООО �
 вопросы, если данных не хватает, и в итоге формирует расчитанный `.xlsx` по реальным
 производственным нормам цеха.
 
+---
+
+![Main Screen](.github/assets/main_screen.jpg)
+![Chat Screen](.github/assets/chat_screen.jpg)
+
+---
+
 ```
    📐 Чертёж (PDF / DXF / PNG / JPEG)
               │

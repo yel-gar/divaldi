@@ -33,6 +33,13 @@ AI technologist that reads the drawing, identifies the material, extracts geomet
 asks clarifying questions when data is missing, and finally produces a costed
 `.xlsx` offer based on the shop's real production norms.
 
+---
+
+![Main Screen](.github/assets/main_screen.jpg)
+![Chat Screen](.github/assets/chat_screen.jpg)
+
+---
+
 ```
    📐 Drawing (PDF / DXF / PNG / JPEG)
               │
