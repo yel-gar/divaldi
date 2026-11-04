@@ -17,6 +17,10 @@
 
 [🇬🇧 English](README.md) · [🇷🇺 Русский](README.ru.md)
 
+превью:<br>
+URL: https://divaldi.dimensia.ru:8443<br>
+admin : admin123
+
 </div>
 
 ---
