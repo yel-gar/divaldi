@@ -18,6 +18,10 @@
 
 [🇬🇧 English](README.md) · [🇷🇺 Русский](README.ru.md)
 
+temp preview:<br>
+URL: https://divaldi.dimensia.ru:8443<br>
+admin : admin123
+
 </div>
 
 ---
